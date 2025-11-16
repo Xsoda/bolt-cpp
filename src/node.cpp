@@ -229,5 +229,133 @@ std::tuple<int, int> node::splitIndex(int threshold) {
     return std::make_tuple(index, sz);
 }
 
+int node::spill() {
+    if (spilled) {
+        return 0;
+    }
+    std::sort(children.begin(), children.end(), [](bolt::node *a, bolt::node *b) const {
+        return std::lexicographical_compare(a->key.begin(), a->key.end(),
+                                     b->key.begin(), b->key.end());
+    });
+    for (auto it : children) {
+        int err = it->spill();
+        if (err) {
+            return err;
+        }
+    }
+
+    children.clear();
+    // TODO
+}
+
+void node::rebalance() {
+    if (!unbalanced) {
+        return;
+    }
+    unbalanced = false;
+    // bucket.tx.stats.Rebalace++;
+
+    int threshold = bucket.tx.db.pageSize / 4;
+    if (size() > threshold && inodes.size() > minKeys()) {
+        return;
+    }
+
+    if (parent == nullptr) {
+        if (isLeaf && inodes.size() == 1) {
+            bolt::node *child = bucket.node(inodes.front().pgid, this);
+            isLeaf = child->isLeaf;
+            inodes = child->inodes;
+            children = child->children;
+
+            for (auto it : inodes) {
+                auto item = bucket->nodes.find(it.pgid);
+                if (item != bucket->nodes.end()) {
+                    item->second->parent = this;
+                }
+            }
+
+            child.parent = nullptr;
+            auto it = bucket->nodes.find(child->pgid);
+            if (it != bucket->nodes.end()) {
+                bucket->nodes.erase(it);
+            }
+            child->free();
+        }
+        return;
+    }
+
+    if (numChildren() == 0) {
+        parent->del(key);
+        parent->removeChild(this);
+        auto it = bucket->nodes[pgid];
+        if (it != bucket->nodes.end()) {
+            bucket->nodes.erase(it);
+        }
+        this->free();
+        parent->rebalance();
+        return;
+    }
+
+    assert("parent must have at least 2 children" && parent->numChildren() > 1);
+
+    bolt::node *target;
+    bool useNextSibling = parent->childIndex(this) == 0;
+    if (useNextSibling) {
+        target = nextSibling();
+    } else {
+        target = prevSibling();
+    }
+
+    if (useNextSibling) {
+        for (auto item : target->inodes) {
+            auto it = bucket->nodes(item.pgid);
+            if (it != bucket->nodes.end()) {
+                bolt::node *child = it->second;
+                child->parent->removeChild(child);
+                child->parent = this;
+                child->parent->children.push_back(child);
+            }
+        }
+
+        std::copy(target->inodes.begin(), target->inodes.end(), std::back_inserter(inodes));
+        parent->del(target->key);
+        parent->removeChild(target);
+        auto it = bucket->nodes.find(target->pgid);
+        if (it != bucket->nodes.end()) {
+            bucket->nodes.erase(it);
+        }
+        target->free();
+    } else {
+        for (auto item : inodes) {
+            auto it = bucket->nodes.find(item.pgid);
+            if (it != bucket->nodes.end()) {
+                bolt::node *child = it->second;
+                child->parent->removeChild(child);
+                child->parent = target;
+                child->parent->children.push_back(child);
+            }
+        }
+
+        std::copy(inodes.begin(), inodes.end(), std::back_inserter(target->inodes));
+        parent->del(key);
+        parent->removeChild(this);
+        auto it = bucket->nodes.find(pgid);
+        if (it != bucket->nodes.end()) {
+            bucket->nodes.erase(it);
+        }
+        free();
+    }
+    parent->rebalance();
+}
+
+void node::removeChild(bolt::node *target) {
+    std::remove_if(children.begin(), children.end(), [](bolt::node *item) {
+        return item == target;
+    });
+}
+
+void node::dereference() {
+    // TODO
+}
 
 }
