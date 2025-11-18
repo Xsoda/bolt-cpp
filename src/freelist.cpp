@@ -29,13 +29,17 @@ int freelist::pending_count() {
     return count;
 }
 
-void mergepgids(std::vector<bolt::pgid> &dest, const std::vector<bolt::pgid> &a, const std::vector<bolt::pgid> &b) {
+void mergepgids(std::span<bolt::pgid> dest, const std::vector<bolt::pgid> &a, const std::vector<bolt::pgid> &b) {
+    if (dest.size() < a.size() + b.size()) {
+        assert("mergepgids bad length" && false);
+    }
+    size_t length = 0;
     if (a.size() == 0) {
-        std::copy(b.begin(), b.end(), std::back_inserter(dest));
+        std::copy(b.begin(), b.end(), dest.begin());
         return;
     }
     if (b.size() == 0) {
-        std::copy(a.begin(), b.end(), std::back_inserter(dest));
+        std::copy(a.begin(), b.end(), dest.begin());
         return;
     }
 
@@ -50,22 +54,24 @@ void mergepgids(std::vector<bolt::pgid> &dest, const std::vector<bolt::pgid> &a,
         auto it = std::find_if(lead.begin(), lead.end(), [&](bolt::pgid &item) -> bool {
             return item > follow[0];
         });
-        std::copy(lead.begin(), it, std::back_inserter(dest));
+        std::copy(lead.begin(), it, dest.begin() + length);
+        length += std::distance(lead.begin(), it);
+
         if (it == lead.end()) {
             break;
         }
         lead.subspan(std::distance(lead.begin(), it));
         std::swap(lead, follow);
     }
-    std::copy(follow.begin(), follow.end(), std::back_inserter(dest));
+    std::copy(follow.begin(), follow.end(), dest.begin() + length);
 }
 
-void freelist::copyall(std::vector<bolt::pgid> &dest) {
+void freelist::copyall(std::span<bolt::pgid> dest) {
     std::vector<bolt::pgid> m;
     for (auto it : pending) {
         std::copy(it.second.begin(), it.second.end(), std::back_inserter(m));
     }
-    std::sort(m.begin(), m.end(), std::greater<bolt::pgid>());
+    std::sort(m);
     mergepgids(dest, ids, m);
 }
 
@@ -90,7 +96,7 @@ bolt::pgid freelist::allocate(int n) {
                 ids.erase(ids.begin() + i + 1, ids.begin() + i + n + 1);
             }
 
-            for (bolt::pgid j = 0; j < n; j++) {
+            for (bolt::pgid j = 0; j < (bolt::pgid)n; j++) {
                 auto it = cache.find(initial + j);
                 if (it != cache.end()) {
                     cache.erase(it);
@@ -132,7 +138,8 @@ void freelist::release(bolt::txid txid) {
         return key <= txid;
     });
     std::sort(m.begin(), m.end());
-    mergepgids(merge, ids, m);
+    merge.assign(m.size() + ids.size(), 0);
+    mergepgids(std::span<bolt::pgid>(merge), ids, m);
     ids = merge;
 }
 
@@ -167,7 +174,8 @@ void freelist::read(bolt::page *p) {
     if (count > 0) {
         bolt::pgid *ptr = reinterpret_cast<bolt::pgid*>(&p->ptr);
         std::span<bolt::pgid> s(&ptr[idx], count);
-        std::copy(s.begin(), s.end(), std::back_inserter(ids));
+        ids.assign(count, 0);
+        std::copy(s.begin(), s.end(), ids.begin());
         std::sort(ids);
     }
     reindex();
@@ -180,11 +188,16 @@ int freelist::write(bolt::page *p) {
     if (lenids == 0) {
         p->count = (std::uint16_t)lenids;
     } else if (lenids < 0xFFFF) {
+        bolt::pgid *ptr = reinterpret_cast<bolt::pgid*>(&p->ptr);
         p->count = (std::uint16_t)lenids;
-        // TODO
+        std::span<bolt::pgid> s(ptr, lenids);
+        copyall(s);
     } else {
         p->count = 0xFFFF;
-        reinterpret_cast<bolt::pgid*>(&p->ptr)[0] = (bolt::pgid)lenids;
+        bolt::pgid *ptr = reinterpret_cast<bolt::pgid*>(&p->ptr);
+        ptr[0] = (bolt::pgid)lenids;
+        std::span<bolt::pgid> s(&ptr[1], lenids);
+        copyall(s);
     }
     return 0;
 }

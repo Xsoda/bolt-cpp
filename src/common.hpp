@@ -32,7 +32,7 @@ namespace bolt {
     const int branchPageFlag = 0x01;
     const int leafPageFlag = 0x02;
     const int metaPageFlag = 0x04;
-    const int freelistPageFlag = 0x10;
+    const int freeListPageFlag = 0x10;
     const int bucketLeafFlag = 0x01;
     const int minKeysPerPage = 2;
 

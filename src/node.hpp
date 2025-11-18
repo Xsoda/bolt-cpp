@@ -16,6 +16,9 @@ struct inode {
     bolt::pgid pgid;
     bolt::bytes key;
     bolt::bytes value;
+    std::vector<std::byte> memory;
+
+    void set_keyvalue(bolt::bytes key, bolt::bytes value);
 };
 
 // node represents an in-memory, deserialized page.
@@ -29,6 +32,7 @@ struct node {
     bolt::node *parent;
     std::vector<bolt::node*> children;
     std::vector<bolt::inode> inodes;
+    std::vector<std::byte> memory;
 
     node(bolt::Bucket *bucket, bool isLeaf, bolt::node *parent);
     node(bolt::Bucket *bucket, std::initializer_list<bolt::node*> children);

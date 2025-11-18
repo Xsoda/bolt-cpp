@@ -1,4 +1,5 @@
 #include "meta.hpp"
+#include "page.hpp"
 #include "fnv64.hpp"
 #include <cassert>
 

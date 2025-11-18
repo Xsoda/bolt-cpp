@@ -10,15 +10,40 @@
 
 namespace bolt {
 
-class TxStats {
+struct TxStats {
+    // Page statistics.
+    int PageCount;
+    int PageAlloc;
 
+    // Cursor statistics.
+    int CursorCount;
+
+    // Node statistics
+    int NodeCount;
+    int NodeDeref;
+
+    // Rebalance statistics.
+    int Rebalance;
+    std::chrono::milliseconds RebalanceTime;
+
+    // Split/Spill statistics.
+    int Split;
+    int Spill;
+    std::chrono::milliseconds SpillTime;
+
+    // Write statistics.
+    int Write;
+    std::chrono::milliseconds WriteTime;
+
+    TxStats &operator-(const TxStats &other);
+    TxStats &operator+=(const TxStats &other);
 };
 
 struct Tx {
     bool writable;
     bool managed;
     bolt::DB *db;
-    bolt::meta *meta;
+    bolt::meta meta;
     bolt::Bucket root;
     std::map<bolt::pgid, bolt::page*> pages;
     bolt::TxStats stats;
@@ -26,7 +51,7 @@ struct Tx {
     int WriteFlag;
 
     // init initializes the transaction.
-    void init(bolt::DB *db);
+    Tx(bolt::DB *db);
     // ID returns the transaction id.
     int ID() const;
 
@@ -38,6 +63,8 @@ struct Tx {
 
     // Writable returns whether the transaction can perform write operations.
     bool Writable() const;
+
+    bolt::page *page(bolt::pgid id);
 };
 
 }

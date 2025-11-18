@@ -3,13 +3,13 @@
 namespace bolt {
 
 std::string page::type() const {
-    if (flags & branchPageFlag) {
+    if (flags & bolt::branchPageFlag) {
         return "branch";
-    } else if (flags & leafPageFlag) {
+    } else if (flags & bolt::leafPageFlag) {
         return "leaf";
-    } else if (flags & metaPageFlag) {
+    } else if (flags & bolt::metaPageFlag) {
         return "meta";
-    } else if (flags & freelistPageFlag) {
+    } else if (flags & bolt::freeListPageFlag) {
         return "freelist";
     } else {
         return "unknown";

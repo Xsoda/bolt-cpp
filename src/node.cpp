@@ -1,4 +1,5 @@
 #include "node.hpp"
+#include "tx.hpp"
 #include <cassert>
 #include <algorithm>
 #include <cstring>
@@ -103,7 +104,30 @@ bolt::node *node::prevSibling() const {
 }
 
 void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value, bolt::pgid pgid, std::uint32_t flags) {
+    if (pgid > bucket->tx->meta.pgid) {
+        assert("pgid above high water mark" && false);
+    } else if (oldKey.size() <= 0) {
+        assert("put: zero-length old key" && false);
+    } else if (newKey.size() <= 0) {
+        assert("put: zero-length new key" && false);
+    }
 
+    auto it = std::find_if(inodes.begin(), inodes.end(), [&](bolt::inodes &item) -> bool {
+        return std::lexicographical_compare(item.key.begin(), item.key.end(),
+                                            oldKey.begin(), oldKey.end());
+    });
+    auto exact = inodes.size() > 0 && it != inodes.end();
+    if (!exact) {
+        inodes.insert(it, bolt::inode{});
+    } else {
+        inodes.push_back(bolt::inode{});
+    }
+    auto index = std::distance(inodes.begin(), it);
+    bolt::inode &inode = inodes[index];
+    inode.flags = flags;
+    inode.set_keyvalue(newKey, value);
+    inode.pgid = pgid;
+    assert("put: zero-length inode key" && inode.key.size() > 0);
 }
 
 void node::del(bolt::bytes key) {
@@ -111,10 +135,8 @@ void node::del(bolt::bytes key) {
         return std::equal(key.begin(), key.end(),
                           item.key.begin(), item.key.end());
     });
-    if (it == inodes.end()
-        || !std::equal(item.key.begin(), item.key.end(),
-                       key.begin(), key.end())) {
-        return
+    if (it == inodes.end()) {
+        return;
     }
     inodes.erase(it);
     unbalanced = true;
@@ -208,7 +230,7 @@ std::tuple<bolt::node*, bolt::node*> node::splitTwo(int pageSize) {
     std::copy(inodes.begin() + splitIdx, inodes.end(), std::back_inserter(next->inodes));
     inodes.erase(inodes.begin() + splitIdx, inodes.end());
 
-    // bucket.tx.stats.Split++;
+    bucket->tx->stats.Split++;
     return std::make_tuple(this, next);
 }
 
@@ -233,7 +255,7 @@ int node::spill() {
     if (spilled) {
         return 0;
     }
-    std::sort(children.begin(), children.end(), [](bolt::node *a, bolt::node *b) const {
+    std::sort(children.begin(), children.end(), [](bolt::node *a, bolt::node *b) -> bool {
         return std::lexicographical_compare(a->key.begin(), a->key.end(),
                                      b->key.begin(), b->key.end());
     });
@@ -253,16 +275,16 @@ void node::rebalance() {
         return;
     }
     unbalanced = false;
-    // bucket.tx.stats.Rebalace++;
+    bucket->tx->stats.Rebalance++;
 
-    int threshold = bucket.tx.db.pageSize / 4;
-    if (size() > threshold && inodes.size() > minKeys()) {
+    int threshold = bucket->tx->db->pageSize / 4;
+    if (size() > threshold && inodes.size() > (size_t)minKeys()) {
         return;
     }
 
     if (parent == nullptr) {
         if (isLeaf && inodes.size() == 1) {
-            bolt::node *child = bucket.node(inodes.front().pgid, this);
+            bolt::node *child = bucket->node(inodes.front().pgid, this);
             isLeaf = child->isLeaf;
             inodes = child->inodes;
             children = child->children;
@@ -274,7 +296,7 @@ void node::rebalance() {
                 }
             }
 
-            child.parent = nullptr;
+            child->parent = nullptr;
             auto it = bucket->nodes.find(child->pgid);
             if (it != bucket->nodes.end()) {
                 bucket->nodes.erase(it);
@@ -287,7 +309,7 @@ void node::rebalance() {
     if (numChildren() == 0) {
         parent->del(key);
         parent->removeChild(this);
-        auto it = bucket->nodes[pgid];
+        auto it = bucket->nodes.find(pgid);
         if (it != bucket->nodes.end()) {
             bucket->nodes.erase(it);
         }
@@ -355,7 +377,38 @@ void node::removeChild(bolt::node *target) {
 }
 
 void node::dereference() {
-    // TODO
+    if (key.size() > 0) {
+        memory.clear();
+        memory.reserve(key.size());
+        std::copy(key.begin(), key.end(), std::back_inserter(memory));
+        key = bolt::bytes(memory.begin(), memory.end());
+    }
+    for (auto &it : inodes) {
+        it.set_keyvalue(it.key, it.value);
+    }
+
+    for (auto it : children) {
+        it->dereference();
+    }
+
+    bucket->tx->stats.NodeDeref++;
+}
+
+void node::free() {
+    if (pgid != 0) {
+        bucket->tx->db->freelist->free(bucket->tx->meta.txid, bucket->tx->page(pgid));
+        pgid = 0;
+    }
+}
+
+void inode::set_keyvalue(bolt::bytes k, bolt::bytes v) {
+    memory.clear();
+    memory.reserve(k.size() + v.size());
+    std::copy(k.begin(), k.end(), std::back_inserter(memory));
+    key = bolt::bytes(memory.begin(), memory.end());
+
+    std::copy(v.begin(), v.end(), std::back_inserter(memory));
+    value = bolt::bytes(memory.begin() + key.size(), memory.end());
 }
 
 }

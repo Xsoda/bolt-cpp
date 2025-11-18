@@ -25,13 +25,13 @@ struct Cursor {
     bolt::Bucket *bucket;
     std::vector<bolt::elemRef> stack;
 
-    std::optional<bolt::pair> First();
-    std::optional<bolt::pair> Last();
-    std::optional<bolt::pair> Next();
-    std::optional<bolt::pair> Prev();
-    std::optional<bolt::pair> Seek(bolt::bytes seek);
+    bolt::pair First();
+    bolt::pair Last();
+    bolt::pair Next();
+    bolt::pair Prev();
+    bolt::pair Seek(bolt::bytes seek);
 
-    std::tuple<std::optional<bolt::pair>, std::uint32_t> keyValue();
+    std::tuple<bolt::pair, std::uint32_t> keyValue();
     bolt::node *node() const;
 };
 

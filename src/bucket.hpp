@@ -2,12 +2,12 @@
 #define __BUCKET_HPP__
 
 #include "common.hpp"
-// #include "tx.hpp"
 
 namespace bolt {
 
 struct page;
 struct node;
+struct Tx;
 
 struct bucket {
     bolt::pgid root;
@@ -16,19 +16,23 @@ struct bucket {
 
 struct Bucket {
     bolt::bucket *bucket;
-    // bolt::Tx *tx;
+    bolt::Tx *tx;
     std::map<std::string, bolt::Bucket*> buckets;
     bolt::page *page;
     bolt::node *rootNode;
     std::map<bolt::pgid, bolt::node*> nodes;
     float FillPercent;
 
-    bolt::node *node(bolt::pgid pgid, const bolt::node *parent) const;
+    Bucket(bolt::Tx *tx);
+    bolt::Tx *Tx() const;
+    bolt::pgid Root() const;
+    bool Writable() const;
+    bolt::node *node(bolt::pgid pgid, bolt::node *parent);
 };
 
-const int bucketHeaderSize = sizeof(bucket);
-const float minFillPercent = 0.1;
-const float maxFillPercent = 1.0;
+constexpr int bucketHeaderSize = sizeof(bucket);
+constexpr float minFillPercent = 0.1;
+constexpr float maxFillPercent = 1.0;
 
 }
 

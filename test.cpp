@@ -24,6 +24,8 @@ int main()
     });
     std::copy(span.begin(), it, std::back_inserter(copy));
     print_span(copy);
+
     span = span.subspan(std::distance(span.begin(), it));
+    std::copy(copy.begin(), copy.end(), span.begin());
     print_span(span);
 }

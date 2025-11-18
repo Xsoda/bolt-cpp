@@ -17,10 +17,11 @@ struct freelist {
     int count();
     int free_count();
     int pending_count();
-    void copyall(std::vector<bolt::pgid> &dest);
+    void copyall(std::span<bolt::pgid> &dest);
     bolt::pgid allocate(int n);
     void free(bolt::txid txid, bolt::page *p);
     void rollback(bolt::txid txid);
+    void release(bolt::txid txid);
     bool freed(bolt::pgid pgid);
     void read(bolt::page *p);
     int write(bolt::page *p);
