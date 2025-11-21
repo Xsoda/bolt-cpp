@@ -371,7 +371,7 @@ void node::rebalance() {
 }
 
 void node::removeChild(bolt::node *target) {
-    std::remove_if(children.begin(), children.end(), [](bolt::node *item) {
+    std::remove_if(children.begin(), children.end(), [&](bolt::node *item) {
         return item == target;
     });
 }

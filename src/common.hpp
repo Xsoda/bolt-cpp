@@ -16,25 +16,25 @@ namespace bolt {
     using txid = std::uint64_t;
     using bytes = std::span<std::byte>;
 
-    const int DefaultMaxBatchSize = 100;
-    const std::chrono::milliseconds DefaultMaxBatchDelay = 10ms;
-    const int DefaultAllocSize = 16 * 1024 * 1024;
-    const int MaxKeySize = 32768;
-    const int MaxValueSize = std::numeric_limits<int>::max() - 2;
-    const float DefaultFillPercent = 0.5;
+    constexpr int DefaultMaxBatchSize = 100;
+    constexpr std::chrono::milliseconds DefaultMaxBatchDelay = 10ms;
+    constexpr int DefaultAllocSize = 16 * 1024 * 1024;
+    constexpr int MaxKeySize = 32768;
+    constexpr int MaxValueSize = std::numeric_limits<int>::max() - 2;
+    constexpr float DefaultFillPercent = 0.5;
 
-    const std::uint32_t magic = 0xED0CDAED;
-    const std::uint32_t version = 2;
-    const std::uint32_t maxMmapStep = 1 << 30;
+    constexpr std::uint32_t magic = 0xED0CDAED;
+    constexpr std::uint32_t version = 2;
+    constexpr std::uint32_t maxAllocSize = 0x7FFFFFFF;
+    constexpr std::uint64_t maxMapSize = 0xFFFFFFFFFFFF; // 256TB
 
-
-    const int defaultPageSize = 4 * 1024;
-    const int branchPageFlag = 0x01;
-    const int leafPageFlag = 0x02;
-    const int metaPageFlag = 0x04;
-    const int freeListPageFlag = 0x10;
-    const int bucketLeafFlag = 0x01;
-    const int minKeysPerPage = 2;
+    constexpr int defaultPageSize = 4 * 1024;
+    constexpr int branchPageFlag = 0x01;
+    constexpr int leafPageFlag = 0x02;
+    constexpr int metaPageFlag = 0x04;
+    constexpr int freeListPageFlag = 0x10;
+    constexpr int bucketLeafFlag = 0x01;
+    constexpr int minKeysPerPage = 2;
 
 }
 

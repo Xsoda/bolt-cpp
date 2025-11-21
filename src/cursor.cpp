@@ -39,22 +39,19 @@ bolt::node *Cursor::node() const {
     return n;
 }
 
-std::tuple<bolt::pair, std::uint32_t> Cursor::keyValue() {
+std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::keyValue() {
     auto ref = stack.back();
     if (ref.count() == 0 || ref.index >= ref.count()) {
-        auto kv = std::make_pair(bolt::bytes(nullptr, 0), bolt::bytes(nullptr, 0));
-        return std::make_tuple<bolt::pair, std::uint32_t>(kv, 0);
+        return std::make_tuple<bolt::bytes, bolt::bytes, std::uint32_t>(bolt::bytes(), bolt::bytes(), 0);
     }
 
     if (ref.node != nullptr) {
         auto inode = ref.node->inodes.at(ref.index);
-        auto kv = std::make_pair(inode.key, inode.value);
-        return std::make_tuple(kv, inode.flags);
+        return std::make_tuple(inode.key, inode.value, inode.flags);
     }
 
     bolt::leafPageElement *elem = ref.page->leafPageElement(ref.index);
-    auto kv = std::make_pair(elem->key(), elem->value());
-    return std::make_tuple(kv, elem->flags);
+    return std::make_tuple(elem->key(), elem->value(), elem->flags);
 }
 
 }

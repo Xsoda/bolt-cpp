@@ -1,7 +1,11 @@
+#include <future>
 #include <iostream>
 #include <span>
+#include <thread>
 #include <vector>
 #include <algorithm>
+#include <chrono>
+using namespace std::chrono_literals;
 
 void print_span(std::span<int> s)
 {
@@ -28,4 +32,13 @@ int main()
     span = span.subspan(std::distance(span.begin(), it));
     std::copy(copy.begin(), copy.end(), span.begin());
     print_span(span);
+
+    std::vector<int> vec = {1, 2, 3,4,5,6,7,7,9};
+
+    std::ignore = std::async(std::launch::async, [&]() {
+      for (auto &it : vec) {
+          std::cout << int(it) << std::endl;
+      }
+    });
+    // f.wait();
 }

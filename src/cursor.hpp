@@ -2,15 +2,13 @@
 #define __CURSOR_HPP__
 
 #include "common.hpp"
-#include <optional>
+#include <tuple>
 
 namespace bolt {
 
 struct Bucket;
 struct page;
 struct node;
-
-using pair = std::pair<bolt::bytes, bolt::bytes>;
 
 struct elemRef {
     bolt::page *page;
@@ -25,13 +23,13 @@ struct Cursor {
     bolt::Bucket *bucket;
     std::vector<bolt::elemRef> stack;
 
-    bolt::pair First();
-    bolt::pair Last();
-    bolt::pair Next();
-    bolt::pair Prev();
-    bolt::pair Seek(bolt::bytes seek);
+    bolt::tuple<bolt::bytes, bolt::bytes> First();
+    bolt::tuple<bolt::bytes, bolt::bytes> Last();
+    bolt::tuple<bolt::bytes, bolt::bytes> Next();
+    bolt::tuple<bolt::bytes, bolt::bytes> Prev();
+    bolt::tuple<bolt::bytes, bolt::bytes> Seek(bolt::bytes seek);
 
-    std::tuple<bolt::pair, std::uint32_t> keyValue();
+    std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> keyValue();
     bolt::node *node() const;
 };
 
