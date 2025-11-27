@@ -4,7 +4,10 @@
 #include "bucket.hpp"
 #include "db.hpp"
 #include "meta.hpp"
+#include "freelist.hpp"
 #include <algorithm>
+#include <cassert>
+#include <chrono>
 
 namespace bolt {
 
@@ -73,14 +76,14 @@ bolt::ErrorCode Tx::writeMeta() {
 
     bolt::page *p = db->pageInBuffer(bolt::bytes(buf.begin(), buf.end()), 0);
     meta.write(p);
-    auto err = db->file.writeAt(bolt::bytes(buf.begin(), buf.end()),
+    auto [_, err] = db->file.WriteAt(bolt::bytes(buf.begin(), buf.end()),
                                 (std::int64_t)p->id * db->pageSize);
     if (err != bolt::ErrorCode::Success) {
         return err;
     }
 
     if (!db->NoSync) {
-        err = db->file.fdatasync();
+        err = db->file.Fdatasync();
         if (err != bolt::ErrorCode::Success) {
             return err;
         }
@@ -110,7 +113,7 @@ bolt::ErrorCode Tx::write() {
             if (sz > bolt::maxAllocSize - 1) {
                 sz = bolt::maxAllocSize - 1;
             }
-            auto err = db->file.writeAt(bolt::bytes(ptr, sz), offset);
+            auto [_, err] = db->file.WriteAt(bolt::bytes(ptr, sz), offset);
             if (err != bolt::ErrorCode::Success) {
                 return err;
             }
@@ -125,7 +128,7 @@ bolt::ErrorCode Tx::write() {
     }
 
     if (!db->NoSync) {
-        auto err = db->file.fdatasync();
+        auto err = db->file.Fdatasync();
         if (err != bolt::ErrorCode::Success) {
             return err;
         }
@@ -133,5 +136,83 @@ bolt::ErrorCode Tx::write() {
     return bolt::ErrorCode::Success;
 }
 
+bolt::ErrorCode Tx::Commit() {
+    assert("managed tx commit not allowed" && !managed);
+    if (db == nullptr) {
+        return bolt::ErrorCode::ErrorTxClosed;
+    } else if (!writable) {
+        return bolt::ErrorCode::ErrorTxNotWritable;
+    }
+    auto startTime = std::chrono::system_clock::now();
+    auto since = [](std::chrono::time_point<std::chrono::system_clock> start) {
+      return std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::system_clock::now() - start);
+    };
+    root.rebalance();
+    if (stats.Rebalance > 0) {
+        stats.RebalanceTime += since(startTime);
+    }
+
+    startTime = std::chrono::system_clock::now();
+
+    auto err = root.spill();
+    if (err != bolt::ErrorCode::Success) {
+        rollback();
+        return err;
+    }
+    stats.SpillTime += since(startTime);
+
+    meta.root.root = root.bucket->root;
+
+    auto opgid = meta.pgid;
+    db->freelist->free(meta.txid, db->page(meta.freelist));
+    auto [p, ret] = allocate((db->freelist->size() / db->pageSize) + 1);
+    if (ret != bolt::ErrorCode::Success) {
+        rollback();
+        return ret;
+    }
+    err = db->freelist->write(p);
+    if (err != bolt::ErrorCode::Success) {
+        rollback();
+        return err;
+    }
+
+    meta.freelist = p->id;
+    if (meta.pgid > opgid) {
+        err = db->grow((meta.pgid + 1) * db->pageSize);
+        if (err != bolt::ErrorCode::Success) {
+            return err;
+        }
+    }
+
+    startTime = std::chrono::system_clock::now();
+    err = write();
+    if (err != bolt::ErrorCode::Success) {
+        rollback();
+        return err;
+    }
+
+    if (db->StrictMode) {
+        // TODO
+    }
+
+    err = writeMeta();
+    if (err != bolt::ErrorCode::Success) {
+        rollback();
+        return err;
+    }
+    stats.WriteTime += since(startTime);
+    this->close();
+    for (auto &fn : commitHandlers) {
+        fn();
+    }
+    return bolt::ErrorCode::Success;
+}
+
+bolt::ErrorCode Tx::Rollback() {
+     return bolt::ErrorCode::Success;
+}
+
+void Tx::rollback() {}
 
 }

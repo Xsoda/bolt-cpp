@@ -9,6 +9,7 @@
 #include <memory>
 #include <chrono>
 #include <limits>
+#include <functional>
 
 namespace bolt {
     using namespace std::chrono_literals;
@@ -35,7 +36,6 @@ namespace bolt {
     constexpr int freeListPageFlag = 0x10;
     constexpr int bucketLeafFlag = 0x01;
     constexpr int minKeysPerPage = 2;
-
 }
 
 #endif  // __COMMON_HPP__

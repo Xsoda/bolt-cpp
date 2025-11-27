@@ -181,7 +181,7 @@ void freelist::read(bolt::page *p) {
     reindex();
 }
 
-int freelist::write(bolt::page *p) {
+bolt::ErrorCode freelist::write(bolt::page *p) {
     p->flags |= bolt::freeListPageFlag;
 
     auto lenids = count();
@@ -199,7 +199,7 @@ int freelist::write(bolt::page *p) {
         std::span<bolt::pgid> s(&ptr[1], lenids);
         copyall(s);
     }
-    return 0;
+    return bolt::ErrorCode::Success;
 }
 
 void freelist::reload(bolt::page *p) {

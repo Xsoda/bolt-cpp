@@ -2,7 +2,7 @@
 #define __FREELIST_HPP__
 
 #include "common.hpp"
-
+#include "error.hpp"
 
 namespace bolt {
 
@@ -24,7 +24,7 @@ struct freelist {
     void release(bolt::txid txid);
     bool freed(bolt::pgid pgid);
     void read(bolt::page *p);
-    int write(bolt::page *p);
+    bolt::ErrorCode write(bolt::page *p);
     void reload(bolt::page *p);
     void reindex();
 };

@@ -53,7 +53,7 @@ struct Tx {
     int WriteFlag;
 
     // init initializes the transaction.
-    Tx(bolt::DB *db, bool writable);
+    explicit Tx(bolt::DB *db, bool writable);
     // ID returns the transaction id.
     int ID() const;
 
@@ -72,6 +72,12 @@ struct Tx {
 
     bolt::ErrorCode writeMeta();
     bolt::ErrorCode write();
+
+    bolt::ErrorCode Commit();
+    bolt::ErrorCode Rollback();
+    void rollback();
+    void close();
+    std::tuple<bolt::page*, bolt::ErrorCode> allocate(int count);
 };
 
 }

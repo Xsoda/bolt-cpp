@@ -23,6 +23,11 @@ struct Stats {
     bolt::TxStats TxStats;
 };
 
+struct Info {
+    int PageSize;
+    std::uintptr_t Data;
+};
+
 struct DB {
     bool StrictMode;
     bool NoSync;
@@ -61,16 +66,26 @@ struct DB {
     std::string Path() const;
     bolt::ErrorCode Open(std::string path);
     bolt::ErrorCode Close();
-    bolt::Tx *Begin(bool writable);
     void Sync();
     bolt::meta *meta();
 
-    bolt::page *page(bolt::pgid id);
+    bolt::ErrorCode colse();
 
+    bolt::page *page(bolt::pgid id);
     bolt::page *pageInBuffer(bolt::bytes b, bolt::pgid id);
+    std::tuple<bolt::page *, bolt::ErrorCode> allocate(int count);
+    bolt::ErrorCode grow(int sz);
+    bool IsReadOnly() const { return readOnly; };
+
+    std::tuple<bolt::Tx *, bolt::ErrorCode> Begin(bool writable);
+    std::tuple<bolt::Tx *, bolt::ErrorCode> beginTx();
+    std::tuple<bolt::Tx *, bolt::ErrorCode> beginRWTx();
+    void removeTx(bolt::Tx *tx);
+    bolt::Info Info() const;
 
     bolt::ErrorCode Update(std::function<bolt::ErrorCode(bolt::Tx*)> &&fn);
     bolt::ErrorCode Batch(std::function<bolt::ErrorCode(bolt::Tx*)> &&fn);
+    bolt::ErrorCode View(std::function<bolt::ErrorCode(bolt::Tx*)> &&fn);
 };
 
 }
