@@ -38,7 +38,7 @@ struct node {
     node(bolt::Bucket *bucket, std::initializer_list<bolt::node*> children);
 
     // root returns the top-level node this node is attached to.
-    bolt::node *root() const;
+    bolt::node *root();
 
     // minKeys returns the minimum number of inodes this node should have.
     int minKeys() const;
@@ -55,10 +55,10 @@ struct node {
     int pageElementSize() const;
 
     // childAt returns the child node at a given index.
-    bolt::node *childAt(int index) const;
+    bolt::node *childAt(int index);
 
     // childIndex returns the index of a given child node.
-    int childIndex(const bolt::node *child) const;
+    int childIndex(const bolt::node *child);
 
     // numChildren returns the number of children.
     int numChildren() const;
@@ -96,7 +96,7 @@ struct node {
 
     // spill writes the nodes to dirty pages and splits nodes as it goes.
     // Returns an error if dirty pages cannot be allocated.
-    int spill();
+    bolt::ErrorCode spill();
 
     // rebalance attempts to combine the node with sibling nodes if the node fill
     // size is below a threshold or if there are not enough keys.

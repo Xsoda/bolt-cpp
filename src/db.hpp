@@ -13,6 +13,8 @@ struct freelist;
 struct meta;
 struct Tx;
 struct batch;
+using TxPtr = std::shared_ptr<bolt::Tx>;
+
 struct Stats {
     int FreePageN;
     int PendingPageN;
@@ -47,8 +49,8 @@ struct DB {
     bolt::meta *meta1;
     int pageSize;
     bool opened;
-    bolt::Tx *rwtx;
-    std::vector<bolt::Tx*> txs;
+    bolt::TxPtr rwtx;
+    std::vector<bolt::TxPtr> txs;
     bolt::freelist *freelist;
     bolt::Stats stats;
 
@@ -77,15 +79,15 @@ struct DB {
     bolt::ErrorCode grow(int sz);
     bool IsReadOnly() const { return readOnly; };
 
-    std::tuple<bolt::Tx *, bolt::ErrorCode> Begin(bool writable);
-    std::tuple<bolt::Tx *, bolt::ErrorCode> beginTx();
-    std::tuple<bolt::Tx *, bolt::ErrorCode> beginRWTx();
-    void removeTx(bolt::Tx *tx);
+    std::tuple<bolt::TxPtr, bolt::ErrorCode> Begin(bool writable);
+    std::tuple<bolt::TxPtr, bolt::ErrorCode> beginTx();
+    std::tuple<bolt::TxPtr, bolt::ErrorCode> beginRWTx();
+    void removeTx(bolt::TxPtr tx);
     bolt::Info Info() const;
 
-    bolt::ErrorCode Update(std::function<bolt::ErrorCode(bolt::Tx*)> &&fn);
-    bolt::ErrorCode Batch(std::function<bolt::ErrorCode(bolt::Tx*)> &&fn);
-    bolt::ErrorCode View(std::function<bolt::ErrorCode(bolt::Tx*)> &&fn);
+    bolt::ErrorCode Update(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn);
+    bolt::ErrorCode Batch(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn);
+    bolt::ErrorCode View(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn);
 };
 
 }

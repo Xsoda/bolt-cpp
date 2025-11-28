@@ -1,12 +1,15 @@
 #include "node.hpp"
+#include "db.hpp"
 #include "tx.hpp"
+#include "freelist.hpp"
 #include <cassert>
 #include <algorithm>
 #include <cstring>
+#include <initializer_list>
 
 namespace bolt {
 
-node::node(bolt::Bucket *bucket, std::initianlize_list<bolt::node*> children) {
+node::node(bolt::Bucket *bucket, std::initializer_list<bolt::node*> children) {
     this->bucket = bucket;
     this->children = children;
 }
@@ -18,7 +21,7 @@ node::node(bolt::Bucket *bucket, bool isLeaf, bolt::node *parent) {
 }
 
 
-bolt::node *node::root() const {
+bolt::node *node::root() {
     if (parent == NULL) {
         return this;
     }
@@ -62,14 +65,14 @@ int node::pageElementSize() const {
     return bolt::branchPageElementSize;
 }
 
-bolt::node *node::childAt(int index) const {
+bolt::node *node::childAt(int index) {
     if (isLeaf) {
-        assert("invalid chatAt() on a leaf node" && 0);
+        assert("invalid chatAt() on a leaf node" && false);
     }
     return bucket->node(inodes[index].pgid, this);
 }
 
-int node::childIndex(const bolt::node *child) const {
+int node::childIndex(const bolt::node *child) {
     auto it = std::find_if(inodes.begin(), inodes.end(), [&](bolt::inode &n) -> bool {
         return std::equal(std::begin(child->key), std::end(child->key),
                           std::begin(n.key), std::end(n.key));
@@ -112,7 +115,7 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value, bolt::
         assert("put: zero-length new key" && false);
     }
 
-    auto it = std::find_if(inodes.begin(), inodes.end(), [&](bolt::inodes &item) -> bool {
+    auto it = std::find_if(inodes.begin(), inodes.end(), [&](bolt::inode &item) -> bool {
         return std::lexicographical_compare(item.key.begin(), item.key.end(),
                                             oldKey.begin(), oldKey.end());
     });
@@ -131,7 +134,7 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value, bolt::
 }
 
 void node::del(bolt::bytes key) {
-    auto it = std::find_if(inodes.begin(), inodes.end(), [&](bolt::inodes &item) -> bool {
+    auto it = std::find_if(inodes.begin(), inodes.end(), [&](bolt::inode &item) -> bool {
         return std::equal(key.begin(), key.end(),
                           item.key.begin(), item.key.end());
     });
@@ -251,44 +254,105 @@ std::tuple<int, int> node::splitIndex(int threshold) {
     return std::make_tuple(index, sz);
 }
 
-int node::spill() {
+bolt::ErrorCode node::spill() {
+    auto tx = bucket->tx;
     if (spilled) {
-        return 0;
+        return bolt::ErrorCode::Success;
     }
-    std::sort(children.begin(), children.end(), [](bolt::node *a, bolt::node *b) -> bool {
-        return std::lexicographical_compare(a->key.begin(), a->key.end(),
-                                     b->key.begin(), b->key.end());
-    });
-    for (auto it : children) {
-        int err = it->spill();
-        if (err) {
+
+    // Spill child nodes first. Child nodes can meterialize sibling nodes in
+    // the case of split-merge so we cannot use a range loop. We have to check
+    // the children size on every loop iteration
+    std::sort(children.begin(), children.end(),
+              [](bolt::node *a, bolt::node *b) -> bool {
+                return std::lexicographical_compare(
+                    a->key.begin(), a->key.end(), b->key.begin(), b->key.end());
+              });
+    for (int i = 0; i < children.size(); i++) {
+        auto err = children[i]->spill();
+        if (err != bolt::ErrorCode::Success) {
             return err;
         }
     }
 
+    // We no longger need the child list because it's only used for spill tracking.
     children.clear();
-    // TODO
+
+    // Split nodes into appropriate sizes. The first node will always be n.
+    auto nodes = split(tx->db->pageSize);
+    for (auto it : nodes) {
+        // Add node's page to the freelist if it's not new.
+        if (it->pgid > 0) {
+            tx->db->freelist->free(tx->meta.txid, tx->page(it->pgid));
+            it->pgid = 0;
+        }
+
+        // Allocate contiguous space for the node.
+        auto [p, err] = tx->allocate((it->size() / tx->db->pageSize) + 1);
+        if (err != bolt::ErrorCode::Success) {
+            return err;
+        }
+
+        // Write the node.
+        if (p->id >= tx->meta.pgid) {
+            assert("pgid above high water mark" && false);
+        }
+        it->pgid = p->id;
+        it->write(p);
+        it->spilled = true;
+
+        // Insert into parent inodes.
+        if (it->parent != nullptr) {
+            auto k = it->key;
+            if (k.empty()) {
+                k = it->inodes[0].key;
+            }
+            it->parent->put(key, it->inodes[0].key, bolt::bytes(), it->pgid, 0);
+            it->key = it->inodes[0].key;
+            assert("spill: zero-length node key" && it->key.size() > 0);
+        }
+        // Update the statistics.
+        tx->stats.Spill++;
+    }
+
+    // If the root node split and created a new root then we need to spill that
+    // as well. We'll clear out the children to make sure it doesn't try to
+    // respill
+    if (parent != nullptr && parent->pgid == 0) {
+        children.clear();
+        return parent->spill();
+    }
+    return bolt::ErrorCode::Success;
 }
 
+// rebalance attempts to combine the node with sibling nodes if the node fill
+// size is below a threshold or if there are not enough keys.
 void node::rebalance() {
     if (!unbalanced) {
         return;
     }
     unbalanced = false;
+
+    // Update statistics.
     bucket->tx->stats.Rebalance++;
 
+    // Ignore if node is above threshold (25%) and has enough keys.
     int threshold = bucket->tx->db->pageSize / 4;
     if (size() > threshold && inodes.size() > (size_t)minKeys()) {
         return;
     }
 
+    // Root node has special handling.
     if (parent == nullptr) {
+        // If root node is a branch and only has one node then collapse it.
         if (isLeaf && inodes.size() == 1) {
+            // Move root's child up.
             bolt::node *child = bucket->node(inodes.front().pgid, this);
             isLeaf = child->isLeaf;
             inodes = child->inodes;
             children = child->children;
 
+            // Reparent all child nodes being moved.
             for (auto it : inodes) {
                 auto item = bucket->nodes.find(it.pgid);
                 if (item != bucket->nodes.end()) {
@@ -296,6 +360,7 @@ void node::rebalance() {
                 }
             }
 
+            // Remove old child.
             child->parent = nullptr;
             auto it = bucket->nodes.find(child->pgid);
             if (it != bucket->nodes.end()) {
@@ -306,6 +371,7 @@ void node::rebalance() {
         return;
     }
 
+    // If node has no keys then just remove it.
     if (numChildren() == 0) {
         parent->del(key);
         parent->removeChild(this);
@@ -320,6 +386,7 @@ void node::rebalance() {
 
     assert("parent must have at least 2 children" && parent->numChildren() > 1);
 
+    // Destination node is right sibling if idx == 0, otherwise left sibling.
     bolt::node *target;
     bool useNextSibling = parent->childIndex(this) == 0;
     if (useNextSibling) {
@@ -328,9 +395,11 @@ void node::rebalance() {
         target = prevSibling();
     }
 
+    // If both this node and the target node are too small then merge them.
     if (useNextSibling) {
+        // Reparent all child nodes being moved.
         for (auto item : target->inodes) {
-            auto it = bucket->nodes(item.pgid);
+            auto it = bucket->nodes.find(item.pgid);
             if (it != bucket->nodes.end()) {
                 bolt::node *child = it->second;
                 child->parent->removeChild(child);
@@ -339,7 +408,9 @@ void node::rebalance() {
             }
         }
 
-        std::copy(target->inodes.begin(), target->inodes.end(), std::back_inserter(inodes));
+        // Copy over inodes from target and remove target.
+        std::copy(target->inodes.begin(), target->inodes.end(),
+                  std::back_inserter(inodes));
         parent->del(target->key);
         parent->removeChild(target);
         auto it = bucket->nodes.find(target->pgid);
@@ -348,6 +419,7 @@ void node::rebalance() {
         }
         target->free();
     } else {
+        // Reparent all child nodes being moved.
         for (auto item : inodes) {
             auto it = bucket->nodes.find(item.pgid);
             if (it != bucket->nodes.end()) {
@@ -358,7 +430,9 @@ void node::rebalance() {
             }
         }
 
-        std::copy(inodes.begin(), inodes.end(), std::back_inserter(target->inodes));
+        // Copy over inodes to target and remove node.
+        std::copy(inodes.begin(), inodes.end(),
+                  std::back_inserter(target->inodes));
         parent->del(key);
         parent->removeChild(this);
         auto it = bucket->nodes.find(pgid);
@@ -367,15 +441,23 @@ void node::rebalance() {
         }
         free();
     }
+
+    // Either this node or the target node was deleted from the parent so
+    // rebalance it.
     parent->rebalance();
 }
 
+// removes a node from the list of in-memory children.
+// This does not affect the inodes.
 void node::removeChild(bolt::node *target) {
-    std::remove_if(children.begin(), children.end(), [&](bolt::node *item) {
-        return item == target;
-    });
+    std::ignore =
+        std::remove_if(children.begin(), children.end(),
+                       [&](bolt::node *item) { return item == target; });
 }
 
+// dereference causes the node to copy all its inode key/value references to
+// heap memory. This is required when the mmap is reallocated so inodes are not
+// pointing to stale data.
 void node::dereference() {
     if (key.size() > 0) {
         memory.clear();
@@ -387,6 +469,7 @@ void node::dereference() {
         it.set_keyvalue(it.key, it.value);
     }
 
+    // Recursively dereference children.
     for (auto it : children) {
         it->dereference();
     }

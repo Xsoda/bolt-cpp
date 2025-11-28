@@ -7,10 +7,10 @@
 
 namespace bolt {
 
-bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(bolt::Tx *)> &&fn) {
+bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
     std::shared_ptr<bolt::call> c = std::make_shared<bolt::call>();
     do {
-        std::lock_guard<std::mutex> _(batchMu);
+        std::lock_guard<std::mutex> lock(batchMu);
         if (batch == nullptr || (batch != nullptr
                                  && batch->calls.size() >= MaxBatchSize)) {
             batch = std::make_unique<bolt::batch>(this);
@@ -36,7 +36,7 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(bolt::Tx *)> &&fn) {
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(bolt::Tx *)> &&fn) {
+bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
     auto [tx, err] = Begin(true);
     if (err != bolt::ErrorCode::Success) {
         return err;
@@ -60,7 +60,7 @@ bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(bolt::Tx *)> &&fn) {
     return tx->Commit();
 }
 
-bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(bolt::Tx *)> &&fn) {
+bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
     auto [tx, err] = Begin(false);
     if (err != bolt::ErrorCode::Success) {
         return err;
@@ -89,17 +89,17 @@ std::tuple<bolt::Tx *, bolt::ErrorCode> DB::Begin(bool writable) {
     }
     return beginTx();
 }
-std::tuple<bolt::Tx *, bolt::ErrorCode> DB::beginTx() {
+std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::beginTx() {
     metalock.lock();
     mmaplock.lock_shared();
     if (!opened) {
         mmaplock.unlock_shared();
         metalock.unlock();
-        return std::make_tuple<bolt::Tx *, bolt::ErrorCode>(
+        return std::make_tuple<bolt::TxPtr, bolt::ErrorCode>(
             nullptr, bolt::ErrorCode::ErrorDatabaseNotOpen);
 
     }
-    bolt::Tx *tx = new bolt::Tx(this, false);
+    bolt::TxPtr tx = std::make_shared<bolt::Tx>(this, false);
     txs.push_back(tx);
     metalock.unlock();
 
@@ -110,19 +110,19 @@ std::tuple<bolt::Tx *, bolt::ErrorCode> DB::beginTx() {
     return std::make_tuple(tx, bolt::ErrorCode::Success);
 }
 
-std::tuple<bolt::Tx *, bolt::ErrorCode> DB::beginRWTx() {
+std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
     if (readOnly) {
-        return std::make_tuple<bolt::Tx *, bolt::ErrorCode>(
+        return std::make_tuple<bolt::TxPtr, bolt::ErrorCode>(
             nullptr, bolt::ErrorCode::ErrorDatabaseReadOnly);
     }
     rwlock.lock();
     std::lock_guard<std::mutex> _(metalock);
     if (!opened) {
         rwlock.unlock();
-        return std::make_tuple<bolt::Tx *, bolt::ErrorCode>(
+        return std::make_tuple<bolt::TxPtr, bolt::ErrorCode>(
             nullptr, bolt::ErrorCode::ErrorDatabaseNotOpen);
     }
-    bolt::Tx *tx = new bolt::Tx(this, true);
+    std::shared_ptr<bolt::Tx> tx = std::make_shared<bolt::Tx>(this, true);
     rwtx = tx;
     bolt::txid minid = 0xFFFFFFFFFFFFFFFF;
     for (auto it : txs) {
@@ -136,18 +136,17 @@ std::tuple<bolt::Tx *, bolt::ErrorCode> DB::beginRWTx() {
     return std::make_tuple(tx, bolt::ErrorCode::Success);
 }
 
-void DB::removeTx(bolt::Tx *tx) {
+void DB::removeTx(bolt::TxPtr tx) {
     mmaplock.unlock_shared();
 
     metalock.lock();
-    std::erase_if(txs, [&](bolt::Tx *item) -> bool { return item == tx; });
+    std::erase_if(txs, [&](bolt::TxPtr item) -> bool { return item == tx; });
     metalock.unlock();
 
     statlock.lock();
     stats.OpenTxN = txs.size();
     stats.TxStats += tx->Stats();
     statlock.unlock();
-    delete tx;
 }
 
 }

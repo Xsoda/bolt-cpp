@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <mutex>
 
 namespace bolt {
 
@@ -202,7 +203,7 @@ bolt::ErrorCode Tx::Commit() {
         return err;
     }
     stats.WriteTime += since(startTime);
-    this->close();
+    close();
     for (auto &fn : commitHandlers) {
         fn();
     }
@@ -210,9 +211,49 @@ bolt::ErrorCode Tx::Commit() {
 }
 
 bolt::ErrorCode Tx::Rollback() {
-     return bolt::ErrorCode::Success;
+    assert("managed tx rollback not allowed" && !managed);
+    if (db == nullptr) {
+        return bolt::ErrorCode::ErrorTxClosed;
+    }
+    rollback();
+    return bolt::ErrorCode::Success;
 }
 
-void Tx::rollback() {}
+void Tx::rollback() {
+    if (db == nullptr) {
+        return;
+    }
+    if (writable) {
+        db->freelist->rollback(meta.txid);
+        db->freelist->reload(db->page(db->meta()->freelist));
+    }
+    close();
+}
+
+void Tx::close() {
+    if (db == nullptr) {
+        return;
+    }
+    if (writable) {
+        int freelistFreeN = db->freelist->free_count();
+        int freelistPendingN = db->freelist->pending_count();
+        int freelistAlloc = db->freelist->size();
+
+        db->rwtx = nullptr;
+        db->rwlock.unlock();
+
+        std::unique_lock<std::shared_mutex> lock(db->statlock);
+        db->stats.FreePageN = freelistFreeN;
+        db->stats.PendingPageN = freelistPendingN;
+        db->stats.FreeAlloc = (freelistFreeN + freelistPendingN) * db->pageSize;
+        db->stats.FreelistInuse = freelistAlloc;
+        db->stats.TxStats += stats;
+    } else {
+        db->removeTx(this);
+    }
+
+    db = nullptr;
+    pages.clear();
+}
 
 }
