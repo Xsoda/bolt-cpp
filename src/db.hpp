@@ -11,9 +11,7 @@ namespace bolt {
 
 struct freelist;
 struct meta;
-struct Tx;
 struct batch;
-using TxPtr = std::shared_ptr<bolt::Tx>;
 
 struct Stats {
     int FreePageN;

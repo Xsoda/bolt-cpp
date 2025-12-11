@@ -45,7 +45,7 @@ TxStats &TxStats::operator+=(const TxStats &other) {
     return *this;
 }
 
-Tx::Tx(bolt::DB *db, bool writable): root(bolt::Bucket(this)), db(db), writable(writable) {
+Tx::Tx(bolt::DB *db, bool writable): root(bolt::Bucket(shared_from_this())), db(db), writable(writable) {
     db->meta()->copy(&meta);
     *root.bucket = meta.root;
     if (writable) {
@@ -249,7 +249,7 @@ void Tx::close() {
         db->stats.FreelistInuse = freelistAlloc;
         db->stats.TxStats += stats;
     } else {
-        db->removeTx(this);
+        db->removeTx(shared_from_this());
     }
 
     db = nullptr;

@@ -6,24 +6,25 @@
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
+#include <iterator>
 
 namespace bolt {
 
-node::node(bolt::Bucket *bucket, std::initializer_list<bolt::node*> children) {
+node::node(bolt::BucketPtr bucket, std::initializer_list<bolt::node_ptr> children) {
     this->bucket = bucket;
     this->children = children;
 }
 
-node::node(bolt::Bucket *bucket, bool isLeaf, bolt::node *parent) {
+node::node(bolt::BucketPtr bucket, bool isLeaf, bolt::node_ptr parent) {
     this->bucket = bucket;
     this->parent = parent;
     this->isLeaf = isLeaf;
 }
 
 
-bolt::node *node::root() {
+bolt::node_ptr node::root() {
     if (parent == NULL) {
-        return this;
+        return shared_from_this();
     }
     return parent->root();
 }
@@ -65,14 +66,18 @@ int node::pageElementSize() const {
     return bolt::branchPageElementSize;
 }
 
-bolt::node *node::childAt(int index) {
+bolt::node_ptr node::childAt(int index) {
     if (isLeaf) {
         assert("invalid chatAt() on a leaf node" && false);
     }
-    return bucket->node(inodes[index].pgid, this);
+    if (bucket.expired()) {
+        assert("bucket pointer already invalid" && false);
+    }
+    auto ptr = bucket.lock();
+    return ptr->node(inodes[index].pgid, shared_from_this());
 }
 
-int node::childIndex(const bolt::node *child) {
+int node::childIndex(const bolt::node_ptr child) {
     auto it = std::find_if(inodes.begin(), inodes.end(), [&](bolt::inode &n) -> bool {
         return std::equal(std::begin(child->key), std::end(child->key),
                           std::begin(n.key), std::end(n.key));
@@ -84,22 +89,22 @@ int node::numChildren() const {
     return inodes.size();
 }
 
-bolt::node *node::nextSibling() const {
+bolt::node_ptr node::nextSibling() const {
     if (parent == nullptr) {
         return nullptr;
     }
-    int index = parent->childIndex(this);
+    int index = parent->childIndex(shared_from_this());
     if (index >= parent->numChildren() - 1) {
         return nullptr;
     }
     return parent->childAt(index + 1);
 }
 
-bolt::node *node::prevSibling() const {
+bolt::node_ptr node::prevSibling() const {
     if (parent == nullptr) {
         return nullptr;
     }
-    int index = parent->childIndex(this);
+    int index = parent->childIndex(shared_from_this());
     if (index >= parent->numChildren() - 1) {
         return nullptr;
     }
@@ -128,7 +133,16 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value, bolt::
     auto index = std::distance(inodes.begin(), it);
     bolt::inode &inode = inodes[index];
     inode.flags = flags;
-    inode.set_keyvalue(newKey, value);
+
+    inode.memory.clear();
+    inode.memory.reserve(newKey.size() + value.size());
+
+    std::copy(newKey.begin(), newKey.end(), std::back_inserter(inode.memory));
+    inode.key = bolt::bytes(inode.memory.begin(), inode.memory.end());
+
+    std::copy(value.begin(), value.end(), std::back_inserter(inode.memory));
+    inode.value = bolt::bytes(inode.memory.begin() + newKey.size(), inode.memory.end());
+
     inode.pgid = pgid;
     assert("put: zero-length inode key" && inode.key.size() > 0);
 }
@@ -209,10 +223,10 @@ void node::write(bolt::page *p) {
     }
 }
 
-std::tuple<bolt::node*, bolt::node*> node::splitTwo(int pageSize) {
+std::tuple<bolt::node_ptr, bolt::node_ptr> node::splitTwo(int pageSize) {
     if (inodes.size() <= bolt::minKeysPerPage * 2
         || sizeLessThan(pageSize)) {
-        return std::make_tuple(this, nullptr);
+        return std::make_tuple(shared_from_this(), nullptr);
     }
 
     auto fillPercent = bucket->FillPercent;
@@ -225,16 +239,17 @@ std::tuple<bolt::node*, bolt::node*> node::splitTwo(int pageSize) {
     int splitIdx;
     std::tie(splitIdx, std::ignore) = splitIndex(threshold);
     if (parent == nullptr) {
-        parent = new node(bucket, { this });
+        auto n = new node(bucket, { shared_from_this()});
+        parent = n->shared_from_this();
     }
-    auto next = new node(bucket, isLeaf, parent);
+    auto next = std::make_shared<node>(bucket, isLeaf, parent);
     parent->children.push_back(next);
 
     std::copy(inodes.begin() + splitIdx, inodes.end(), std::back_inserter(next->inodes));
     inodes.erase(inodes.begin() + splitIdx, inodes.end());
 
     bucket->tx->stats.Split++;
-    return std::make_tuple(this, next);
+    return std::make_tuple(shared_from_this(), next);
 }
 
 std::tuple<int, int> node::splitIndex(int threshold) {
@@ -466,7 +481,18 @@ void node::dereference() {
         key = bolt::bytes(memory.begin(), memory.end());
     }
     for (auto &it : inodes) {
-        it.set_keyvalue(it.key, it.value);
+        std::vector<std::byte> key, value;
+        key.assign(it.key.begin(), it.key.end());
+        value.assign(it.value.begin(), it.value.end());
+
+        it.memory.clear();
+        it.memory.reserve(key.size() + value.size());
+
+        std::copy(key.begin(), key.end(), std::back_inserter(it.memory));
+        it.key = bolt::bytes(it.memory.begin(), it.memory.end());
+
+        std::copy(value.begin(), value.end(), std::back_inserter(it.memory));
+        it.value = bolt::bytes(it.memory.begin() + key.size(), it.memory.end());
     }
 
     // Recursively dereference children.
@@ -482,16 +508,6 @@ void node::free() {
         bucket->tx->db->freelist->free(bucket->tx->meta.txid, bucket->tx->page(pgid));
         pgid = 0;
     }
-}
-
-void inode::set_keyvalue(bolt::bytes k, bolt::bytes v) {
-    memory.clear();
-    memory.reserve(k.size() + v.size());
-    std::copy(k.begin(), k.end(), std::back_inserter(memory));
-    key = bolt::bytes(memory.begin(), memory.end());
-
-    std::copy(v.begin(), v.end(), std::back_inserter(memory));
-    value = bolt::bytes(memory.begin() + key.size(), memory.end());
 }
 
 }

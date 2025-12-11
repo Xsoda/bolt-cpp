@@ -36,6 +36,16 @@ namespace bolt {
     constexpr int freeListPageFlag = 0x10;
     constexpr int bucketLeafFlag = 0x01;
     constexpr int minKeysPerPage = 2;
+
+    struct DB;
+    struct Tx;
+    struct Cursor;
+    struct Bucket;
+    struct node;
+    using TxPtr = std::shared_ptr<Tx>;
+    using BucketPtr = std::shared_ptr<Bucket>;
+    using node_ptr = std::shared_ptr<node>;
+    using CursorPtr = std::shared_ptr<Cursor>;
 }
 
 #endif  // __COMMON_HPP__

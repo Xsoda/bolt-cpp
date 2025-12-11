@@ -19,7 +19,7 @@ struct timer {
 };
 
 struct call {
-    std::function<bolt::ErrorCode(bolt::Tx *)> fn;
+    std::function<bolt::ErrorCode(std::shared_ptr<bolt::Tx>)> fn;
     std::promise<bolt::ErrorCode> err;
     call() = default;
     call(const call &other) = delete;

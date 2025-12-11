@@ -41,7 +41,7 @@ struct TxStats {
     TxStats &operator+=(const TxStats &other);
 };
 
-struct Tx {
+struct Tx : public std::enable_shared_from_this<Tx> {
     bool writable;
     bool managed;
     bolt::DB *db;

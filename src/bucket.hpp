@@ -3,13 +3,13 @@
 
 #include "common.hpp"
 #include "error.hpp"
+#include <memory>
+
 
 namespace bolt {
 
 struct page;
 struct node;
-struct Tx;
-struct Cursor;
 
 struct bucket {
     bolt::pgid root;
@@ -32,24 +32,24 @@ struct BucketStats {
     int InlineBucketInuse;
 };
 
-struct Bucket {
+struct Bucket : public std::enable_shared_from_this<bolt::Bucket> {
     bolt::bucket *bucket;
-    bolt::Tx *tx;
-    std::map<std::string, bolt::Bucket*> buckets;
+    std::weak_ptr<bolt::Tx> tx;
+    std::map<std::string, bolt::BucketPtr> buckets;
     bolt::page *page;
-    bolt::node *rootNode;
-    std::map<bolt::pgid, bolt::node*> nodes;
+    bolt::node_ptr rootNode;
+    std::map<bolt::pgid, bolt::node_ptr> nodes;
     float FillPercent;
 
-    Bucket(bolt::Tx *tx);
-    bolt::Tx *Tx() const;
+    Bucket(bolt::TxPtr tx);
+    bolt::TxPtr Tx() const;
     bolt::pgid Root() const;
     bool Writable() const;
-    bolt::Cursor *Cursor();
-    bolt::Bucket *RetrieveBucket(bolt::bytes name);
-    bolt::Bucket *openBucket(bolt::bytes value);
-    std::tuple<bolt::Bucket *, bolt::ErrorCode> CreateBucket(bolt::bytes key);
-    std::tuple<bolt::Bucket *, bolt::ErrorCode>
+    bolt::CursorPtr Cursor();
+    bolt::BucketPtr RetrieveBucket(bolt::bytes name);
+    bolt::BucketPtr openBucket(bolt::bytes value);
+    std::tuple<bolt::BucketPtr, bolt::ErrorCode> CreateBucket(bolt::bytes key);
+    std::tuple<bolt::BucketPtr, bolt::ErrorCode>
     CreateBucketIfNotExists(bolt::bytes key);
     bolt::ErrorCode DeleteBucket(bolt::bytes key);
     bolt::bytes Get(bolt::bytes key);
@@ -65,15 +65,15 @@ struct Bucket {
     void forEachPageNode(std::function<void(bolt::page *, bolt::node *, int)> &&fn);
     void
     _forEachPageNode(bolt::pgid pgid, int depth,
-                     std::function<void(bolt::page *, bolt::node *, int)> &&fn);
-    bolt::node *node(bolt::pgid pgid, bolt::node *parent);
+                     std::function<void(bolt::page *, bolt::node_ptr, int)> &&fn);
+    bolt::node_ptr node(bolt::pgid pgid, bolt::node_ptr parent);
     void rebalance();
     bool inlineable() const;
     int maxInlineBucketSize();
     bolt::ErrorCode spill();
     void free();
     void dereference();
-    std::tuple<bolt::page *, bolt::node *> pageNode(bolt::pgid id);
+    std::tuple<bolt::page *, bolt::node_ptr> pageNode(bolt::pgid id);
     std::vector<std::byte> write();
 };
 

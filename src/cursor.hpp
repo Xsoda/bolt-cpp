@@ -2,35 +2,46 @@
 #define __CURSOR_HPP__
 
 #include "common.hpp"
+#include "error.hpp"
+#include <memory>
 #include <tuple>
 
 namespace bolt {
 
-struct Bucket;
 struct page;
 struct node;
 
 struct elemRef {
     bolt::page *page;
-    bolt::node *node;
+    std::weak_ptr<bolt::node> node;
     int index;
 
+    elemRef(bolt::page *page, bolt::node_ptr node, int index)
+        : page(page), node(node), index(index){};
     bool isLeaf() const;
     int count() const;
 };
 
-struct Cursor {
-    bolt::Bucket *bucket;
+struct Cursor : public std::enable_shared_from_this<Cursor> {
+    std::weak_ptr<bolt::Bucket> bucket;
     std::vector<bolt::elemRef> stack;
 
-    bolt::tuple<bolt::bytes, bolt::bytes> First();
-    bolt::tuple<bolt::bytes, bolt::bytes> Last();
-    bolt::tuple<bolt::bytes, bolt::bytes> Next();
-    bolt::tuple<bolt::bytes, bolt::bytes> Prev();
-    bolt::tuple<bolt::bytes, bolt::bytes> Seek(bolt::bytes seek);
+    bolt::BucketPtr Bucket();
+    std::tuple<bolt::bytes, bolt::bytes> First();
+    std::tuple<bolt::bytes, bolt::bytes> Last();
+    std::tuple<bolt::bytes, bolt::bytes> Next();
+    std::tuple<bolt::bytes, bolt::bytes> Prev();
+    std::tuple<bolt::bytes, bolt::bytes> Seek(bolt::bytes seek);
+    bolt::ErrorCode Delete();
+
+    std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> seek(bolt::bytes k);
+    void first();
+    void last();
+    std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> next();
+    void search(bolt::bytes key, bolt::pgid pgid);
 
     std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> keyValue();
-    bolt::node *node() const;
+    bolt::node_ptr node() const;
 };
 
 }

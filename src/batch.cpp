@@ -30,7 +30,7 @@ void batch::run() {
 
     while (calls.size() > 0) {
         int failIdx = -1;
-        auto err = db->Update([&](bolt::Tx *tx) -> bolt::ErrorCode {
+        auto err = db->Update([&](bolt::TxPtr tx) -> bolt::ErrorCode {
             for (auto it = calls.begin(); it != calls.end(); it++) {
                 auto ret = it->get()->fn(tx);
                 if (ret != bolt::ErrorCode::Success) {

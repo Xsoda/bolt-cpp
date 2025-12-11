@@ -5,6 +5,7 @@
 #include "bucket.hpp"
 #include "page.hpp"
 #include <initializer_list>
+#include <memory>
 
 namespace bolt {
 
@@ -17,28 +18,26 @@ struct inode {
     bolt::bytes key;
     bolt::bytes value;
     std::vector<std::byte> memory;
-
-    void set_keyvalue(bolt::bytes key, bolt::bytes value);
 };
 
 // node represents an in-memory, deserialized page.
-struct node {
-    bolt::Bucket *bucket;
+struct node : public std::enable_shared_from_this<node> {
+    std::weak_ptr<bolt::Bucket> bucket;
     bool isLeaf;
     bool unbalanced;
     bool spilled;
     bolt::bytes key;
     bolt::pgid pgid;
-    bolt::node *parent;
-    std::vector<bolt::node*> children;
+    bolt::node_ptr parent;
+    std::vector<bolt::node_ptr> children;
     std::vector<bolt::inode> inodes;
     std::vector<std::byte> memory;
 
-    node(bolt::Bucket *bucket, bool isLeaf, bolt::node *parent);
-    node(bolt::Bucket *bucket, std::initializer_list<bolt::node*> children);
+    node(bolt::BucketPtr bucket, bool isLeaf, bolt::node_ptr parent);
+    node(bolt::BucketPtr bucket, std::initializer_list<bolt::node_ptr> children);
 
     // root returns the top-level node this node is attached to.
-    bolt::node *root();
+    bolt::node_ptr root();
 
     // minKeys returns the minimum number of inodes this node should have.
     int minKeys() const;
@@ -55,19 +54,19 @@ struct node {
     int pageElementSize() const;
 
     // childAt returns the child node at a given index.
-    bolt::node *childAt(int index);
+    bolt::node_ptr childAt(int index);
 
     // childIndex returns the index of a given child node.
-    int childIndex(const bolt::node *child);
+    int childIndex(const bolt::node_ptr child);
 
     // numChildren returns the number of children.
     int numChildren() const;
 
     // nextSibling returns the next node with the same parent.
-    node *nextSibling() const;
+    node_ptr nextSibling() const;
 
     // prevSibling returns the previous node with the same parent.
-    node *prevSibling() const;
+    node_ptr prevSibling() const;
 
     // put inserts a key/value.
     void put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value, bolt::pgid pgid, std::uint32_t flags);
@@ -83,11 +82,11 @@ struct node {
 
     // split breaks up a node into multiple smaller nodes, if appropriate.
     // This should only be called from the spill() function.
-    std::vector<bolt::node*> split(int pageSize);
+    std::vector<bolt::node_ptr> split(int pageSize);
 
     // splitTwo breaks up a node into two smaller nodes, if appropriate.
     // This should only be called from the split() function.
-    std::tuple<bolt::node*, bolt::node*> splitTwo(int pageSize);
+    std::tuple<bolt::node_ptr, bolt::node_ptr> splitTwo(int pageSize);
 
     // splitIndex finds the position where a page will fill a given threshold.
     // It returns the index as well as the size of the first page.
@@ -104,7 +103,7 @@ struct node {
 
     // removes a node from the list of in-memory children.
     // This does not affect the inodes.
-    void removeChild(bolt::node *target);
+    void removeChild(bolt::node_ptr target);
 
     // dereference causes the node to copy all its inode key/value references to heap memory.
     // This is required when the mmap is reallocated so inodes are not pointing to stale data.
