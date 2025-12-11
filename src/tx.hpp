@@ -44,7 +44,7 @@ struct TxStats {
 struct Tx : public std::enable_shared_from_this<Tx> {
     bool writable;
     bool managed;
-    bolt::DB *db;
+    std::weak_ptr<bolt::DB> db;
     bolt::meta meta;
     bolt::Bucket root;
     std::map<bolt::pgid, bolt::page*> pages;
@@ -53,12 +53,12 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     int WriteFlag;
 
     // init initializes the transaction.
-    explicit Tx(bolt::DB *db, bool writable);
+    explicit Tx(std::shared_ptr<bolt::DB> db, bool writable);
     // ID returns the transaction id.
     int ID() const;
 
     // DB returns a reference to the database that created the transaction.
-    bolt::DB *DB() const;
+    std::shared_ptr<bolt::DB> DB() const;
 
     // Size returns current database size in bytes as seen by this transaction.
     std::int64_t Size() const;

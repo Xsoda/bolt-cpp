@@ -13,7 +13,7 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
         std::lock_guard<std::mutex> lock(batchMu);
         if (batch == nullptr || (batch != nullptr
                                  && batch->calls.size() >= MaxBatchSize)) {
-            batch = std::make_unique<bolt::batch>(this);
+            batch = std::make_unique<bolt::batch>(shared_from_this());
             batch->timer.AfterFunc(MaxBatchDelay, [&]() {
                 batch->trigger();
             });
@@ -43,10 +43,10 @@ bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
     }
 
     defer({
-      if (tx->db != nullptr) {
-        tx->rollback();
-      }
-    });
+            if (!tx->db.expired()) {
+                tx->rollback();
+            }
+        });
 
     tx->managed = true;
     err = fn(tx);
@@ -67,10 +67,10 @@ bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
     }
 
     defer({
-      if (tx->db != nullptr) {
-        tx->rollback();
-      }
-    });
+            if (!tx->db.expired()) {
+                tx->rollback();
+            }
+        });
 
     tx->managed = true;
     err = fn(tx);
@@ -83,12 +83,13 @@ bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
     return tx->Rollback();
 }
 
-std::tuple<bolt::Tx *, bolt::ErrorCode> DB::Begin(bool writable) {
+std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::Begin(bool writable) {
     if (writable) {
         return beginRWTx();
     }
     return beginTx();
 }
+
 std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::beginTx() {
     metalock.lock();
     mmaplock.lock_shared();
@@ -99,7 +100,7 @@ std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::beginTx() {
             nullptr, bolt::ErrorCode::ErrorDatabaseNotOpen);
 
     }
-    bolt::TxPtr tx = std::make_shared<bolt::Tx>(this, false);
+    bolt::TxPtr tx = std::make_shared<bolt::Tx>(shared_from_this(), false);
     txs.push_back(tx);
     metalock.unlock();
 
@@ -122,7 +123,7 @@ std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
         return std::make_tuple<bolt::TxPtr, bolt::ErrorCode>(
             nullptr, bolt::ErrorCode::ErrorDatabaseNotOpen);
     }
-    std::shared_ptr<bolt::Tx> tx = std::make_shared<bolt::Tx>(this, true);
+    std::shared_ptr<bolt::Tx> tx = std::make_shared<bolt::Tx>(shared_from_this(), true);
     rwtx = tx;
     bolt::txid minid = 0xFFFFFFFFFFFFFFFF;
     for (auto it : txs) {

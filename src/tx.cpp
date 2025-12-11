@@ -45,7 +45,7 @@ TxStats &TxStats::operator+=(const TxStats &other) {
     return *this;
 }
 
-Tx::Tx(bolt::DB *db, bool writable): root(bolt::Bucket(shared_from_this())), db(db), writable(writable) {
+Tx::Tx(std::shared_ptr<bolt::DB> db, bool writable): root(bolt::Bucket(shared_from_this())), db(db), writable(writable) {
     db->meta()->copy(&meta);
     *root.bucket = meta.root;
     if (writable) {
@@ -53,11 +53,17 @@ Tx::Tx(bolt::DB *db, bool writable): root(bolt::Bucket(shared_from_this())), db(
     }
 }
 
-bolt::DB *Tx::DB() const { return db; }
+std::shared_ptr<bolt::DB> Tx::DB() const { return db.lock(); }
 
 int Tx::ID() const { return meta.txid; }
 
-std::int64_t Tx::Size() const { return meta.pgid * db->pageSize; }
+std::int64_t Tx::Size() const {
+    if (auto dbptr = db.lock()) {
+        return meta.pgid * dbptr->pageSize;
+    }
+    assert("Tx already closed" && false);
+    return 0;
+}
 
 bool Tx::Writable() const { return writable; }
 
@@ -68,23 +74,31 @@ bolt::page *Tx::page(bolt::pgid id) {
     if (it != pages.end()) {
         return it->second;
     }
-    return db->page(id);
+    if (auto dbptr = db.lock()) {
+        return dbptr->page(id);
+    }
+    assert("Tx already closed" && false);
+    return nullptr;
 }
 
 bolt::ErrorCode Tx::writeMeta() {
+    auto dbptr = db.lock();
+    if (!dbptr) {
+        return bolt::ErrorCode::ErrorTxClosed;
+    }
     std::vector<std::byte> buf;
-    buf.assign(db->pageSize, std::byte(0x00));
+    buf.assign(dbptr->pageSize, std::byte(0x00));
 
-    bolt::page *p = db->pageInBuffer(bolt::bytes(buf.begin(), buf.end()), 0);
+    bolt::page *p = dbptr->pageInBuffer(bolt::bytes(buf.begin(), buf.end()), 0);
     meta.write(p);
-    auto [_, err] = db->file.WriteAt(bolt::bytes(buf.begin(), buf.end()),
-                                (std::int64_t)p->id * db->pageSize);
+    auto [_, err] = dbptr->file.WriteAt(bolt::bytes(buf.begin(), buf.end()),
+                                (std::int64_t)p->id * dbptr->pageSize);
     if (err != bolt::ErrorCode::Success) {
         return err;
     }
 
-    if (!db->NoSync) {
-        err = db->file.Fdatasync();
+    if (!dbptr->NoSync) {
+        err = dbptr->file.Fdatasync();
         if (err != bolt::ErrorCode::Success) {
             return err;
         }
@@ -95,6 +109,10 @@ bolt::ErrorCode Tx::writeMeta() {
 
 bolt::ErrorCode Tx::write() {
     std::vector<bolt::page *> pages;
+    auto dbptr = db.lock();
+    if (!dbptr) {
+        return bolt::ErrorCode::ErrorTxClosed;
+    }
     pages.reserve(this->pages.size());
     for (auto [key, value] : this->pages) {
         pages.push_back(value);
@@ -105,8 +123,8 @@ bolt::ErrorCode Tx::write() {
               [&](bolt::page *a, bolt::page *b) { return a->id < b->id; });
 
     for (auto it : pages) {
-        auto size = int(it->overflow + 1) * db->pageSize;
-        auto offset = std::int64_t(it->id) * db->pageSize;
+        auto size = int(it->overflow + 1) * dbptr->pageSize;
+        auto offset = std::int64_t(it->id) * dbptr->pageSize;
 
         auto ptr = reinterpret_cast<std::byte *>(it);
         while (true) {
@@ -114,7 +132,7 @@ bolt::ErrorCode Tx::write() {
             if (sz > bolt::maxAllocSize - 1) {
                 sz = bolt::maxAllocSize - 1;
             }
-            auto [_, err] = db->file.WriteAt(bolt::bytes(ptr, sz), offset);
+            auto [_, err] = dbptr->file.WriteAt(bolt::bytes(ptr, sz), offset);
             if (err != bolt::ErrorCode::Success) {
                 return err;
             }
@@ -128,8 +146,8 @@ bolt::ErrorCode Tx::write() {
         }
     }
 
-    if (!db->NoSync) {
-        auto err = db->file.Fdatasync();
+    if (!dbptr->NoSync) {
+        auto err = dbptr->file.Fdatasync();
         if (err != bolt::ErrorCode::Success) {
             return err;
         }
@@ -139,7 +157,8 @@ bolt::ErrorCode Tx::write() {
 
 bolt::ErrorCode Tx::Commit() {
     assert("managed tx commit not allowed" && !managed);
-    if (db == nullptr) {
+    auto dbptr = db.lock();
+    if (!dbptr) {
         return bolt::ErrorCode::ErrorTxClosed;
     } else if (!writable) {
         return bolt::ErrorCode::ErrorTxNotWritable;
@@ -166,13 +185,13 @@ bolt::ErrorCode Tx::Commit() {
     meta.root.root = root.bucket->root;
 
     auto opgid = meta.pgid;
-    db->freelist->free(meta.txid, db->page(meta.freelist));
-    auto [p, ret] = allocate((db->freelist->size() / db->pageSize) + 1);
+    dbptr->freelist->free(meta.txid, dbptr->page(meta.freelist));
+    auto [p, ret] = allocate((dbptr->freelist->size() / dbptr->pageSize) + 1);
     if (ret != bolt::ErrorCode::Success) {
         rollback();
         return ret;
     }
-    err = db->freelist->write(p);
+    err = dbptr->freelist->write(p);
     if (err != bolt::ErrorCode::Success) {
         rollback();
         return err;
@@ -180,7 +199,7 @@ bolt::ErrorCode Tx::Commit() {
 
     meta.freelist = p->id;
     if (meta.pgid > opgid) {
-        err = db->grow((meta.pgid + 1) * db->pageSize);
+        err = dbptr->grow((meta.pgid + 1) * dbptr->pageSize);
         if (err != bolt::ErrorCode::Success) {
             return err;
         }
@@ -193,7 +212,7 @@ bolt::ErrorCode Tx::Commit() {
         return err;
     }
 
-    if (db->StrictMode) {
+    if (dbptr->StrictMode) {
         // TODO
     }
 
@@ -212,7 +231,8 @@ bolt::ErrorCode Tx::Commit() {
 
 bolt::ErrorCode Tx::Rollback() {
     assert("managed tx rollback not allowed" && !managed);
-    if (db == nullptr) {
+    auto dbptr = db.lock();
+    if (!dbptr) {
         return bolt::ErrorCode::ErrorTxClosed;
     }
     rollback();
@@ -220,39 +240,41 @@ bolt::ErrorCode Tx::Rollback() {
 }
 
 void Tx::rollback() {
-    if (db == nullptr) {
+    auto dbptr = db.lock();
+    if (!dbptr) {
         return;
     }
     if (writable) {
-        db->freelist->rollback(meta.txid);
-        db->freelist->reload(db->page(db->meta()->freelist));
+        dbptr->freelist->rollback(meta.txid);
+        dbptr->freelist->reload(dbptr->page(dbptr->meta()->freelist));
     }
     close();
 }
 
 void Tx::close() {
-    if (db == nullptr) {
+    auto dbptr = db.lock();
+    if (!dbptr) {
         return;
     }
     if (writable) {
-        int freelistFreeN = db->freelist->free_count();
-        int freelistPendingN = db->freelist->pending_count();
-        int freelistAlloc = db->freelist->size();
+        int freelistFreeN = dbptr->freelist->free_count();
+        int freelistPendingN = dbptr->freelist->pending_count();
+        int freelistAlloc = dbptr->freelist->size();
 
-        db->rwtx = nullptr;
-        db->rwlock.unlock();
+        dbptr->rwtx = nullptr;
+        dbptr->rwlock.unlock();
 
-        std::unique_lock<std::shared_mutex> lock(db->statlock);
-        db->stats.FreePageN = freelistFreeN;
-        db->stats.PendingPageN = freelistPendingN;
-        db->stats.FreeAlloc = (freelistFreeN + freelistPendingN) * db->pageSize;
-        db->stats.FreelistInuse = freelistAlloc;
-        db->stats.TxStats += stats;
+        std::unique_lock<std::shared_mutex> lock(dbptr->statlock);
+        dbptr->stats.FreePageN = freelistFreeN;
+        dbptr->stats.PendingPageN = freelistPendingN;
+        dbptr->stats.FreeAlloc = (freelistFreeN + freelistPendingN) * dbptr->pageSize;
+        dbptr->stats.FreelistInuse = freelistAlloc;
+        dbptr->stats.TxStats += stats;
     } else {
-        db->removeTx(shared_from_this());
+        dbptr->removeTx(shared_from_this());
     }
 
-    db = nullptr;
+    dbptr.reset();
     pages.clear();
 }
 

@@ -4,6 +4,7 @@
 #include "common.hpp"
 #include "tx.hpp"
 #include "file.hpp"
+#include <memory>
 #include <mutex>
 #include <shared_mutex>
 
@@ -28,7 +29,7 @@ struct Info {
     std::uintptr_t Data;
 };
 
-struct DB {
+struct DB : public std::enable_shared_from_this<DB> {
     bool StrictMode;
     bool NoSync;
     bool NoGrowSync;
@@ -49,7 +50,7 @@ struct DB {
     bool opened;
     bolt::TxPtr rwtx;
     std::vector<bolt::TxPtr> txs;
-    bolt::freelist *freelist;
+    std::unique_ptr<bolt::freelist> freelist;
     bolt::Stats stats;
 
     std::unique_ptr<bolt::batch> batch;

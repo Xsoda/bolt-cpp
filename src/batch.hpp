@@ -27,12 +27,12 @@ struct call {
 };
 
 struct batch {
-    bolt::DB *db;
+    std::weak_ptr<bolt::DB> db;
     std::once_flag start;
     std::vector<std::shared_ptr<call>> calls;
     bolt::timer timer;
 
-    batch(bolt::DB *db) : db(db){};
+    batch(std::shared_ptr<bolt::DB> db) : db(db){};
     void trigger();
     void run();
 };
