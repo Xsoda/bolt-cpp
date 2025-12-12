@@ -45,9 +45,11 @@ TxStats &TxStats::operator+=(const TxStats &other) {
     return *this;
 }
 
-Tx::Tx(std::shared_ptr<bolt::DB> db, bool writable): root(bolt::Bucket(shared_from_this())), db(db), writable(writable) {
+Tx::Tx() : root(std::make_shared<bolt::Bucket>(shared_from_this())) {}
+
+Tx::Tx(std::shared_ptr<bolt::DB> db, bool writable): root(std::make_shared<bolt::Bucket>(shared_from_this())), db(db), writable(writable) {
     db->meta()->copy(&meta);
-    *root.bucket = meta.root;
+    root->bucket = meta.root;
     if (writable) {
         meta.txid += 1;
     }
@@ -168,21 +170,21 @@ bolt::ErrorCode Tx::Commit() {
       return std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::system_clock::now() - start);
     };
-    root.rebalance();
+    root->rebalance();
     if (stats.Rebalance > 0) {
         stats.RebalanceTime += since(startTime);
     }
 
     startTime = std::chrono::system_clock::now();
 
-    auto err = root.spill();
+    auto err = root->spill();
     if (err != bolt::ErrorCode::Success) {
         rollback();
         return err;
     }
     stats.SpillTime += since(startTime);
 
-    meta.root.root = root.bucket->root;
+    meta.root.root = root->bucket.root;
 
     auto opgid = meta.pgid;
     dbptr->freelist->free(meta.txid, dbptr->page(meta.freelist));

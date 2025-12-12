@@ -33,7 +33,7 @@ struct BucketStats {
 };
 
 struct Bucket : public std::enable_shared_from_this<bolt::Bucket> {
-    bolt::bucket *bucket;
+    bolt::bucket bucket;
     std::weak_ptr<bolt::Tx> tx;
     std::map<std::string, bolt::BucketPtr> buckets;
     bolt::page *page;

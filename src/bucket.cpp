@@ -14,7 +14,7 @@ bolt::TxPtr Bucket::Tx() const {
 }
 
 bolt::pgid Bucket::Root() const {
-    return bucket->root;
+    return bucket.root;
 }
 
 bool Bucket::Writable() const {

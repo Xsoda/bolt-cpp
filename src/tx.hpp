@@ -46,12 +46,13 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     bool managed;
     std::weak_ptr<bolt::DB> db;
     bolt::meta meta;
-    bolt::Bucket root;
+    bolt::BucketPtr root;
     std::map<bolt::pgid, bolt::page*> pages;
     bolt::TxStats stats;
     std::vector<std::function<void()>> commitHandlers;
     int WriteFlag;
 
+    explicit Tx();
     // init initializes the transaction.
     explicit Tx(std::shared_ptr<bolt::DB> db, bool writable);
     // ID returns the transaction id.

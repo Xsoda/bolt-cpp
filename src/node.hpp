@@ -28,11 +28,12 @@ struct node : public std::enable_shared_from_this<node> {
     bool spilled;
     bolt::bytes key;
     bolt::pgid pgid;
-    bolt::node_ptr parent;
+    std::weak_ptr<bolt::node> parent;
     std::vector<bolt::node_ptr> children;
     std::vector<bolt::inode> inodes;
     std::vector<std::byte> memory;
 
+    node() {};
     node(bolt::BucketPtr bucket, bool isLeaf, bolt::node_ptr parent);
     node(bolt::BucketPtr bucket, std::initializer_list<bolt::node_ptr> children);
 
@@ -57,16 +58,16 @@ struct node : public std::enable_shared_from_this<node> {
     bolt::node_ptr childAt(int index);
 
     // childIndex returns the index of a given child node.
-    int childIndex(const bolt::node_ptr child);
+    int childIndex(bolt::node_ptr child);
 
     // numChildren returns the number of children.
     int numChildren() const;
 
     // nextSibling returns the next node with the same parent.
-    node_ptr nextSibling() const;
+    bolt::node_ptr nextSibling();
 
     // prevSibling returns the previous node with the same parent.
-    node_ptr prevSibling() const;
+    bolt::node_ptr prevSibling();
 
     // put inserts a key/value.
     void put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value, bolt::pgid pgid, std::uint32_t flags);

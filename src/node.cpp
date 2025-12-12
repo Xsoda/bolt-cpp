@@ -23,10 +23,10 @@ node::node(bolt::BucketPtr bucket, bool isLeaf, bolt::node_ptr parent) {
 
 
 bolt::node_ptr node::root() {
-    if (parent == NULL) {
+    if (parent.expired()) {
         return shared_from_this();
     }
-    return parent->root();
+    return parent.lock()->root();
 }
 
 int node::minKeys() const {
@@ -77,7 +77,7 @@ bolt::node_ptr node::childAt(int index) {
     return ptr->node(inodes[index].pgid, shared_from_this());
 }
 
-int node::childIndex(const bolt::node_ptr child) {
+int node::childIndex(bolt::node_ptr child) {
     auto it = std::find_if(inodes.begin(), inodes.end(), [&](bolt::inode &n) -> bool {
         return std::equal(std::begin(child->key), std::end(child->key),
                           std::begin(n.key), std::end(n.key));
@@ -89,30 +89,35 @@ int node::numChildren() const {
     return inodes.size();
 }
 
-bolt::node_ptr node::nextSibling() const {
-    if (parent == nullptr) {
+bolt::node_ptr node::nextSibling() {
+    if (parent.expired()) {
         return nullptr;
     }
-    int index = parent->childIndex(shared_from_this());
-    if (index >= parent->numChildren() - 1) {
+    auto pptr = parent.lock();
+    int index = pptr->childIndex(shared_from_this());
+    if (index >= pptr->numChildren() - 1) {
         return nullptr;
     }
-    return parent->childAt(index + 1);
+    return pptr->childAt(index + 1);
 }
 
-bolt::node_ptr node::prevSibling() const {
-    if (parent == nullptr) {
+bolt::node_ptr node::prevSibling() {
+    if (parent.expired()) {
         return nullptr;
     }
-    int index = parent->childIndex(shared_from_this());
-    if (index >= parent->numChildren() - 1) {
+    auto pptr = parent.lock();
+    int index = pptr->childIndex(shared_from_this());
+    if (index >= pptr->numChildren() - 1) {
         return nullptr;
     }
-    return parent->childAt(index - 1);
+    return pptr->childAt(index - 1);
 }
 
-void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value, bolt::pgid pgid, std::uint32_t flags) {
-    if (pgid > bucket->tx->meta.pgid) {
+void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
+               bolt::pgid pgid, std::uint32_t flags) {
+    auto bptr = bucket.lock();
+    auto tptr = bptr->tx.lock();
+    if (pgid > tptr->meta.pgid) {
         assert("pgid above high water mark" && false);
     } else if (oldKey.size() <= 0) {
         assert("put: zero-length old key" && false);
@@ -228,8 +233,9 @@ std::tuple<bolt::node_ptr, bolt::node_ptr> node::splitTwo(int pageSize) {
         || sizeLessThan(pageSize)) {
         return std::make_tuple(shared_from_this(), nullptr);
     }
-
-    auto fillPercent = bucket->FillPercent;
+    auto bptr = bucket.lock();
+    auto tptr = bptr->tx.lock();
+    auto fillPercent = bptr->FillPercent;
     if (fillPercent < bolt::minFillPercent) {
         fillPercent = bolt::minFillPercent;
     } else if (fillPercent > bolt::maxFillPercent) {
@@ -238,17 +244,18 @@ std::tuple<bolt::node_ptr, bolt::node_ptr> node::splitTwo(int pageSize) {
     int threshold = (int)(pageSize * fillPercent);
     int splitIdx;
     std::tie(splitIdx, std::ignore) = splitIndex(threshold);
-    if (parent == nullptr) {
-        auto n = new node(bucket, { shared_from_this()});
-        parent = n->shared_from_this();
+    if (parent.expired()) {
+        parent = std::make_shared<node>(
+            bptr, std::initializer_list<bolt::node_ptr>({shared_from_this()}));
     }
-    auto next = std::make_shared<node>(bucket, isLeaf, parent);
-    parent->children.push_back(next);
+    auto pptr = parent.lock();
+    auto next = std::make_shared<node>(bptr, isLeaf, pptr);
+    pptr->children.push_back(next);
 
     std::copy(inodes.begin() + splitIdx, inodes.end(), std::back_inserter(next->inodes));
     inodes.erase(inodes.begin() + splitIdx, inodes.end());
 
-    bucket->tx->stats.Split++;
+    tptr->stats.Split++;
     return std::make_tuple(shared_from_this(), next);
 }
 
@@ -270,7 +277,9 @@ std::tuple<int, int> node::splitIndex(int threshold) {
 }
 
 bolt::ErrorCode node::spill() {
-    auto tx = bucket->tx;
+    auto bptr = bucket.lock();
+    auto tptr = bptr->tx.lock();
+    auto dbptr = tptr->db.lock();
     if (spilled) {
         return bolt::ErrorCode::Success;
     }
@@ -279,7 +288,7 @@ bolt::ErrorCode node::spill() {
     // the case of split-merge so we cannot use a range loop. We have to check
     // the children size on every loop iteration
     std::sort(children.begin(), children.end(),
-              [](bolt::node *a, bolt::node *b) -> bool {
+              [](bolt::node_ptr a, bolt::node_ptr b) -> bool {
                 return std::lexicographical_compare(
                     a->key.begin(), a->key.end(), b->key.begin(), b->key.end());
               });
@@ -294,22 +303,22 @@ bolt::ErrorCode node::spill() {
     children.clear();
 
     // Split nodes into appropriate sizes. The first node will always be n.
-    auto nodes = split(tx->db->pageSize);
+    auto nodes = split(dbptr->pageSize);
     for (auto it : nodes) {
         // Add node's page to the freelist if it's not new.
         if (it->pgid > 0) {
-            tx->db->freelist->free(tx->meta.txid, tx->page(it->pgid));
+            dbptr->freelist->free(tptr->meta.txid, tptr->page(it->pgid));
             it->pgid = 0;
         }
 
         // Allocate contiguous space for the node.
-        auto [p, err] = tx->allocate((it->size() / tx->db->pageSize) + 1);
+        auto [p, err] = tptr->allocate((it->size() / dbptr->pageSize) + 1);
         if (err != bolt::ErrorCode::Success) {
             return err;
         }
 
         // Write the node.
-        if (p->id >= tx->meta.pgid) {
+        if (p->id >= tptr->meta.pgid) {
             assert("pgid above high water mark" && false);
         }
         it->pgid = p->id;
@@ -317,25 +326,27 @@ bolt::ErrorCode node::spill() {
         it->spilled = true;
 
         // Insert into parent inodes.
-        if (it->parent != nullptr) {
+        if (auto pptr = it->parent.lock()) {
             auto k = it->key;
             if (k.empty()) {
                 k = it->inodes[0].key;
             }
-            it->parent->put(key, it->inodes[0].key, bolt::bytes(), it->pgid, 0);
+            pptr->put(key, it->inodes[0].key, bolt::bytes(), it->pgid, 0);
             it->key = it->inodes[0].key;
             assert("spill: zero-length node key" && it->key.size() > 0);
         }
         // Update the statistics.
-        tx->stats.Spill++;
+        tptr->stats.Spill++;
     }
 
     // If the root node split and created a new root then we need to spill that
     // as well. We'll clear out the children to make sure it doesn't try to
     // respill
-    if (parent != nullptr && parent->pgid == 0) {
-        children.clear();
-        return parent->spill();
+    if (auto pptr = parent.lock()) {
+        if (pptr->pgid == 0) {
+            children.clear();
+            return pptr->spill();
+        }
     }
     return bolt::ErrorCode::Success;
 }
@@ -346,40 +357,43 @@ void node::rebalance() {
     if (!unbalanced) {
         return;
     }
+    auto bptr = bucket.lock();
+    auto tptr = bptr->tx.lock();
+    auto dbptr = tptr->db.lock();
     unbalanced = false;
 
     // Update statistics.
-    bucket->tx->stats.Rebalance++;
+    tptr->stats.Rebalance++;
 
     // Ignore if node is above threshold (25%) and has enough keys.
-    int threshold = bucket->tx->db->pageSize / 4;
+    int threshold = dbptr->pageSize / 4;
     if (size() > threshold && inodes.size() > (size_t)minKeys()) {
         return;
     }
 
     // Root node has special handling.
-    if (parent == nullptr) {
+    if (parent.expired()) {
         // If root node is a branch and only has one node then collapse it.
         if (isLeaf && inodes.size() == 1) {
             // Move root's child up.
-            bolt::node *child = bucket->node(inodes.front().pgid, this);
+            bolt::node_ptr child = bptr->node(inodes.front().pgid, shared_from_this());
             isLeaf = child->isLeaf;
             inodes = child->inodes;
             children = child->children;
 
             // Reparent all child nodes being moved.
             for (auto it : inodes) {
-                auto item = bucket->nodes.find(it.pgid);
-                if (item != bucket->nodes.end()) {
-                    item->second->parent = this;
+                auto item = bptr->nodes.find(it.pgid);
+                if (item != bptr->nodes.end()) {
+                    item->second->parent = shared_from_this();
                 }
             }
 
             // Remove old child.
-            child->parent = nullptr;
-            auto it = bucket->nodes.find(child->pgid);
-            if (it != bucket->nodes.end()) {
-                bucket->nodes.erase(it);
+            child->parent.reset();
+            auto it = bptr->nodes.find(child->pgid);
+            if (it != bptr->nodes.end()) {
+                bptr->nodes.erase(it);
             }
             child->free();
         }
@@ -387,23 +401,24 @@ void node::rebalance() {
     }
 
     // If node has no keys then just remove it.
+    auto pptr = parent.lock();
     if (numChildren() == 0) {
-        parent->del(key);
-        parent->removeChild(this);
-        auto it = bucket->nodes.find(pgid);
-        if (it != bucket->nodes.end()) {
-            bucket->nodes.erase(it);
+        pptr->del(key);
+        pptr->removeChild(shared_from_this());
+        auto it = bptr->nodes.find(pgid);
+        if (it != bptr->nodes.end()) {
+            bptr->nodes.erase(it);
         }
         this->free();
-        parent->rebalance();
+        pptr->rebalance();
         return;
     }
 
-    assert("parent must have at least 2 children" && parent->numChildren() > 1);
+    assert("parent must have at least 2 children" && pptr->numChildren() > 1);
 
     // Destination node is right sibling if idx == 0, otherwise left sibling.
-    bolt::node *target;
-    bool useNextSibling = parent->childIndex(this) == 0;
+    bolt::node_ptr target;
+    bool useNextSibling = pptr->childIndex(shared_from_this()) == 0;
     if (useNextSibling) {
         target = nextSibling();
     } else {
@@ -414,60 +429,64 @@ void node::rebalance() {
     if (useNextSibling) {
         // Reparent all child nodes being moved.
         for (auto item : target->inodes) {
-            auto it = bucket->nodes.find(item.pgid);
-            if (it != bucket->nodes.end()) {
-                bolt::node *child = it->second;
-                child->parent->removeChild(child);
-                child->parent = this;
-                child->parent->children.push_back(child);
+            auto it = bptr->nodes.find(item.pgid);
+            if (it != bptr->nodes.end()) {
+                bolt::node_ptr child = it->second;
+                auto cp = child->parent.lock();
+                cp->removeChild(child);
+
+                child->parent = shared_from_this();
+                children.push_back(child);
             }
         }
 
         // Copy over inodes from target and remove target.
         std::copy(target->inodes.begin(), target->inodes.end(),
                   std::back_inserter(inodes));
-        parent->del(target->key);
-        parent->removeChild(target);
-        auto it = bucket->nodes.find(target->pgid);
-        if (it != bucket->nodes.end()) {
-            bucket->nodes.erase(it);
+        pptr->del(target->key);
+        pptr->removeChild(target);
+        auto it = bptr->nodes.find(target->pgid);
+        if (it != bptr->nodes.end()) {
+            bptr->nodes.erase(it);
         }
         target->free();
     } else {
         // Reparent all child nodes being moved.
         for (auto item : inodes) {
-            auto it = bucket->nodes.find(item.pgid);
-            if (it != bucket->nodes.end()) {
-                bolt::node *child = it->second;
-                child->parent->removeChild(child);
+            auto it = bptr->nodes.find(item.pgid);
+            if (it != bptr->nodes.end()) {
+                bolt::node_ptr child = it->second;
+                auto cp = child->parent.lock();
+                cp->removeChild(child);
+
                 child->parent = target;
-                child->parent->children.push_back(child);
+                target->children.push_back(child);
             }
         }
 
         // Copy over inodes to target and remove node.
         std::copy(inodes.begin(), inodes.end(),
                   std::back_inserter(target->inodes));
-        parent->del(key);
-        parent->removeChild(this);
-        auto it = bucket->nodes.find(pgid);
-        if (it != bucket->nodes.end()) {
-            bucket->nodes.erase(it);
+        pptr->del(key);
+        pptr->removeChild(shared_from_this());
+        auto it = bptr->nodes.find(pgid);
+        if (it != bptr->nodes.end()) {
+            bptr->nodes.erase(it);
         }
         free();
     }
 
     // Either this node or the target node was deleted from the parent so
     // rebalance it.
-    parent->rebalance();
+    pptr->rebalance();
 }
 
 // removes a node from the list of in-memory children.
 // This does not affect the inodes.
-void node::removeChild(bolt::node *target) {
+void node::removeChild(bolt::node_ptr target) {
     std::ignore =
         std::remove_if(children.begin(), children.end(),
-                       [&](bolt::node *item) { return item == target; });
+                       [&](bolt::node_ptr item) { return item == target; });
 }
 
 // dereference causes the node to copy all its inode key/value references to
@@ -499,13 +518,17 @@ void node::dereference() {
     for (auto it : children) {
         it->dereference();
     }
-
-    bucket->tx->stats.NodeDeref++;
+    auto bptr = bucket.lock();
+    auto tptr = bptr->tx.lock();
+    tptr->stats.NodeDeref++;
 }
 
 void node::free() {
     if (pgid != 0) {
-        bucket->tx->db->freelist->free(bucket->tx->meta.txid, bucket->tx->page(pgid));
+        auto bptr = bucket.lock();
+        auto tptr = bptr->tx.lock();
+        auto dbptr = tptr->db.lock();
+        dbptr->freelist->free(tptr->meta.txid, tptr->page(pgid));
         pgid = 0;
     }
 }
