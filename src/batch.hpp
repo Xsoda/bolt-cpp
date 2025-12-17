@@ -12,11 +12,7 @@ namespace bolt {
 struct DB;
 struct Tx;
 
-struct timer {
-    std::once_flag once;
-    std::function<void()> func;
-    void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn);
-};
+void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn);
 
 struct call {
     std::function<bolt::ErrorCode(std::shared_ptr<bolt::Tx>)> fn;
@@ -30,7 +26,6 @@ struct batch {
     std::weak_ptr<bolt::DB> db;
     std::once_flag start;
     std::vector<std::shared_ptr<call>> calls;
-    bolt::timer timer;
 
     batch(std::shared_ptr<bolt::DB> db) : db(db){};
     void trigger();

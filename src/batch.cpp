@@ -1,5 +1,6 @@
 #include "batch.hpp"
 #include "db.hpp"
+#include "async.hpp"
 #include <chrono>
 #include <mutex>
 #include <thread>
@@ -8,15 +9,11 @@
 
 namespace bolt {
 
-void timer::AfterFunc(std::chrono::milliseconds delay,
-                      std::function<void()> &&fn) {
-  std::call_once(once, [&]() {
-      func = std::move(fn);
-      std::ignore = std::async(std::launch::async, [this](std::chrono::milliseconds delay) {
-          std::this_thread::sleep_for(delay);
-          this->func();
-      }, delay);
-  });
+void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn) {
+    AsyncFireAndForget([fn](std::chrono::milliseconds delay) {
+        std::this_thread::sleep_for(delay);
+        fn();
+    }, delay);
 }
 
 void batch::trigger() { std::call_once(start, std::bind(&batch::run, this)); }

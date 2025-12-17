@@ -3,7 +3,7 @@
 #include "freelist.hpp"
 #include "tx.hpp"
 #include <mutex>
-#include "defer.hpp"
+#include "async.hpp"
 
 namespace bolt {
 
@@ -14,14 +14,14 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
         if (batch == nullptr || (batch != nullptr
                                  && batch->calls.size() >= MaxBatchSize)) {
             batch = std::make_unique<bolt::batch>(shared_from_this());
-            batch->timer.AfterFunc(MaxBatchDelay, [&]() {
+            AfterFunc(MaxBatchDelay, [&]() {
                 batch->trigger();
             });
         }
         c->fn = std::move(fn);
         batch->calls.push_back(c);
         if (batch->calls.size() >= MaxBatchSize) {
-            std::ignore = std::async(std::launch::async, [&]() {
+            AsyncFireAndForget([&]() {
                 batch->trigger();
             });
         }
@@ -42,12 +42,6 @@ bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
         return err;
     }
 
-    defer({
-            if (!tx->db.expired()) {
-                tx->rollback();
-            }
-        });
-
     tx->managed = true;
     err = fn(tx);
     tx->managed = false;
@@ -55,9 +49,19 @@ bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
     if (err != bolt::ErrorCode::Success) {
         tx->Rollback();
 
+        if (!tx->db.expired()) {
+            tx->rollback();
+        }
+
         return err;
     }
-    return tx->Commit();
+    err = tx->Commit();
+
+    if (!tx->db.expired()) {
+        tx->rollback();
+    }
+
+    return err;
 }
 
 bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
@@ -66,21 +70,26 @@ bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
         return err;
     }
 
-    defer({
-            if (!tx->db.expired()) {
-                tx->rollback();
-            }
-        });
-
     tx->managed = true;
     err = fn(tx);
     tx->managed = false;
 
     if (err != bolt::ErrorCode::Success) {
         tx->Rollback();
+
+        if (!tx->db.expired()) {
+            tx->rollback();
+        }
+
         return err;
     }
-    return tx->Rollback();
+    err = tx->Rollback();
+
+    if (!tx->db.expired()) {
+        tx->rollback();
+    }
+
+    return err;
 }
 
 std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::Begin(bool writable) {
