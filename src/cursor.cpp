@@ -25,7 +25,7 @@ bolt::node_ptr Cursor::node() const {
     auto &ref = stack.back();
     if (auto n = ref.node.lock()) {
         if (ref.isLeaf()) {
-            return n;
+            return n->shared_from_this();
         }
     }
     auto &f = stack.front();
@@ -41,7 +41,7 @@ bolt::node_ptr Cursor::node() const {
         n = n->childAt(ref.index);
     }
     assert(n->isLeaf);
-    return n;
+    return n->shared_from_this();
 }
 
 std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::keyValue() {
@@ -64,7 +64,7 @@ Cursor::seek(bolt::bytes k) {
     auto b = bucket.lock();
     assert("tx closed" && b->tx.expired());
     stack.clear();
-    search(k, b->bucket->root);
+    search(k, b->bucket.root);
     auto ref = stack.back();
     if (ref.index >= ref.count()) {
         return std::make_tuple(bolt::bytes(), bolt::bytes(), 0);
@@ -161,5 +161,32 @@ std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::next() {
         return keyValue();
     }
 }
-void Cursor::search(bolt::bytes key, bolt::pgid pgid) {}
+
+void Cursor::search(bolt::bytes key, bolt::pgid pgid) {
+    auto b = bucket.lock();
+    auto [p, n] = b->pageNode(pgid);
+    if (p != nullptr && (p->flags & (branchPageFlag | leafPageFlag)) == 0) {
+        assert("invalid page type" && false);
+    }
+    elemRef e{p, n};
+    stack.push_back(e);
+    if (e.isLeaf()) {
+        nsearch(key);
+        return;
+    }
+    if (n) {
+        searchNode(key, n);
+        return;
+    }
+    searchPage(key, p);
 }
+
+void Cursor::searchNode(bolt::bytes key, bolt::node_ptr n) {
+}
+
+void Cursor::searchPage(bolt::bytes key, bolt::page *p) {}
+
+void Cursor::nsearch(bolt::bytes key) {
+
+}
+} // namespace bolt

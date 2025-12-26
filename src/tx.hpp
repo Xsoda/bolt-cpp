@@ -53,6 +53,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     int WriteFlag;
 
     explicit Tx();
+    explicit Tx(bolt::meta meta) : meta(meta) {};
     // init initializes the transaction.
     explicit Tx(std::shared_ptr<bolt::DB> db, bool writable);
     // ID returns the transaction id.
@@ -66,6 +67,9 @@ struct Tx : public std::enable_shared_from_this<Tx> {
 
     // Writable returns whether the transaction can perform write operations.
     bool Writable() const;
+    void OnCommit(std::function<void()> &&fn) {
+        commitHandlers.push_back(fn);
+    };
 
     bolt::TxStats Stats() const;
 

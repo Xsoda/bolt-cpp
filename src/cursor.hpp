@@ -16,6 +16,7 @@ struct elemRef {
     std::weak_ptr<bolt::node> node;
     int index;
 
+    elemRef(bolt::page *page, bolt::node_ptr node) : page(page), node(node){};
     elemRef(bolt::page *page, bolt::node_ptr node, int index)
         : page(page), node(node), index(index){};
     bool isLeaf() const;
@@ -39,6 +40,9 @@ struct Cursor : public std::enable_shared_from_this<Cursor> {
     void last();
     std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> next();
     void search(bolt::bytes key, bolt::pgid pgid);
+    void nsearch(bolt::bytes key);
+    void searchPage(bolt::bytes key, bolt::page *p);
+    void searchNode(bolt::bytes key, bolt::node_ptr n);
 
     std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> keyValue();
     bolt::node_ptr node() const;
