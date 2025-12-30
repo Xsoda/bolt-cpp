@@ -1,6 +1,7 @@
 #include "cursor.hpp"
 #include "node.hpp"
 #include "page.hpp"
+#include <algorithm>
 #include <cassert>
 
 namespace bolt {
@@ -170,6 +171,8 @@ void Cursor::search(bolt::bytes key, bolt::pgid pgid) {
     }
     elemRef e{p, n};
     stack.push_back(e);
+
+    // If we're on a leaf page/node then find the specific node.
     if (e.isLeaf()) {
         nsearch(key);
         return;
@@ -181,10 +184,59 @@ void Cursor::search(bolt::bytes key, bolt::pgid pgid) {
     searchPage(key, p);
 }
 
+/*
+func (c *Cursor) searchNode(key []byte, n *node) {
+        var exact bool
+        index := sort.Search(len(n.inodes), func(i int) bool {
+                // TODO(benbjohnson): Optimize this range search. It's a bit hacky right now.
+                // sort.Search() finds the lowest index where f() != -1 but we need the highest index.
+                ret := bytes.Compare(n.inodes[i].key, key) if ret == 0 {
+                        exact = true
+                }
+                return ret != -1
+        })
+        if !exact && index > 0 {
+                index--
+        }
+        c.stack[len(c.stack)-1].index = index
+
+        // Recursively search to the next page.
+        c.search(key, n.inodes[index].pgid)
+}
+*/
 void Cursor::searchNode(bolt::bytes key, bolt::node_ptr n) {
+    bool exact = false;
+    auto it = std::find_if(
+        n->inodes.begin(), n->inodes.end(), [&](bolt::inode &item) -> bool {
+          auto ret = std::lexicographical_compare_three_way(
+              item.key.begin(), item.key.end(), key.begin(), key.end());
+          if (std::is_eq(ret)) {
+            exact = true;
+          }
+          return !std::is_lt(ret);
+        });
+    auto index = std::distance(n->inodes.begin(), it);
+    if (!exact && index > 0) {
+        index--;
+    }
+    stack[stack.size() - 1].index = index;
+    search(key, n->inodes[index].pgid);
 }
 
-void Cursor::searchPage(bolt::bytes key, bolt::page *p) {}
+void Cursor::searchPage(bolt::bytes key, bolt::page *p) {
+    // Binary search for the correct range.
+    auto inodes = p->branchPageElements();
+    bool exact = false;
+    auto it = std::find_if(
+        inodes.begin(), inodes.end(), [&](bolt::inode &item) -> bool {
+          auto ret = std::lexicographical_compare_three_way(
+              item.key.begin(), item.key.end(), key.begin(), key.end());
+          if (std::is_eq(ret)) {
+              exact = true;
+          }
+          return !std::is_lt(ret);
+    })
+}
 
 void Cursor::nsearch(bolt::bytes key) {
 

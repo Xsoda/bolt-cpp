@@ -33,8 +33,8 @@ struct page {
     std::uintptr_t ptr;
 
     page() = default;
-    page(bolt::pgid id): id(id) {};
-    page(bolt::pgid id, std::uint32_t overflow): id(id), overflow(overflow) {};
+    page(bolt::pgid id): id(id), flags(0), count(0), overflow(0) {};
+    page(bolt::pgid id, std::uint32_t overflow): id(id), overflow(overflow), flags(0), count(0) {};
     std::string type() const;
     bolt::meta *meta();
     bolt::leafPageElement *leafPageElement(std::uint16_t index);

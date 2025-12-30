@@ -78,9 +78,11 @@ bolt::node_ptr node::childAt(int index) {
 }
 
 int node::childIndex(bolt::node_ptr child) {
-    auto it = std::find_if(inodes.begin(), inodes.end(), [&](bolt::inode &n) -> bool {
-        return std::equal(std::begin(child->key), std::end(child->key),
-                          std::begin(n.key), std::end(n.key));
+    auto it =
+        std::find_if(inodes.begin(), inodes.end(), [&](bolt::inode &n) -> bool {
+          auto ret = std::lexicographical_compare_three_way(std::begin(child->key), std::end(child->key),
+                                std::begin(n.key), std::end(n.key));
+          return !std::is_lt(ret);
     });
     return std::distance(inodes.begin(), it);
 }
@@ -125,9 +127,11 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
         assert("put: zero-length new key" && false);
     }
 
-    auto it = std::find_if(inodes.begin(), inodes.end(), [&](bolt::inode &item) -> bool {
-        return std::lexicographical_compare(item.key.begin(), item.key.end(),
-                                            oldKey.begin(), oldKey.end());
+    auto it = std::find_if(
+        inodes.begin(), inodes.end(), [&](bolt::inode &item) -> bool {
+          auto ret = std::lexicographical_compare_three_way(
+              item.key.begin(), item.key.end(), oldKey.begin(), oldKey.end());
+          return !std::is_lt(ret);
     });
     auto exact = inodes.size() > 0 && it != inodes.end();
     if (!exact) {
@@ -153,9 +157,11 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
 }
 
 void node::del(bolt::bytes key) {
-    auto it = std::find_if(inodes.begin(), inodes.end(), [&](bolt::inode &item) -> bool {
-        return std::equal(key.begin(), key.end(),
-                          item.key.begin(), item.key.end());
+    auto it = std::find_if(
+        inodes.begin(), inodes.end(), [&](bolt::inode &item) -> bool {
+          auto ret = std::lexicographical_compare_three_way(
+              key.begin(), key.end(), item.key.begin(), item.key.end());
+          return !std::is_lt(ret);
     });
     if (it == inodes.end()) {
         return;

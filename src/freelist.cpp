@@ -2,6 +2,7 @@
 #include "page.hpp"
 #include <algorithm>
 #include <cassert>
+#include <iostream>
 
 namespace bolt {
 
@@ -29,7 +30,7 @@ int freelist::pending_count() {
     return count;
 }
 
-void mergepgids(std::span<bolt::pgid> dest, const std::vector<bolt::pgid> &a, const std::vector<bolt::pgid> &b) {
+void mergepgids(std::span<bolt::pgid> dest, std::span<bolt::pgid> a, std::span<bolt::pgid> b) {
     if (dest.size() < a.size() + b.size()) {
         assert("mergepgids bad length" && false);
     }
@@ -39,7 +40,7 @@ void mergepgids(std::span<bolt::pgid> dest, const std::vector<bolt::pgid> &a, co
         return;
     }
     if (b.size() == 0) {
-        std::copy(a.begin(), b.end(), dest.begin());
+        std::copy(a.begin(), a.end(), dest.begin());
         return;
     }
 
@@ -60,7 +61,7 @@ void mergepgids(std::span<bolt::pgid> dest, const std::vector<bolt::pgid> &a, co
         if (it == lead.end()) {
             break;
         }
-        lead.subspan(std::distance(lead.begin(), it));
+        lead = lead.subspan(std::distance(lead.begin(), it));
         std::swap(lead, follow);
     }
     std::copy(follow.begin(), follow.end(), dest.begin() + length);
@@ -71,10 +72,12 @@ void freelist::copyall(std::span<bolt::pgid> dest) {
     for (auto it : pending) {
         std::copy(it.second.begin(), it.second.end(), std::back_inserter(m));
     }
-    std::sort(m);
+    std::sort(m.begin(), m.end());
     mergepgids(dest, ids, m);
 }
 
+// allocate returns the starting page id of a contiguous list of pages of a
+// given size. If a contiguous block cannot be found then 0 is returned.
 bolt::pgid freelist::allocate(int n) {
     if (ids.size() == 0) {
         return 0;
@@ -85,17 +88,24 @@ bolt::pgid freelist::allocate(int n) {
         if (id <= 1) {
             assert("invalid page allocation" && 0);
         }
+        // Reset initial page if this is not contiguous.
         if (previd == 0 || id - previd != 1){
             initial = id;
         }
 
+        // If we found a contiguous block then remove it and return it.
         if (id - initial + 1 == (bolt::pgid)n) {
+            // If we're allocating off the beginning then take the fast path
+            // and just adjust the existing slice. This will use extra memory
+            // temporarily but the append() in free() will realloc the slice
+            // as is necessary.
             if (i + 1 == n) {
                 ids.erase(ids.begin(), ids.begin() + i + 1);
             } else {
-                ids.erase(ids.begin() + i + 1, ids.begin() + i + n + 1);
+                ids.erase(ids.begin() + i + 1 - n, ids.begin() + i + 1);
             }
 
+            // Remove from the free cache.
             for (bolt::pgid j = 0; j < (bolt::pgid)n; j++) {
                 auto it = cache.find(initial + j);
                 if (it != cache.end()) {
@@ -111,44 +121,53 @@ bolt::pgid freelist::allocate(int n) {
     return 0;
 }
 
+// free releases a page and its overflow for a given transaction id.
+// If the page is already free then a panic will occur.
 void freelist::free(bolt::txid txid, page *p) {
     if (p->id <= 1) {
         assert("cannot free page 0 or 1" && true);
     }
 
-    auto it = pending.find(txid);
-    assert(it != pending.end());
-    for (bolt::pgid id = p->id; id < p->id + p->overflow; id++) {
-        auto ch = cache.find(id);
-        assert("page already freed" && ch != cache.end());
-        it->second.push_back(id);
+    // Free page and all its overflow pages.
+    auto &ids = pending[txid];
+    for (bolt::pgid id = p->id; id <= p->id + p->overflow; id++) {
+        // Verify that page is not already free.
+        auto it = cache.find(id);
+        assert("page already freed" && it == cache.end());
+
+        // Add to the freelist and cache.
+        ids.push_back(id);
         cache[id] = true;
     }
 }
 
+// release moves all page ids for a transaction id (or older) to the freelist.
 void freelist::release(bolt::txid txid) {
     std::vector<bolt::pgid> m, merge;
     for (auto &[key, value] : pending) {
         if (key <= txid) {
+            // Move transaction's pending pages to the available freelist.
+            // Don't remove from the cache since the page is still free.
             std::copy(value.begin(), value.end(), std::back_inserter(m));
         }
     }
-    std::erase_if(pending, [](const auto &item) {
+    std::erase_if(pending, [=](const auto &item) {
         const auto &[key, value] = item;
         return key <= txid;
     });
     std::sort(m.begin(), m.end());
     merge.assign(m.size() + ids.size(), 0);
-    mergepgids(std::span<bolt::pgid>(merge), ids, m);
+    mergepgids(merge, ids, m);
     ids = merge;
 }
 
 void freelist::rollback(bolt::txid txid) {
     auto it = pending.find(txid);
     if (it != pending.end()) {
-        std::erase_if(cache, [](const auto &item) {
+        auto container = it->second;
+        std::erase_if(cache, [&](const auto &item) {
             const auto &[key, value] = item;
-            return std::ranges::contains(it->second, key);
+            return std::find(container.begin(), container.end(), key) != container.end();
         });
         pending.erase(it);
     }
@@ -176,7 +195,7 @@ void freelist::read(bolt::page *p) {
         std::span<bolt::pgid> s(&ptr[idx], count);
         ids.assign(count, 0);
         std::copy(s.begin(), s.end(), ids.begin());
-        std::sort(ids);
+        std::sort(ids.begin(), ids.end());
     }
     reindex();
 }

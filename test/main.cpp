@@ -1,10 +1,24 @@
 #include "test.hpp"
 #include <chrono>
 
-TestResult TestNodePut();
+TestResult TestPageType();
+TestResult TestMergePgid();
+TestResult TestFreelist_free();
+TestResult TestFreelist_free_overflow();
+TestResult TestFreelist_release();
+TestResult TestFreelist_allocate();
+TestResult TestFreelist_read();
+TestResult TestFreelist_write();
 
 static const std::vector<Test> tests = {
-    Test("Test Node Put", TestNodePut),
+    {"Test Page Type", TestPageType},
+    {"Test Merge Pgid", TestMergePgid},
+    {"Test Freelist free", TestFreelist_free},
+    {"Test Freelist free overflow", TestFreelist_free_overflow},
+    {"Test Freelist release", TestFreelist_release},
+    {"Test Freelist allocate", TestFreelist_allocate},
+    {"Test Freelist read", TestFreelist_read},
+    {"Test Freelist write", TestFreelist_write},
 };
 
 int main(int argc, char **argv) {

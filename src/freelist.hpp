@@ -8,6 +8,9 @@ namespace bolt {
 
 struct page;
 
+void mergepgids(std::span<bolt::pgid> dest, std::span<bolt::pgid> a,
+                std::span<bolt::pgid> b);
+
 struct freelist {
     std::vector<bolt::pgid> ids;
     std::map<bolt::txid, std::vector<bolt::pgid>> pending;
@@ -17,7 +20,7 @@ struct freelist {
     int count();
     int free_count();
     int pending_count();
-    void copyall(std::span<bolt::pgid> &dest);
+    void copyall(std::span<bolt::pgid> dest);
     bolt::pgid allocate(int n);
     void free(bolt::txid txid, bolt::page *p);
     void rollback(bolt::txid txid);
@@ -28,6 +31,5 @@ struct freelist {
     void reload(bolt::page *p);
     void reindex();
 };
-
 }
 #endif  // !__FREELIST_HPP__
