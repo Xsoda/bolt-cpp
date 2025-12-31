@@ -59,7 +59,7 @@ struct Bucket : public std::enable_shared_from_this<bolt::Bucket> {
     bolt::ErrorCode SetSequence(std::uint64_t v);
     std::tuple<std::uint64_t, bolt::ErrorCode> NextSequence();
     bolt::ErrorCode
-    ForEach(std::function<bolt::ErrorCode(bolt::bytes k, bolt::bytes v)> &&fn);
+    ForEach(std::function<bolt::ErrorCode(bolt::bytes key, bolt::bytes val)> &&fn);
     bolt::BucketStats Stats();
     void forEachPage(std::function<void(bolt::page *, int)> fn);
     void forEachPageNode(std::function<void(bolt::page *, bolt::node *, int)> &&fn);
@@ -73,6 +73,7 @@ struct Bucket : public std::enable_shared_from_this<bolt::Bucket> {
     bolt::ErrorCode spill();
     void free();
     void dereference();
+    int maxInlineBucketSize() const;
     std::tuple<bolt::page *, bolt::node_ptr> pageNode(bolt::pgid id);
     std::vector<std::byte> write();
 };

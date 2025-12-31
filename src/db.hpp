@@ -63,16 +63,18 @@ struct DB : public std::enable_shared_from_this<DB> {
     std::string path;
 
     std::uintptr_t dataref;
-    int datasz;
-    int filesz;                 // current on dist file size
+    std::uint64_t datasz;
+    std::uint64_t filesz;                 // current on dist file size
     bolt::File file;
     bolt::meta *meta0;
     bolt::meta *meta1;
-    int pageSize;
+    std::uint32_t pageSize;
     bool opened;
     bolt::TxPtr rwtx;
     std::vector<bolt::TxPtr> txs;
     std::unique_ptr<bolt::freelist> freelist;
+    std::map<bolt::page *, std::unique_ptr<std::vector<std::byte>>> pagePool;
+    std::mutex poolMutex;
     bolt::Stats stats;
 
     std::unique_ptr<bolt::batch> batch;
@@ -101,7 +103,11 @@ struct DB : public std::enable_shared_from_this<DB> {
     bolt::page *page(bolt::pgid id);
     bolt::page *pageInBuffer(bolt::bytes b, bolt::pgid id);
     std::tuple<bolt::page *, bolt::ErrorCode> allocate(int count);
-    bolt::ErrorCode grow(int sz);
+    bolt::ErrorCode grow(std::uint64_t sz);
+    bolt::ErrorCode mmap(std::uint64_t minsz);
+    bolt::ErrorCode munmap();
+    void releasePage(bolt::page *p);
+    std::tuple<std::uint64_t, bolt::ErrorCode> mmapSize(std::uint64_t size);
     bool IsReadOnly() const { return readOnly; };
 
     std::tuple<bolt::TxPtr, bolt::ErrorCode> Begin(bool writable);
@@ -109,6 +115,7 @@ struct DB : public std::enable_shared_from_this<DB> {
     std::tuple<bolt::TxPtr, bolt::ErrorCode> beginRWTx();
     void removeTx(bolt::TxPtr tx);
     bolt::Info Info() const;
+
 
     bolt::ErrorCode Update(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn);
     bolt::ErrorCode Batch(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn);

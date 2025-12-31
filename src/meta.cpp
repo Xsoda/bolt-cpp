@@ -55,15 +55,15 @@ std::uint64_t meta::sum64() {
     return fnv64::fnv1a_hash(buf, len);
 }
 
-int meta::validate() {
+bolt::ErrorCode meta::validate() {
     if (this->magic != bolt::magic) {
-        return -1;
+        return bolt::ErrorCode::ErrorDatabaseInvalid;
     } else if (this->version != bolt::version) {
-        return -1;
+        return bolt::ErrorCode::ErrorVersionMismatch;
     } else if (this->checksum != 0 && this->checksum != this->sum64()) {
-        return -1;
+        return bolt::ErrorCode::ErrorChecksum;
     }
-    return 0;
+    return bolt::ErrorCode::Success;
 }
 
 }

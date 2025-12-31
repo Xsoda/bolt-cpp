@@ -9,6 +9,7 @@
 #include "async.hpp"
 #include <cassert>
 #include <tuple>
+#include <type_traits>
 #include <unistd.h>
 
 namespace bolt {
@@ -238,9 +239,9 @@ bolt::meta *DB::meta() {
     }
 
     // Use higher meta page if valid. Otherwise fallback to previous, if valid.
-    if (!metaA->validate()) {
+    if (metaA->validate() == bolt::ErrorCode::Success) {
         return metaA;
-    } else if (!metaB->validate()) {
+    } else if (metaB->validate() == bolt::ErrorCode::Success) {
         return metaB;
     }
 
@@ -260,7 +261,7 @@ bolt::page *DB::pageInBuffer(bolt::bytes b, bolt::pgid id) {
 }
 
 // grow grows the size of the database to the given sz.
-bolt::ErrorCode DB::grow(int sz) {
+bolt::ErrorCode DB::grow(std::uint64_t sz) {
     if (sz < filesz) {
         return bolt::ErrorCode::Success;
     }
@@ -289,4 +290,137 @@ bolt::ErrorCode DB::grow(int sz) {
     return bolt::ErrorCode::Success;
 }
 
+// allocate returns a contiguous block of memory starting at a given page.
+std::tuple<bolt::page *, bolt::ErrorCode> DB::allocate(int count) {
+    // Allocate a temporary buffer for the page.
+    std::lock_guard<std::mutex> lock(poolMutex);
+    auto buf = std::make_unique<std::vector<std::byte>>();
+    buf->assign(count * pageSize, std::byte(0));
+    bolt::page *p = reinterpret_cast<bolt::page *>(&(*buf)[0]);
+    p->overflow = std::uint32_t(count - 1);
+
+    // Use pages from the freelist if they are available.
+    p->id = freelist->allocate(count);
+    if (p->id != 0) {
+        pagePool.insert(std::make_pair(p, std::move(buf)));
+        return std::make_tuple(p, bolt::ErrorCode::Success);
+    }
+
+    // Resize mmap() if we're at the end.
+    p->id = rwtx->meta.pgid;
+    auto minsz = (p->id + count + 1) * pageSize;
+    if (minsz >= datasz) {
+        auto err = mmap(minsz);
+        if (err != bolt::ErrorCode::Success) {
+            return std::make_tuple(nullptr, err);
+        }
+    }
+
+    // Move the page id high water mark.
+    rwtx->meta.pgid += bolt::pgid(count);
+    pagePool.insert(std::make_pair(p, std::move(buf)));
+    return std::make_tuple(p, bolt::ErrorCode::Success);
+}
+
+void DB::releasePage(bolt::page *p) {
+    std::lock_guard<std::mutex> lock(poolMutex);
+    auto it = pagePool.find(p);
+    if (it != pagePool.end()) {
+        pagePool.erase(it);
+    }
+}
+
+bolt::ErrorCode DB::mmap(std::uint64_t minsz) {
+    std::unique_lock<std::shared_mutex> lock(mmaplock);
+    auto [size, err] = file.Size();
+    if (err != bolt::ErrorCode::Success) {
+        return err;
+    } else if (size < pageSize * 2) {
+        return bolt::ErrorCode::ErrorFileSizeTooSmall;
+    }
+
+    // Ensure the size is at least the minimum size.
+    if (size < std::uint64_t(minsz)) {
+        size = std::uint64_t(minsz);
+    }
+
+    std::tie(size, err) = mmapSize(size);
+    if (err != bolt::ErrorCode::Success) {
+        return err;
+    }
+
+    // Dereference all mmap references before unmapping.
+    if (rwtx != nullptr) {
+        rwtx->root->dereference();
+    }
+
+    // Unmap existing data before continuing.
+    err = munmap();
+    if (err != bolt::ErrorCode::Success) {
+        return err;
+    }
+
+    // Memory-map the data file as a byte slice.
+    std::uintptr_t ptr;
+    std::tie(ptr, err) = file.Mmap(size);
+    if (err != bolt::ErrorCode::Success) {
+        return err;
+    }
+    dataref = ptr;
+    datasz = size;
+
+    // Save references to the meta pages.
+    meta0 = page(0)->meta();
+    meta1 = page(1)->meta();
+
+    // Validate the meta pages. We only return an error if both meta pages fail
+    // validation, since meta0 failing validation means that it wasn't saved
+    // properly -- but we can recover using meta1. And vice-versa.
+    auto err0 = meta0->validate();
+    auto err1 = meta1->validate();
+    if (err0 != bolt::ErrorCode::Success && err1 != bolt::ErrorCode::Success) {
+        return err0;
+    }
+    return bolt::ErrorCode::Success;
+}
+
+// munmap unmaps the data file from memory.
+bolt::ErrorCode DB::munmap() {
+    auto err = file.Munmap(dataref);
+    if (err != bolt::ErrorCode::Success) {
+        return err;
+    }
+    dataref = 0;
+    datasz = 0;
+    return bolt::ErrorCode::Success;
+}
+
+// mmapSize determines the appropriate size for the mmap given the current size
+// of the database. The minimum size is 32KB and doubles until it reaches 1GB.
+// Returns an error if the new mmap size is greater than the max allowed.
+std::tuple<std::uint64_t, bolt::ErrorCode> DB::mmapSize(std::uint64_t size) {
+    // Double the size from 32KB until 1GB.
+    for (std::uint32_t i = std::uint32_t(15); i <= 30; i++) {
+        if (size <= 1 << i) {
+            return std::make_tuple(1 << i, bolt::ErrorCode::Success);
+        }
+    }
+
+    // Verify the requested size is not above the maximum allowed.
+    if (size > bolt::maxMapSize) {
+        return std::make_tuple(0, bolt::ErrorCode::ErrorMmapTooLarge);
+    }
+
+    // Ensure that the mmap size is a multiple of the page size.
+    // This should always be true since we're incrementing in MBs.
+    if (size % std::uint64_t(pageSize) != 0) {
+        size = ((size / pageSize) + 1) * pageSize;
+    }
+
+    // If we've exceeded the max size then only grow up to the max size.
+    if (size > bolt::maxMapSize) {
+        size = bolt::maxMapSize;
+    }
+    return std::make_tuple(size, bolt::ErrorCode::Success);
+}
 }

@@ -24,7 +24,7 @@ struct meta {
     void copy(bolt::meta *dest) const;
     void write(bolt::page *page);
     std::uint64_t sum64();
-    int validate();
+    bolt::ErrorCode validate();
 };
 
 }

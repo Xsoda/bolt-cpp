@@ -45,11 +45,12 @@ TxStats &TxStats::operator+=(const TxStats &other) {
     return *this;
 }
 
-Tx::Tx(bolt::DBPtr db, bolt::meta meta) : root(std::make_shared<bolt::Bucket>(shared_from_this())), db(db), meta(meta) {}
+Tx::Tx(bolt::DBPtr db, bolt::meta meta) : db(db), meta(meta) {}
 
-Tx::Tx() : root(std::make_shared<bolt::Bucket>(shared_from_this())) {}
+Tx::Tx() {}
 
-Tx::Tx(std::shared_ptr<bolt::DB> db, bool writable): root(std::make_shared<bolt::Bucket>(shared_from_this())), db(db), writable(writable) {
+Tx::Tx(std::shared_ptr<bolt::DB> db, bool writable)
+    : db(db), writable(writable) {
     db->meta()->copy(&meta);
     root->bucket = meta.root;
     if (writable) {
@@ -112,6 +113,7 @@ bolt::ErrorCode Tx::writeMeta() {
 }
 
 bolt::ErrorCode Tx::write() {
+    // Sort pages by id.
     std::vector<bolt::page *> pages;
     auto dbptr = db.lock();
     if (!dbptr) {
@@ -121,40 +123,55 @@ bolt::ErrorCode Tx::write() {
     for (auto [key, value] : this->pages) {
         pages.push_back(value);
     }
+
+    // Clear out page cache early.
     this->pages.clear();
 
     std::sort(pages.begin(), pages.end(),
               [&](bolt::page *a, bolt::page *b) { return a->id < b->id; });
 
+    // Write pages to disk in order.
     for (auto it : pages) {
         auto size = int(it->overflow + 1) * dbptr->pageSize;
         auto offset = std::int64_t(it->id) * dbptr->pageSize;
 
+        // Write out page in "max allocation" sized chunks.
         auto ptr = reinterpret_cast<std::byte *>(it);
         while (true) {
+            // Limit our write to our max allocation size.
             auto sz = size;
             if (sz > bolt::maxAllocSize - 1) {
                 sz = bolt::maxAllocSize - 1;
             }
+            // Write chunk to disk.
             auto [_, err] = dbptr->file.WriteAt(bolt::bytes(ptr, sz), offset);
             if (err != bolt::ErrorCode::Success) {
                 return err;
             }
+            // Update statistics.
             stats.Write++;
+
+            // Exit inner for loop if we've written all the chunks.
             size -= sz;
             if (size == 0) {
                 break;
             }
+            // Otherwise move offset forward and move pointer to next chunk.
             offset += sz;
             ptr = &ptr[sz];
         }
     }
 
+    // Ignore file sync if flag is set on DB.
     if (!dbptr->NoSync) {
         auto err = dbptr->file.Fdatasync();
         if (err != bolt::ErrorCode::Success) {
             return err;
         }
+    }
+    // Put small pages back to page pool.
+    for (auto it : pages) {
+        dbptr->releasePage(it);
     }
     return bolt::ErrorCode::Success;
 }
@@ -216,8 +233,12 @@ bolt::ErrorCode Tx::Commit() {
         return err;
     }
 
+    // If strict mode is enabled then perform a consistency check.
+    // Only the first consistency error is reported in the panic.
     if (dbptr->StrictMode) {
-        // TODO
+        auto result = Check();
+        auto errors = result.get();
+        assert("check fail" && errors.empty());
     }
 
     err = writeMeta();
@@ -280,6 +301,132 @@ void Tx::close() {
 
     dbptr.reset();
     pages.clear();
+}
+
+// allocate returns a contiguous block of memory starting at a given page.
+std::tuple<bolt::page *, bolt::ErrorCode> Tx::allocate(int count) {
+    auto dbptr = db.lock();
+    if (!dbptr) {
+        return std::make_tuple(nullptr, bolt::ErrorCode::ErrorTxClosed);
+    }
+    auto [p, err] = dbptr->allocate(count);
+    pages[p->id] = p;
+    stats.PageCount++;
+    stats.PageAlloc += count * dbptr->pageSize;
+    return std::make_tuple(p, bolt::ErrorCode::Success);
+}
+
+std::future<std::vector<std::string>> Tx::Check() {
+    auto fn = [this]() -> std::vector<std::string> {
+      std::map<bolt::pgid, bool> freed;
+      std::vector<bolt::pgid> all;
+      std::vector<std::string> errors;
+      char buf[1024];
+      auto dbptr = db.lock();
+      if (!dbptr) {
+        errors.push_back("tx already closed");
+        return errors;
+      }
+      // Check if any pages are double freed.
+      all.assign(dbptr->freelist->count(), bolt::pgid(0));
+      dbptr->freelist->copyall(all);
+      for (auto item : all) {
+        auto it = freed.find(item);
+        if (it != freed.end()) {
+          snprintf(buf, sizeof(buf), "page %ld: already freed", item);
+          errors.push_back(buf);
+        }
+        freed[item] = true;
+      }
+      // Track every reachable page.
+      std::map<bolt::pgid, bolt::page *> reachable;
+      reachable[0] = page(0);
+      reachable[1] = page(1);
+      for (std::uint32_t i = 0; i <= page(meta.freelist)->overflow; i++) {
+        reachable[meta.freelist + i] = page(meta.freelist);
+      }
+
+      // Recursively check buckets.
+      checkBucket(root, reachable, freed, errors);
+
+      // Ensure all pages below high water mark are either reachable or freed.
+      for (bolt::pgid i = 0; i < meta.pgid; i++) {
+        auto it = reachable.find(i);
+        auto itf = freed.find(i);
+        if (it == reachable.end() && itf == freed.end()) {
+          snprintf(buf, sizeof(buf), "page %ld: unreachable unfreed", i);
+        }
+      }
+      return errors;
+    };
+    return std::async(fn);
+}
+
+void Tx::checkBucket(bolt::BucketPtr bucket,
+                     std::map<bolt::pgid, bolt::page *> &reachable,
+                     std::map<bolt::pgid, bool> &freed,
+                     std::vector<std::string> &errors) {
+    // Ignore inline buckets.
+    if (bucket->bucket.root == 0) {
+        return;
+    }
+    auto txptr = bucket->tx.lock();
+    if (!txptr) {
+        return;
+    }
+
+    // Check every page used by this bucket.
+    txptr->forEachPage(bucket->bucket.root, 0, [&](bolt::page *p, int depth) {
+        char buf[1024];
+        if (p->id > txptr->meta.pgid) {
+            snprintf(buf, sizeof(buf), "page %d: out of bounds: %d", (int)p->id,
+                     (int)txptr->meta.pgid);
+            errors.push_back(buf);
+        }
+        // Ensure each page is only referenced once.
+        for (bolt::pgid i = 0; i <= p->overflow; i++) {
+            auto id = p->id + 1;
+            auto it = reachable.find(id);
+            if (it != reachable.end()) {
+                snprintf(buf, sizeof(buf), "page %d: multiple references", (int)id);
+                errors.push_back(buf);
+            }
+            reachable[id] = p;
+        }
+
+        // We should only encounter un-freed leaf and branch pages.
+        auto it = freed.find(p->id);
+        if (it != freed.end()) {
+            snprintf(buf, sizeof(buf), "page %d: reachable freed", (int)p->id);
+            errors.push_back(buf);
+        } else if ((p->flags & bolt::branchPageFlag) == 0 &&
+                   (p->flags & bolt::leafPageFlag) == 0) {
+            snprintf(buf, sizeof(buf), "page %d: invalid type: %s", (int)p->id,
+                     p->type().c_str());
+            errors.push_back(buf);
+        }
+    });
+
+    // Check each bucket within this bucket.
+    bucket->ForEach([&](bolt::bytes key, bolt::bytes val) -> bolt::ErrorCode {
+        return bolt::ErrorCode::Success;
+    });
+}
+
+void Tx::forEachPage(bolt::pgid pgid, int depth,
+                     std::function<void(bolt::page *, int)> fn) {
+    auto p = page(pgid);
+
+    // Execute function.
+    fn(p, depth);
+
+    // Recursively loop over children.
+    if (p->flags & bolt::branchPageFlag) {
+        for (std::uint16_t i = 0; i < p->count; i++) {
+            auto elem = p->branchPageElement(i);
+            forEachPage(elem->pgid, depth + 1, fn);
+        }
+    }
 }
 
 }

@@ -7,6 +7,7 @@
 #include "meta.hpp"
 #include <functional>
 #include <memory>
+#include <future>
 
 namespace bolt {
 
@@ -83,7 +84,14 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     bolt::ErrorCode Rollback();
     void rollback();
     void close();
-    std::tuple<bolt::page*, bolt::ErrorCode> allocate(int count);
+    std::tuple<bolt::page *, bolt::ErrorCode> allocate(int count);
+    std::future<std::vector<std::string>> Check();
+    void checkBucket(bolt::BucketPtr bucket,
+                     std::map<bolt::pgid, bolt::page *> &reachable,
+                     std::map<bolt::pgid, bool> &freed,
+                     std::vector<std::string> &errors);
+    void forEachPage(bolt::pgid pgid, int depth,
+                     std::function<void(bolt::page *, int)> fn);
 };
 
 }

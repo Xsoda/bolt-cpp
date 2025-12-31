@@ -122,7 +122,13 @@ bolt::node_ptr node::prevSibling() {
 void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
                bolt::pgid pgid, std::uint32_t flags) {
     auto bptr = bucket.lock();
+    if (!bptr) {
+        assert("bucket invalid" && false);
+    }
     auto tptr = bptr->tx.lock();
+    if (!tptr) {
+        assert("tx invalid" && false);
+    }
     if (pgid > tptr->meta.pgid) {
         assert("pgid above high water mark" && false);
     } else if (oldKey.size() <= 0) {
@@ -543,4 +549,22 @@ void node::free() {
     }
 }
 
+std::vector<bolt::node_ptr> node::split(int pageSize) {
+    std::vector<bolt::node_ptr> nodes;
+    auto node = shared_from_this();
+    while (true) {
+        // Split node into two.
+        auto [a, b] = node->splitTwo(pageSize);
+        nodes.push_back(a);
+
+        // If we can't split then exit the loop.
+        if (b == nullptr) {
+            break;
+        }
+
+        // Set node to b so it gets split on the next iteration.
+        node = b;
+    }
+    return nodes;
+}
 }
