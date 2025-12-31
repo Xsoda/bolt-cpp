@@ -7,10 +7,7 @@
 
 namespace bolt {
 
-    namespace platform {
-        struct FileImpl;
-        int Getpagesize();
-    }
+    int Getpagesize();
 
     struct File {
         explicit File();
@@ -32,7 +29,8 @@ namespace bolt {
         bolt::ErrorCode Munmap(std::uintptr_t ptr);
 
     private:
-        std::unique_ptr<platform::FileImpl> pImpl;
+        class FileImpl;
+        std::unique_ptr<FileImpl> pImpl;
     };
 
 }

@@ -19,7 +19,7 @@ DB::DB() {
 
 bolt::ErrorCode DB::init() {
     // Set the page size to the OS page size.
-    pageSize = platform::Getpagesize();
+    pageSize = bolt::Getpagesize();
 
     // Create two meta pages on a buffer.
     std::vector<std::byte> buf;
