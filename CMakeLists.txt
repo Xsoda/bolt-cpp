@@ -29,14 +29,23 @@ endif()
 target_sources(${PROJECT_NAME}
   PRIVATE
   src/page.cpp
+  src/page.hpp
   src/meta.cpp
+  src/meta.hpp
   src/freelist.cpp
+  src/freelist.hpp
   src/bucket.cpp
+  src/bucket.hpp
   src/tx.cpp
+  src/tx.hpp
   src/db.cpp
+  src/db.hpp
   src/node.cpp
+  src/node.hpp
   src/batch.cpp
+  src/batch.hpp
   src/file.cpp
+  src/file.hpp
 )
 
 target_sources(${PROJECT_NAME}

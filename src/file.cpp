@@ -18,9 +18,9 @@ struct File::FileImpl {
     FileImpl() : file(INVALID_HANDLE_VALUE), lockfile(INVALID_HANDLE_VALUE) {};
     ~FileImpl();
     std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf,
-                                                      std::uint64_t offset);
+                                                       std::uint64_t offset);
     std::tuple<std::uint64_t, bolt::ErrorCode> ReadAt(bolt::bytes buf,
-                                                     std::uint64_t offset);
+                                                      std::uint64_t offset);
     bolt::ErrorCode Fdatasync();
     bolt::ErrorCode Fsync();
     bolt::ErrorCode Flock(bool exclusive, std::chrono::milliseconds timeout);
@@ -227,9 +227,9 @@ struct File::FileImpl {
     FileImpl() : ptr(NULL), fd(-1), size(0){};
     ~FileImpl();
     std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf,
-                                                      std::uint64_t offset);
+                                                       std::uint64_t offset);
     std::tuple<std::uint64_t, bolt::ErrorCode> ReadAt(bolt::bytes buf,
-                                                     std::uint64_t offset);
+                                                      std::uint64_t offset);
     bolt::ErrorCode Fdatasync();
     bolt::ErrorCode Fsync();
     bolt::ErrorCode Flock(bool exclusive, std::chrono::milliseconds timeout);
@@ -306,7 +306,7 @@ bolt::ErrorCode File::FileImpl::Truncate(std::uint64_t size) {
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode FileImpl::Close() {
+bolt::ErrorCode File::FileImpl::Close() {
     if (close(fd)) {
         return bolt::ErrorCode::ErrorSystemCall;
     }
@@ -400,12 +400,12 @@ File::~File() {
 };
 
 std::tuple<std::uint64_t, bolt::ErrorCode> File::WriteAt(bolt::bytes buf,
-                                                        std::uint64_t offset) {
+                                                         std::uint64_t offset) {
     return pImpl->WriteAt(buf, offset);
 }
 
 std::tuple<std::uint64_t, bolt::ErrorCode> File::ReadAt(bolt::bytes buf,
-                                                 std::uint64_t offset) {
+                                                        std::uint64_t offset) {
     return pImpl->ReadAt(buf, offset);
 }
 
