@@ -41,7 +41,7 @@ struct Bucket : public std::enable_shared_from_this<bolt::Bucket> {
     std::map<bolt::pgid, bolt::node_ptr> nodes;
     float FillPercent;
 
-    Bucket(bolt::TxPtr tx);
+    explicit Bucket(bolt::TxPtr tx);
     bolt::TxPtr Tx() const;
     bolt::pgid Root() const;
     bool Writable() const;

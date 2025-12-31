@@ -4,6 +4,8 @@
 #include "common.hpp"
 #include "tx.hpp"
 #include "file.hpp"
+#include "freelist.hpp"
+#include "batch.hpp"
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
@@ -30,11 +32,31 @@ struct Info {
 };
 
 struct DB : public std::enable_shared_from_this<DB> {
+    // When enabled, the database will perform a Check() after every commit.
+    // A panic is issued if the database is in an inconsistent state. This
+    // flag has a large performance impact so it should only be used for
+    // debugging purposes.
     bool StrictMode;
     bool NoSync;
     bool NoGrowSync;
+    // MaxBatchSize is the maximum size of a batch. Default value is
+    // copied from DefaultMaxBatchSize in Open.
+    //
+    // If <=0, disables batching.
+    //
+    // Do not change concurrently with calls to Batch.
     int MaxBatchSize;
+    // MaxBatchDelay is the maximum delay before a batch starts.
+    // Default value is copied from DefaultMaxBatchDelay in Open.
+    //
+    // If <=0, effectively disables batching.
+    //
+    // Do not change concurrently with calls to Batch.
     std::chrono::milliseconds MaxBatchDelay;
+
+    // AllocSize is the amount of space allocated when the database
+    // needs to create new pages. This is done to amortize the cost
+    // of truncate() and fsync() when growing the data file.
     int AllocSize;
     int MmapFlags;
 
@@ -42,7 +64,7 @@ struct DB : public std::enable_shared_from_this<DB> {
 
     std::uintptr_t dataref;
     int datasz;
-    int filesz;
+    int filesz;                 // current on dist file size
     bolt::File file;
     bolt::meta *meta0;
     bolt::meta *meta1;
@@ -56,13 +78,17 @@ struct DB : public std::enable_shared_from_this<DB> {
     std::unique_ptr<bolt::batch> batch;
     std::mutex batchMu;
 
-    std::mutex rwlock;
-    std::mutex metalock;
-    std::shared_mutex mmaplock;
-    std::shared_mutex statlock;
+    std::mutex rwlock;          // Allows only one writer at a time.
+    std::mutex metalock;        // Protects meta page access.
+    std::shared_mutex mmaplock; // Protects mmap access during remapping.
+    std::shared_mutex statlock; // Protects stats access.
 
+    // Read only mode.
+    // When true, Update() and Begin(true) return ErrDatabaseReadOnly
+    // immediately.
     bool readOnly;
 
+    explicit DB();
     bolt::ErrorCode init();
     std::string Path() const;
     bolt::ErrorCode Open(std::string path);

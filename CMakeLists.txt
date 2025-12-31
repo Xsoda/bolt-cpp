@@ -11,6 +11,12 @@ target_sources(${PROJECT_NAME}
   src/page.cpp
   src/meta.cpp
   src/freelist.cpp
+  src/bucket.cpp
+  src/tx.cpp
+  src/db.cpp
+  src/node.cpp
+  src/batch.cpp
+  src/file.cpp
 )
 
 target_sources(${PROJECT_NAME}
@@ -18,6 +24,7 @@ target_sources(${PROJECT_NAME}
   test/main.cpp
   test/page_test.cpp
   test/freelist_test.cpp
+  test/node_test.cpp
   test/test.hpp
 )
 

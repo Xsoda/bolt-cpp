@@ -21,6 +21,10 @@ node::node(bolt::BucketPtr bucket, bool isLeaf, bolt::node_ptr parent) {
     this->isLeaf = isLeaf;
 }
 
+node::node(bolt::BucketPtr bucket) {
+    this->bucket = bucket;
+}
+
 
 bolt::node_ptr node::root() {
     if (parent.expired()) {

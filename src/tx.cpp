@@ -45,6 +45,8 @@ TxStats &TxStats::operator+=(const TxStats &other) {
     return *this;
 }
 
+Tx::Tx(bolt::DBPtr db, bolt::meta meta) : root(std::make_shared<bolt::Bucket>(shared_from_this())), db(db), meta(meta) {}
+
 Tx::Tx() : root(std::make_shared<bolt::Bucket>(shared_from_this())) {}
 
 Tx::Tx(std::shared_ptr<bolt::DB> db, bool writable): root(std::make_shared<bolt::Bucket>(shared_from_this())), db(db), writable(writable) {

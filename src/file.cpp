@@ -20,6 +20,7 @@ struct FileImpl {
     std::tuple<std::uint64_t, bolt::ErrorCode> ReadAt(bolt::bytes buf,
                                                      std::uint64_t offset);
     bolt::ErrorCode Fdatasync();
+    bolt::ErrorCode Fsync();
     bolt::ErrorCode Flock(bool exclusive, std::chrono::milliseconds timeout);
     bolt::ErrorCode Funlock();
     bolt::ErrorCode Open(std::string path, bool readOnly);
@@ -164,6 +165,10 @@ bolt::ErrorCode FileImpl::Fdatasync() {
     return bolt::ErrorCode::Success;
 }
 
+bolt::ErrorCode FileImpl::Fsync() {
+    return Fdatasync();
+}
+
 std::tuple<std::uintptr_t, bolt::ErrorCode> FileImpl::Mmap(std::uint64_t size) {
     DWORD sizelo = (DWORD)(size >> 32);
     DWORD sizehi = (DWORD)(size & 0xFFFFFFFF);
@@ -214,6 +219,7 @@ struct FileImpl {
     std::tuple<std::uint64_t, bolt::ErrorCode> ReadAt(bolt::bytes buf,
                                                      std::uint64_t offset);
     bolt::ErrorCode Fdatasync();
+    bolt::ErrorCode Fsync();
     bolt::ErrorCode Flock(bool exclusive, std::chrono::milliseconds timeout);
     bolt::ErrorCode Funlock();
     bolt::ErrorCode Open(std::string path, bool readOnly);
@@ -353,6 +359,14 @@ bolt::ErrorCode FileImpl::Fdatasync() {
     return bolt::ErrorCode::Success;
 }
 
+bolt::ErrorCode FileImpl::Fsync() {
+    int ret = fsync(fd);
+    if (ret) {
+        return bolt::ErrorCode::ErrorSystemCall;
+    }
+    return bolt::ErrorCode::Success;
+}
+
 std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::Size() {
     struct stat buf;
     int ret = fstat(fd, &buf);
@@ -367,9 +381,10 @@ std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::Size() {
 
 namespace bolt {
 
-File::File() : pImpl(std::make_unique<platform::FileImpl>()) {
-
+File::File() : pImpl(std::make_unique<bolt::platform::FileImpl>()) {
 }
+
+File::~File() = default;
 
 std::tuple<std::uint64_t, bolt::ErrorCode> File::WriteAt(bolt::bytes buf,
                                                         std::uint64_t offset) {
@@ -382,6 +397,8 @@ std::tuple<std::uint64_t, bolt::ErrorCode> File::ReadAt(bolt::bytes buf,
 }
 
 bolt::ErrorCode File::Fdatasync() { return pImpl->Fdatasync(); }
+
+bolt::ErrorCode File::Fsync() { return pImpl->Fsync(); }
 
 bolt::ErrorCode File::Flock(bool exclusive, std::chrono::milliseconds timeout) {
     return pImpl->Flock(exclusive, timeout);

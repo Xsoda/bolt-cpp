@@ -33,9 +33,10 @@ struct node : public std::enable_shared_from_this<node> {
     std::vector<bolt::inode> inodes;
     std::vector<std::byte> memory;
 
-    node() {};
-    node(bolt::BucketPtr bucket, bool isLeaf, bolt::node_ptr parent);
-    node(bolt::BucketPtr bucket, std::initializer_list<bolt::node_ptr> children);
+    explicit node(){};
+    explicit node(bolt::BucketPtr bucket);
+    explicit node(bolt::BucketPtr bucket, bool isLeaf, bolt::node_ptr parent);
+    explicit node(bolt::BucketPtr bucket, std::initializer_list<bolt::node_ptr> children);
 
     // root returns the top-level node this node is attached to.
     bolt::node_ptr root();

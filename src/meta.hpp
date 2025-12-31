@@ -19,7 +19,8 @@ struct meta {
     bolt::txid txid;
     std::uint64_t checksum;
 
-    meta(bolt::pgid id) : pgid(id){};
+    explicit meta();
+    explicit meta(bolt::pgid id);
     void copy(bolt::meta *dest) const;
     void write(bolt::page *page);
     std::uint64_t sum64();

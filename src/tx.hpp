@@ -53,9 +53,10 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     int WriteFlag;
 
     explicit Tx();
-    explicit Tx(bolt::meta meta) : meta(meta) {};
+    explicit Tx(bolt::meta meta) : meta(meta){};
+    explicit Tx(bolt::DBPtr db, bolt::meta meta);
     // init initializes the transaction.
-    explicit Tx(std::shared_ptr<bolt::DB> db, bool writable);
+    explicit Tx(bolt::DBPtr db, bool writable);
     // ID returns the transaction id.
     int ID() const;
 

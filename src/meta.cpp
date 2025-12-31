@@ -1,9 +1,36 @@
 #include "meta.hpp"
+#include "common.hpp"
 #include "page.hpp"
 #include "fnv64.hpp"
 #include <cassert>
 
 namespace bolt {
+
+meta::meta() {
+    magic = bolt::magic;
+    version = bolt::version;
+    pageSize = bolt::defaultPageSize;
+    flags = 0;
+    root.root = 0;
+    root.sequence = 0;
+    freelist = 0;
+    pgid = 0;
+    txid = 0;
+    checksum = 0;
+}
+
+meta::meta(bolt::pgid id) {
+    magic = bolt::magic;
+    version = bolt::version;
+    pageSize = bolt::defaultPageSize;
+    flags = 0;
+    root.root = 0;
+    root.sequence = 0;
+    freelist = 0;
+    pgid = id;
+    txid = 0;
+    checksum = 0;
+}
 
 void meta::copy(bolt::meta *dest) const {
     *dest = *this;

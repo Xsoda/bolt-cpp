@@ -9,6 +9,12 @@ TestResult TestFreelist_release();
 TestResult TestFreelist_allocate();
 TestResult TestFreelist_read();
 TestResult TestFreelist_write();
+TestResult TestNode_put();
+TestResult TestNode_read_LeafPage();
+TestResult TestNode_write_LeafPage();
+TestResult TestNode_split();
+TestResult TestNode_split_MinKeys();
+TestResult TestNode_split_SinglePage();
 
 static const std::vector<Test> tests = {
     {"Test Page Type", TestPageType},
@@ -19,6 +25,12 @@ static const std::vector<Test> tests = {
     {"Test Freelist allocate", TestFreelist_allocate},
     {"Test Freelist read", TestFreelist_read},
     {"Test Freelist write", TestFreelist_write},
+    {"Test Node put", TestNode_put},
+    {"Test Node read_LeafPage", TestNode_read_LeafPage},
+    {"Test Node write_LeafPage", TestNode_write_LeafPage},
+    {"Test Node split", TestNode_split},
+    {"Test Node split_MinKeys", TestNode_split_MinKeys},
+    {"Test Node split_SinglePage", TestNode_split_SinglePage},
 };
 
 int main(int argc, char **argv) {
