@@ -7,6 +7,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <iterator>
+#include <iostream>
 
 namespace bolt {
 
@@ -137,19 +138,26 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
         assert("put: zero-length new key" && false);
     }
 
+    // Find insertion index.
     auto it = std::find_if(
         inodes.begin(), inodes.end(), [&](bolt::inode &item) -> bool {
           auto ret = std::lexicographical_compare_three_way(
               item.key.begin(), item.key.end(), oldKey.begin(), oldKey.end());
           return !std::is_lt(ret);
-    });
-    auto exact = inodes.size() > 0 && it != inodes.end();
-    if (!exact) {
-        inodes.insert(it, bolt::inode{});
-    } else {
-        inodes.push_back(bolt::inode{});
-    }
-    auto index = std::distance(inodes.begin(), it);
+        });
+    int index = std::distance(inodes.begin(), it);
+
+    // Add capacity and shift nodes if we don't have an exact match and need to
+    // insert.
+    // auto exact = inodes.size() > 0 && index < inodes.size() &&
+    //              std::lexicographical_compare(inodes[index].key.begin(),
+    //                                           inodes[index].key.end(),
+    //                                           oldKey.begin(), oldKey.end());
+
+    // if (!exact) {
+    //     inodes.push_back(bolt::inode{});
+    // }
+    inodes.insert(inodes.begin() + index, bolt::inode{});
     bolt::inode &inode = inodes[index];
     inode.flags = flags;
 
