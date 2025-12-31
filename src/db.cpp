@@ -400,7 +400,7 @@ bolt::ErrorCode DB::munmap() {
 std::tuple<std::uint64_t, bolt::ErrorCode> DB::mmapSize(std::uint64_t size) {
     // Double the size from 32KB until 1GB.
     for (std::uint32_t i = std::uint32_t(15); i <= 30; i++) {
-        if (size <= 1 << i) {
+        if (size <= std::uint64_t(1) << i) {
             return std::make_tuple(1 << i, bolt::ErrorCode::Success);
         }
     }

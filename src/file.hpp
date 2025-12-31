@@ -29,7 +29,7 @@ namespace bolt {
         bolt::ErrorCode Munmap(std::uintptr_t ptr);
 
     private:
-        class FileImpl;
+        struct FileImpl;
         std::unique_ptr<FileImpl> pImpl;
     };
 

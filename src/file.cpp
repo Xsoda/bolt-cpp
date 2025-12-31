@@ -70,6 +70,16 @@ File::FileImpl::~FileImpl() {
     }
 }
 
+std::tuple<std::uint64_t, bolt::ErrorCode> File::FileImpl::WriteAt(bolt::bytes buf,
+    std::uint64_t offset) {
+    return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
+}
+
+std::tuple<std::uint64_t, bolt::ErrorCode> File::FileImpl::ReadAt(bolt::bytes buf,
+    std::uint64_t offset) {
+    return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
+}
+
 bolt::ErrorCode File::FileImpl::Truncate(std::uint64_t size) {
     LARGE_INTEGER li;
     li.QuadPart = size;
