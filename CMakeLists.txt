@@ -12,6 +12,20 @@ endif()
 
 add_executable(${PROJECT_NAME})
 
+if(MSVC)
+  add_compile_definitions(
+    /W3
+    /utf-8
+    NOMINMAX
+    UNICODE
+    _UNICODE
+    _CRT_SECURE_NO_WARNINGS
+    _CRT_NONSTDC_NO_WARNINGS
+    $<$<CONFIG:DEBUG>:DEBUG>
+    $<$<CONFIG:DEBUG>:_DEBUG>
+)
+endif()
+
 target_sources(${PROJECT_NAME}
   PRIVATE
   src/page.cpp

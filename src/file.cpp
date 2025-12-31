@@ -1,4 +1,5 @@
 #include "file.hpp"
+#include "error.hpp"
 #include <chrono>
 #include <thread>
 
@@ -9,12 +10,13 @@ namespace bolt::platfrom {
 
 int Getpagesize() {
   SYSTEM_INFO info;
-  ::GetSystemInfo(&info);
+  GetSystemInfo(&info);
   return (int)info.dwPageSize;
 }
 
 struct FileImpl {
-    FileImpl() = default;
+    FileImpl() : file(INVALID_HANDLE_VALUE), lockfile(INVALID_HANDLE_VALUE) {};
+    ~FileImpl();
     std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf,
                                                       std::uint64_t offset);
     std::tuple<std::uint64_t, bolt::ErrorCode> ReadAt(bolt::bytes buf,
@@ -25,7 +27,7 @@ struct FileImpl {
     bolt::ErrorCode Funlock();
     bolt::ErrorCode Open(std::string path, bool readOnly);
     bolt::ErrorCode Close();
-    bool::ErrorCode Truncate(std::uint64_t size);
+    bolt::ErrorCode Truncate(std::uint64_t size);
     std::tuple<std::uint64_t, bolt::ErrorCode> Size();
     std::tuple<std::uintptr_t, bolt::ErrorCode> Mmap(std::uint64_t size);
     bolt::ErrorCode Munmap(std::uintptr_t ptr);
@@ -59,10 +61,19 @@ std::wstring str2wstr(const std::string &s) {
     return r;
 }
 
-bolt::Error FileImpl::Truncate(std::uint64_t size) {
+FileImpl::~FileImpl() {
+    if (ptr != (std::uintptr_t)nullptr) {
+        Munmap(ptr);
+    }
+    if (file != INVALID_HANDLE_VALUE) {
+        Close();
+    }
+}
+
+bolt::ErrorCode FileImpl::Truncate(std::uint64_t size) {
     LARGE_INTEGER li;
     li.QuadPart = size;
-    if (!SetFilePointerEx(file, &li, NULL, FILE_BEGIN)) {
+    if (!SetFilePointerEx(file, li, NULL, FILE_BEGIN)) {
         return bolt::ErrorCode::ErrorSystemCall;
     }
     if (!SetEndOfFile(file)) {
@@ -96,6 +107,7 @@ bolt::ErrorCode FileImpl::Open(std::string path, bool readOnly) {
 bolt::ErrorCode FileImpl::Close() {
     BOOL ret = CloseHandle(file);
     if (ret) {
+        file = INVALID_HANDLE_VALUE;
         return bolt::ErrorCode::Success;
     }
     return bolt::ErrorCode::ErrorSystemCall;
@@ -126,7 +138,7 @@ bolt::ErrorCode FileImpl::Flock(bool exclusive,
               timeout) {
           return bolt::ErrorCode::ErrorTimeout;
       }
-      BOOL ret = LockFileEx(lockfile, flag, 0, 1, 0, NULL);
+      BOOL ret = LockFileEx(lockfile, flags, 0, 1, 0, NULL);
       if (ret) {
           break;
       } else {
@@ -190,7 +202,7 @@ std::tuple<std::uintptr_t, bolt::ErrorCode> FileImpl::Mmap(std::uint64_t size) {
 
 bolt::ErrorCode FileImpl::Munmap(std::uintptr_t ptr) {
     if (UnmapViewOfFile((LPCVOID)ptr)) {
-        this->ptr = nullptr;
+        this->ptr = (std::uintptr_t)nullptr;
         return bolt::ErrorCode::Success;
     } else {
         return bolt::ErrorCode::ErrorSystemCall;
@@ -237,7 +249,7 @@ struct FileImpl {
 };
 
 FileImpl::~FileImpl() {
-    if (ptr != NULL) {
+    if (ptr != nullptr) {
         Munmap(std::uintptr_t(ptr));
     }
     if (fd != -1) {
