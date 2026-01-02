@@ -121,7 +121,7 @@ bolt::node_ptr node::prevSibling() {
 }
 
 void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
-               bolt::pgid pgid, std::uint32_t flags) {
+    bolt::pgid pgid, std::uint32_t flags) {
     auto bptr = bucket.lock();
     if (!bptr) {
         assert("bucket invalid" && false);
@@ -132,28 +132,35 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
     }
     if (pgid > tptr->meta.pgid) {
         assert("pgid above high water mark" && false);
-    } else if (oldKey.size() <= 0) {
+    }
+    else if (oldKey.size() <= 0) {
         assert("put: zero-length old key" && false);
-    } else if (newKey.size() <= 0) {
+    }
+    else if (newKey.size() <= 0) {
         assert("put: zero-length new key" && false);
     }
 
     // Find insertion index.
     auto it = std::find_if(
-        inodes.begin(), inodes.end(), [&](bolt::inode &item) -> bool {
-          auto ret = std::lexicographical_compare_three_way(
-              item.key.begin(), item.key.end(), oldKey.begin(), oldKey.end());
-          return !std::is_lt(ret);
+        inodes.begin(), inodes.end(), [&](bolt::inode& item) -> bool {
+            auto ret = std::lexicographical_compare_three_way(
+                item.key.begin(), item.key.end(), oldKey.begin(), oldKey.end());
+            return !std::is_lt(ret);
         });
     int index = std::distance(inodes.begin(), it);
 
     // Add capacity and shift nodes if we don't have an exact match and need to
     // insert.
     auto exact = inodes.size() > 0 && index < inodes.size() &&
-                 std::lexicographical_compare(inodes[index].key.begin(),
-                                              inodes[index].key.end(),
-                                              oldKey.begin(), oldKey.end());
-
+        std::is_eq(std::lexicographical_compare_three_way(inodes[index].key.begin(),
+            inodes[index].key.end(),
+            oldKey.begin(), oldKey.end()));
+    if (inodes.size() > 0 && index < inodes.size()) {
+        auto result = std::is_eq(std::lexicographical_compare_three_way(inodes[index].key.begin(),
+            inodes[index].key.end(),
+            oldKey.begin(), oldKey.end()));
+        std::cout << "compare result: " << result << std::endl;
+    }
     if (!exact) {
         inodes.insert(inodes.begin() + index, bolt::inode{});
     }
