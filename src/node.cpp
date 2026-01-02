@@ -313,10 +313,10 @@ bolt::ErrorCode node::spill() {
     // the children size on every loop iteration
     std::sort(children.begin(), children.end(),
               [](bolt::node_ptr a, bolt::node_ptr b) -> bool {
-                return std::lexicographical_compare(
-                    a->key.begin(), a->key.end(), b->key.begin(), b->key.end());
+                  auto ret = std::lexicographical_compare_three_way(a->key.begin(), a->key.end(), b->key.begin(), b->key.end());
+                  return std::is_lt(ret);
               });
-    for (int i = 0; i < children.size(); i++) {
+    for (size_t i = 0; i < children.size(); i++) {
         auto err = children[i]->spill();
         if (err != bolt::ErrorCode::Success) {
             return err;
