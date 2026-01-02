@@ -149,15 +149,14 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
 
     // Add capacity and shift nodes if we don't have an exact match and need to
     // insert.
-    // auto exact = inodes.size() > 0 && index < inodes.size() &&
-    //              std::lexicographical_compare(inodes[index].key.begin(),
-    //                                           inodes[index].key.end(),
-    //                                           oldKey.begin(), oldKey.end());
+    auto exact = inodes.size() > 0 && index < inodes.size() &&
+                 std::lexicographical_compare(inodes[index].key.begin(),
+                                              inodes[index].key.end(),
+                                              oldKey.begin(), oldKey.end());
 
-    // if (!exact) {
-    //     inodes.push_back(bolt::inode{});
-    // }
-    inodes.insert(inodes.begin() + index, bolt::inode{});
+    if (!exact) {
+        inodes.insert(inodes.begin() + index, bolt::inode{});
+    }
     bolt::inode &inode = inodes[index];
     inode.flags = flags;
 
