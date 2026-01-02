@@ -8,8 +8,8 @@
 
 template <typename A, typename B>
 bool Compare(A a, B b) {
-    return std::lexicographical_compare(a.begin(), a.end(),
-                                        b.begin(), b.end());
+    return std::is_eq(std::lexicographical_compare_three_way(a.begin(), a.end(),
+                                        b.begin(), b.end()));
 }
 
 TestResult TestNode_put() {
