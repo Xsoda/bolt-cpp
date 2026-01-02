@@ -25,7 +25,7 @@ TestResult TestNode_put() {
     std::vector<std::byte> v1 = {std::byte('1')};
     std::vector<std::byte> v2 = {std::byte('2')};
     std::vector<std::byte> v3 = {std::byte('3')};
-    n->put(bar, bar, v2, 0, 0);
+    n->put(baz, baz, v2, 0, 0);
     n->put(foo, foo, v0, 0, 0);
     n->put(bar, bar, v1, 0, 0);
     n->put(foo, foo, v3, 0, bolt::leafPageFlag);

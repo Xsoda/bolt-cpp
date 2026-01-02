@@ -153,14 +153,8 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
     // insert.
     auto exact = inodes.size() > 0 && index < inodes.size() &&
         std::is_eq(std::lexicographical_compare_three_way(inodes[index].key.begin(),
-            inodes[index].key.end(),
-            oldKey.begin(), oldKey.end()));
-    if (inodes.size() > 0 && index < inodes.size()) {
-        auto result = std::is_eq(std::lexicographical_compare_three_way(inodes[index].key.begin(),
-            inodes[index].key.end(),
-            oldKey.begin(), oldKey.end()));
-        std::cout << "compare result: " << result << std::endl;
-    }
+                                                          inodes[index].key.end(),
+                                                          oldKey.begin(), oldKey.end()));
     if (!exact) {
         inodes.insert(inodes.begin() + index, bolt::inode{});
     }
