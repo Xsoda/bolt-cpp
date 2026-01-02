@@ -191,7 +191,7 @@ void node::del(bolt::bytes key) {
 void node::read(bolt::page *p) {
     pgid = p->id;
     isLeaf = (p->flags & bolt::leafPageFlag) != 0;
-    inodes.reserve(p->count);
+    inodes.resize(p->count);
     for (int i = 0; i < p->count; i++) {
         bolt::inode &inode = inodes[i];
         if (isLeaf) {

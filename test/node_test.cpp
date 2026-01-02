@@ -93,7 +93,7 @@ TestResult TestNode_read_LeafPage() {
         return TestResult(false, "expected leaf");
     }
     std::cout << "inodes length " << n->inodes.size() << std::endl;
-    if (!n->inodes.size() != 2) {
+    if (n->inodes.size() != 2) {
         return TestResult(false, "expected inodes length is 2");
     }
     return true;
