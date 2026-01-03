@@ -12,6 +12,10 @@ bool Compare(A a, B b) {
                                         b.begin(), b.end()));
 }
 
+std::span<std::byte> to_bytes(const std::string &str) {
+    return std::span<std::byte>(reinterpret_cast<std::byte*>(str.data()), str.size());
+}
+
 TestResult TestNode_put() {
     bolt::meta meta(1);
     bolt::DBPtr db = std::make_shared<bolt::DB>();
@@ -92,17 +96,95 @@ TestResult TestNode_read_LeafPage() {
     if (!n->isLeaf) {
         return TestResult(false, "expected leaf");
     }
-    std::cout << "inodes length " << n->inodes.size() << std::endl;
     if (n->inodes.size() != 2) {
         return TestResult(false, "expected inodes length is 2");
     }
     return true;
 }
 
-TestResult TestNode_write_LeafPage() { return true; }
+TestResult TestNode_write_LeafPage() {
+    bolt::meta meta(1);
+    bolt::DBPtr db = std::make_shared<bolt::DB>();
+    bolt::TxPtr tx = std::make_shared<bolt::Tx>(db, meta);
+    bolt::BucketPtr bucket = std::make_shared<bolt::Bucket>(tx);
+    auto n = std::make_shared<bolt::node>(bucket);
+    std::string susy = "susy";
+    std::string que = "que";
+    std::string ricki = "ricki";
+    std::string lake = "lake";
+    std::string john = "john";
+    std::string johnson = "johnson";
+    std::span<std::byte> s_susy(reinterpret_cast<std::byte*>(susy.data()), susy.size());
+    std::span<std::byte> s_que(reinterpret_cast<std::byte*>(que.data()), que.size());
+    std::span<std::byte> s_ricki(reinterpret_cast<std::byte*>(ricki.data()), ricki.size());
+    std::span<std::byte> s_lake(reinterpret_cast<std::byte*>(lake.data()), lake.size());
+    std::span<std::byte> s_john(reinterpret_cast<std::byte*>(john.data()), john.size());
+    std::span<std::byte> s_johnson(reinterpret_cast<std::byte*>(johnson.data()), johnson.size());
+    n->put(s_susy, s_susy, s_que, 0, 0);
+    n->put(s_ricki, s_ricki, s_lake, 0, 0);
+    n->put(s_john, s_john, s_johnson, 0, 0);
 
-TestResult TestNode_split() { return true; }
+    std::vector<std::byte> buf;
+    buf.assign(4096, std::byte(0));
+    bolt::page *p = reinterpret_cast<bolt::page *>(buf.data());
+    n->write(p);
 
-TestResult TestNode_split_MinKeys() { return true; }
+    auto n2 = std::make_shared<bolt::node>();
+    n2->read(p);
+    if (n2->inodes.size() != 3) {
+        return TestResult(false, "expected inodes size is 3");
+    }
+    std::span<std::byte> k, v;
+    k = n2->inodes[0].key;
+    v = n2->inodes[0].value;
+    if (!Compare(k, s_john) || !Compare(v, s_johnson)) {
+        return TestResult(false, "expected inodes[0] is <john, johnson>");
+    }
 
-TestResult TestNode_split_SinglePage() { return true; }
+    k = n2->inodes[1].key;
+    v = n2->inodes[1].value;
+    if (!Compare(k, s_ricki) || !Compare(v, s_lake)) {
+        return TestResult(false, "expected inodes[1] is <ricki, lake>");
+    }
+
+    k = n2->inodes[2].key;
+    v = n2->inodes[2].value;
+    if (!Compare(k, s_susy), || !Compare(v, s_que)) {
+        return TestResult(false, "expected inodes[2] is <susy, que>");
+    }
+    return true;
+}
+
+TestResult TestNode_split() {
+    bolt::meta meta(1);
+    bolt::DBPtr db = std::make_shared<bolt::DB>();
+    bolt::TxPtr tx = std::make_shared<bolt::Tx>(db, meta);
+    bolt::BucketPtr bucket = std::make_shared<bolt::Bucket>(tx);
+    auto n = std::make_shared<bolt::node>(bucket);
+    std::string k1 = "00000001";
+    std::string k2 = "00000002";
+    std::string k3 = "00000003";
+    std::string k4 = "00000004";
+    std::string k5 = "00000005";
+    std::string v = "0123456701234567";
+
+    return true;
+}
+
+TestResult TestNode_split_MinKeys() {
+    bolt::meta meta(1);
+    bolt::DBPtr db = std::make_shared<bolt::DB>();
+    bolt::TxPtr tx = std::make_shared<bolt::Tx>(db, meta);
+    bolt::BucketPtr bucket = std::make_shared<bolt::Bucket>(tx);
+    auto n = std::make_shared<bolt::node>(bucket);
+    return true;
+}
+
+TestResult TestNode_split_SinglePage() {
+    bolt::meta meta(1);
+    bolt::DBPtr db = std::make_shared<bolt::DB>();
+    bolt::TxPtr tx = std::make_shared<bolt::Tx>(db, meta);
+    bolt::BucketPtr bucket = std::make_shared<bolt::Bucket>(tx);
+    auto n = std::make_shared<bolt::node>(bucket);
+    return true;
+}
