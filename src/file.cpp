@@ -2,6 +2,7 @@
 #include "error.hpp"
 #include <chrono>
 #include <thread>
+#include <iostream>
 
 #ifdef WIN32
 #include <windows.h>
@@ -70,14 +71,32 @@ File::FileImpl::~FileImpl() {
     }
 }
 
-std::tuple<std::uint64_t, bolt::ErrorCode> File::FileImpl::WriteAt(bolt::bytes buf,
-    std::uint64_t offset) {
-    return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
+std::tuple<std::uint64_t, bolt::ErrorCode>
+File::FileImpl::WriteAt(bolt::bytes buf, std::uint64_t offset) {
+    DWORD written;
+    LARGE_INTEGER li = {0};
+    li.QuadPart = offset;
+    if (!SetFilePointerEx(file, li, NULL, FILE_BEGIN)) {
+        return bolt::ErrorCode::ErrorSystemCall;
+    }
+    if (!WriteFile(file, buf.data(), buf.size(), &written, NULL)) {
+        return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
+    }
+    return std::make_tuple(std::uint64_t(written), bolt::ErrorCode::Success);
 }
 
-std::tuple<std::uint64_t, bolt::ErrorCode> File::FileImpl::ReadAt(bolt::bytes buf,
-    std::uint64_t offset) {
-    return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
+std::tuple<std::uint64_t, bolt::ErrorCode>
+File::FileImpl::ReadAt(bolt::bytes buf, std::uint64_t offset) {
+    DWORD readed;
+    LARGE_INTEGER li = {0};
+    li.QuadPart = offset;
+    if (!SetFilePointerEx(file, li, NULL, FILE_BEGIN)) {
+        return bolt::ErrorCode::ErrorSystemCall;
+    }
+    if (!ReadFile(file, buf.data(), buf.size(), &readed, NULL)) {
+        return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
+    }
+    return std::make_tuple(std::uint64_t(readed), bolt::ErrorCode::Success);
 }
 
 bolt::ErrorCode File::FileImpl::Truncate(std::uint64_t size) {
@@ -301,6 +320,8 @@ bolt::ErrorCode File::FileImpl::Open(std::string path, bool readOnly) {
     int flag = O_CREAT;
     if (readOnly) {
         flag |= O_RDONLY;
+    } else {
+        flag |= O_RDWR;
     }
     fd = open(path.c_str(), flag, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
     if (fd == -1) {

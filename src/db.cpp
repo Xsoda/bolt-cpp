@@ -13,8 +13,84 @@
 
 namespace bolt {
 
-DB::DB() {
+DB::DB() { freelist = std::make_unique<bolt::freelist>(); }
+
+bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
+    this->path = path;
+    NoGrowSync = false;
+    MmapFlags = 0;
+    MaxBatchSize = bolt::DefaultMaxBatchSize;
+    MaxBatchDelay = bolt::DefaultMaxBatchDelay;
+    AllocSize = bolt::DefaultAllocSize;
+    this->readOnly = readOnly;
+    auto err = file.Open(path, readOnly);
+    if (err != bolt::ErrorCode::Success) {
+        return err;
+    }
+
+    err = file.Flock(!readOnly, 0ms);
+    if (err != bolt::ErrorCode::Success) {
+        return err;
+    }
+    std::uint64_t size;
+    std::tie(size, err) = file.Size();
+    if (size == 0 && err == bolt::ErrorCode::Success) {
+        err = init();
+        return err;
+    } else {
+        std::vector<std::byte> buf;
+        buf.assign(0x1000, std::byte(0));
+        std::tie(std::ignore, err) = file.ReadAt(buf, 0);
+        auto m = pageInBuffer(buf, 0)->meta();
+        err = m->validate();
+        if (err != bolt::ErrorCode::Success) {
+            pageSize = Getpagesize();
+        } else {
+            pageSize = m->pageSize;
+        }
+    }
+
+    // Memory map the data file.
+    err = mmap(0);
+    if (err != bolt::ErrorCode::Success) {
+        Close();
+        return err;
+    }
+
+    // Read in the freelist.
     freelist = std::make_unique<bolt::freelist>();
+    freelist->read(page(meta()->freelist));
+    opened = true;
+
+    return bolt::ErrorCode::Success;
+}
+
+bolt::ErrorCode DB::Close() {
+    std::lock_guard<std::mutex> rw(rwlock);
+    std::lock_guard<std::mutex> ml(metalock);
+    std::shared_lock<std::shared_mutex> mm(mmaplock);
+    if (!opened) {
+        return bolt::ErrorCode::Success;
+    }
+    opened = false;
+    freelist.reset();
+
+    auto err = munmap();
+    if (err != bolt::ErrorCode::Success) {
+        return err;
+    }
+    // No need to unlock read-only file.
+    if (!readOnly) {
+        err = file.Funlock();
+        if (err != bolt::ErrorCode::Success) {
+        }
+    }
+    path = "";
+    return file.Close();
+}
+
+std::string DB::Path() const {
+    return path;
 }
 
 bolt::ErrorCode DB::init() {

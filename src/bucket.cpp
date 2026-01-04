@@ -161,4 +161,28 @@ std::vector<std::byte> Bucket::write() {
     return std::vector<std::byte>();
 }
 
+// pageNode returns the in-memory node, if it exists.
+// Otherwise returns the underlying page.
+std::tuple<bolt::page *, bolt::node_ptr> Bucket::pageNode(bolt::pgid id) {
+    // Inline buckets have a fake page embedded in their value so treat them
+    // differently. We'll return the rootNode (if available) or the fake page.
+    if (bucket.root == 0) {
+        assert("inline bucket non-zero page access" && id != 0);
+        if (rootNode) {
+            return std::make_tuple(nullptr, rootNode);
+        }
+        return std::make_tuple(page, nullptr);
+    }
+
+    // Check the node cache for non-inline buckets.
+    if (!nodes.empty()) {
+        auto it = nodes.find(id);
+        if (it != nodes.end()) {
+            return std::make_tuple(nullptr, it->second);
+        }
+    }
+    // Finally lookup the page from the transaction if no node is materialized.
+    auto txptr = tx.lock();
+    return std::make_tuple(txptr->page(id), nullptr);
+}
 }

@@ -219,7 +219,11 @@ void Cursor::searchNode(bolt::bytes key, bolt::node_ptr n) {
     if (!exact && index > 0) {
         index--;
     }
-    stack[stack.size() - 1].index = index;
+    // stack[stack.size() - 1].index = index;
+    auto &e = stack.back();
+    e.index = index;
+
+    // Recursively search to the next page.
     search(key, n->inodes[index].pgid);
 }
 
@@ -227,18 +231,57 @@ void Cursor::searchPage(bolt::bytes key, bolt::page *p) {
     // Binary search for the correct range.
     auto inodes = p->branchPageElements();
     bool exact = false;
-    auto it = std::find_if(
-        inodes.begin(), inodes.end(), [&](bolt::inode &item) -> bool {
-          auto ret = std::lexicographical_compare_three_way(
-              item.key.begin(), item.key.end(), key.begin(), key.end());
-          if (std::is_eq(ret)) {
-              exact = true;
-          }
-          return !std::is_lt(ret);
-    })
+    auto it = std::find_if(inodes.begin(), inodes.end(),
+                           [&](bolt::branchPageElement &item) -> bool {
+                             auto k = item.key();
+                             auto ret = std::lexicographical_compare_three_way(
+                                 k.begin(), k.end(), key.begin(), key.end());
+                             if (std::is_eq(ret)) {
+                               exact = true;
+                             }
+                             return !std::is_lt(ret);
+                           });
+    auto index = std::distance(inodes.begin(), it);
+    if (!exact && index > 0) {
+        index--;
+    }
+    auto e = stack.end();
+    e->index = index;
+    // stack[stack.size() - 1].index = index;
+    search(key, inodes[index].pgid);
 }
 
 void Cursor::nsearch(bolt::bytes key) {
+    auto e = stack.back();
+    auto p = e.page;
+    auto n = e.node;
 
+    // If we have a node then search its inodes.
+    if (!n.expired()) {
+        auto nptr = n.lock();
+        auto it = std::find_if(
+            nptr->inodes.begin(), nptr->inodes.end(),
+            [&](bolt::inode item) -> bool {
+              auto ret = std::lexicographical_compare_three_way(
+                  item.key.begin(), item.key.end(), key.begin(), key.end());
+              return !std::is_lt(ret);
+            });
+        auto index = std::distance(nptr->inodes.begin(), it);
+        e.index = index;
+        return;
+    }
+
+    // If we have a page then search its leaf elements.
+    auto inodes = p->leafPageElements();
+    auto it = std::find_if(inodes.begin(), inodes.end(),
+                           [&](bolt::leafPageElement &item) -> bool {
+                             auto k = item.key();
+                             auto ret = std::lexicographical_compare_three_way(
+                                 k.begin(), k.end(), key.begin(), key.end());
+                             return !std::is_lt(ret);
+                           });
+    auto index = std::distance(inodes.begin(), it);
+    e.index = index;
 }
+
 } // namespace bolt

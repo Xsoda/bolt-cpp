@@ -15,6 +15,9 @@ TestResult TestNode_write_LeafPage();
 TestResult TestNode_split();
 TestResult TestNode_split_MinKeys();
 TestResult TestNode_split_SinglePage();
+TestResult TestDB_Open();
+TestResult TestDB_OpenPathRequired();
+TestResult TestDB_OpenInvalid();
 
 static const std::vector<Test> tests = {
     {"Test Page Type", TestPageType},
@@ -31,30 +34,33 @@ static const std::vector<Test> tests = {
     {"Test Node split", TestNode_split},
     {"Test Node split_MinKeys", TestNode_split_MinKeys},
     {"Test Node split_SinglePage", TestNode_split_SinglePage},
+    {"Test DB Open", TestDB_Open},
+    {"Test DB Open Path Required", TestDB_OpenPathRequired},
+    {"Test DB Open Invalid", TestDB_OpenInvalid},
 };
 
 int main(int argc, char **argv) {
-  int success_tests = 0;
-  int failed_tests = 0;
-  std::chrono::steady_clock::time_point startTime, endTime;
-  startTime = std::chrono::steady_clock::now();
-  for (auto test : tests) {
-    auto res = test.run();
-    if (res.success) {
-        success_tests++;
-    } else {
-        failed_tests++;
+    int success_tests = 0;
+    int failed_tests = 0;
+    std::chrono::steady_clock::time_point startTime, endTime;
+    startTime = std::chrono::steady_clock::now();
+    for (auto test : tests) {
+        auto res = test.run();
+        if (res.success) {
+            success_tests++;
+        } else {
+            failed_tests++;
+        }
     }
-  }
-  endTime = std::chrono::steady_clock::now();
+    endTime = std::chrono::steady_clock::now();
 
-  auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-      endTime - startTime);
-  auto durationS =
-      std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime);
-  std::cout << "Finished " << success_tests + failed_tests << " tests in "
-            << durationS.count() << "s (" << durationMs.count()
-            << "ms). Succeed: " << success_tests << ". Failed: " << failed_tests
-            << "." << std::endl;
-  return 0;
+    auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        endTime - startTime);
+    auto durationS =
+        std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime);
+    std::cout << "Finished " << success_tests + failed_tests << " tests in "
+              << durationS.count() << "s (" << durationMs.count()
+              << "ms). Succeed: " << success_tests << ". Failed: " << failed_tests
+              << "." << std::endl;
+    return 0;
 }

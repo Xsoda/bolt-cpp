@@ -46,6 +46,8 @@ target_sources(${PROJECT_NAME}
   src/batch.hpp
   src/file.cpp
   src/file.hpp
+  src/cursor.cpp
+  src/cursor.hpp
 )
 
 target_sources(${PROJECT_NAME}
@@ -54,6 +56,7 @@ target_sources(${PROJECT_NAME}
   test/page_test.cpp
   test/freelist_test.cpp
   test/node_test.cpp
+  test/db_test.cpp
   test/test.hpp
 )
 

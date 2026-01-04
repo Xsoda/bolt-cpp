@@ -93,7 +93,7 @@ struct DB : public std::enable_shared_from_this<DB> {
     explicit DB();
     bolt::ErrorCode init();
     std::string Path() const;
-    bolt::ErrorCode Open(std::string path);
+    bolt::ErrorCode Open(std::string path, bool readOnly);
     bolt::ErrorCode Close();
     void Sync();
     bolt::meta *meta();
