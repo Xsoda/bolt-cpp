@@ -13,7 +13,47 @@
 
 namespace bolt {
 
-DB::DB() { dataref = NULL; }
+#ifdef WIN32
+bolt::ErrorCode mmap(bolt::DB *db, std::uint64_t sz) {
+    if (!db->readOnly) {
+        auto err = db->file.Truncate(sz);
+        if (err != bolt::ErrorCode::Success) {
+            return err;
+        }
+    }
+    auto [ptr, err] = db->file.Mmap(sz);
+    if (err != bolt::ErrorCode::Success) {
+        return err
+    }
+    db->dataref = ptr;
+    db->datasz = sz;
+    return bolt::ErrorCode::Success;
+}
+#endif
+
+#ifdef __linux__
+bolt::ErrorCode mmap(bolt::DB *db, std::uint64_t sz) {
+    auto [ptr, err] = db->file.Mmap(sz);
+    if (err != bolt::ErrorCode::Success) {
+        return err;
+    }
+    db->dataref = ptr;
+    db->datasz = sz;
+    return bolt::ErrorCode::Success;
+}
+#endif
+
+bolt::ErrorCode munmap(bolt::DB *db) {
+    if (db->dataref == (std::uintptr_t)NULL) {
+        return bolt::ErrorCode::Success;
+    }
+    auto err = db->file.Munmap(db->dataref);
+    db->dataref = (std::uintptr_t)NULL;
+    db->datasz = 0;
+    return err;
+}
+
+DB::DB() { dataref = (std::uintptr_t)NULL; }
 
 bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
     this->path = path;
@@ -437,20 +477,11 @@ bolt::ErrorCode DB::mmap(std::uint64_t minsz) {
         return err;
     }
 
-    if (!readOnly) {
-       auto err = file.Truncate(size);
-       if (err != bolt::ErrorCode::Success) {
-           return err;
-       }
-    }
     // Memory-map the data file as a byte slice.
-    std::uintptr_t ptr;
-    std::tie(ptr, err) = file.Mmap(size);
+    err = bolt::mmap(this, size);
     if (err != bolt::ErrorCode::Success) {
         return err;
     }
-    dataref = ptr;
-    datasz = size;
 
     // Save references to the meta pages.
     meta0 = page(0)->meta();
@@ -469,12 +500,10 @@ bolt::ErrorCode DB::mmap(std::uint64_t minsz) {
 
 // munmap unmaps the data file from memory.
 bolt::ErrorCode DB::munmap() {
-    auto err = file.Munmap(dataref);
+    auto err = bolt::munmap(this);
     if (err != bolt::ErrorCode::Success) {
         return err;
     }
-    dataref = 0;
-    datasz = 0;
     return bolt::ErrorCode::Success;
 }
 

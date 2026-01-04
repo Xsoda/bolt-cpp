@@ -158,28 +158,28 @@ bolt::ErrorCode File::FileImpl::Flock(bool exclusive,
     }
 
     lockfile = l;
-	auto start =
-		std::chrono::system_clock::now();
-	while (true) {
-		OVERLAPPED sOverlapped = { 0 };
-		auto since = std::chrono::system_clock::now();
-		if (timeout > 1us &&
-			std::chrono::duration_cast<std::chrono::milliseconds>(since - start) >
-			timeout) {
-			return bolt::ErrorCode::ErrorTimeout;
-		}
-		BOOL ret = LockFileEx(lockfile, flags, 0, 1, 0, &sOverlapped);
-		if (ret) {
-			break;
-		}
-		else {
-			DWORD err = GetLastError();
-			if (err != ERROR_LOCK_VIOLATION) {
-				return bolt::ErrorCode::ErrorSystemCall;
-			}
-		}
-		std::this_thread::sleep_for(50ms);
-	}
+    auto start =
+        std::chrono::system_clock::now();
+    while (true) {
+        OVERLAPPED sOverlapped = { 0 };
+        auto since = std::chrono::system_clock::now();
+        if (timeout > 1us &&
+            std::chrono::duration_cast<std::chrono::milliseconds>(since - start) >
+            timeout) {
+            return bolt::ErrorCode::ErrorTimeout;
+        }
+        BOOL ret = LockFileEx(lockfile, flags, 0, 1, 0, &sOverlapped);
+        if (ret) {
+            break;
+        }
+        else {
+            DWORD err = GetLastError();
+            if (err != ERROR_LOCK_VIOLATION) {
+                return bolt::ErrorCode::ErrorSystemCall;
+            }
+        }
+        std::this_thread::sleep_for(50ms);
+    }
     return bolt::ErrorCode::Success;
 }
 
@@ -398,9 +398,11 @@ std::tuple<std::uintptr_t, bolt::ErrorCode> File::FileImpl::Mmap(std::uint64_t s
 }
 
 bolt::ErrorCode File::FileImpl::Munmap(std::uintptr_t ptr) {
-    int ret = munmap((void *)ptr, (size_t)size);
-    if (ret) {
-        return bolt::ErrorCode::ErrorSystemCall;
+    if (this->ptr == (void*)ptr && this->ptr != NULL) {
+        int ret = munmap((void *)ptr, (size_t)size);
+        if (ret) {
+            return bolt::ErrorCode::ErrorSystemCall;
+        }
     }
     this->ptr = NULL;
     this->size = 0;
