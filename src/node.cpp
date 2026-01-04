@@ -26,7 +26,6 @@ node::node(bolt::BucketPtr bucket) {
     this->bucket = bucket;
 }
 
-
 bolt::node_ptr node::root() {
     if (parent.expired()) {
         return shared_from_this();
@@ -268,16 +267,23 @@ std::tuple<bolt::node_ptr, bolt::node_ptr> node::splitTwo(int pageSize) {
     int threshold = (int)(pageSize * fillPercent);
     int splitIdx;
     std::tie(splitIdx, std::ignore) = splitIndex(threshold);
-    if (parent.expired()) {
-        parent = std::make_shared<node>(
+    auto pptr = parent.lock();
+    if (!pptr) {
+        pptr = std::make_shared<node>(
             bptr, std::initializer_list<bolt::node_ptr>({shared_from_this()}));
     }
-    auto pptr = parent.lock();
+    parent = pptr;
     auto next = std::make_shared<node>(bptr, isLeaf, pptr);
     pptr->children.push_back(next);
 
-    std::copy(inodes.begin() + splitIdx, inodes.end(), std::back_inserter(next->inodes));
-    inodes.erase(inodes.begin() + splitIdx, inodes.end());
+    std::copy(std::next(inodes.begin(), splitIdx), inodes.end(), std::back_inserter(next->inodes));
+    inodes.erase(std::next(inodes.begin(), splitIdx), inodes.end());
+
+    // NOTE: only for manage parent shared_pointer: TestNode_split()
+    // golang version not cantain this code
+    if (!bptr->rootNode) {
+        bptr->rootNode = pptr;
+    }
 
     tptr->stats.Split++;
     return std::make_tuple(shared_from_this(), next);

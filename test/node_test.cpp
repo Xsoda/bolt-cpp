@@ -199,6 +199,18 @@ TestResult TestNode_split_MinKeys() {
     bolt::TxPtr tx = std::make_shared<bolt::Tx>(db, meta);
     bolt::BucketPtr bucket = std::make_shared<bolt::Bucket>(tx);
     auto n = std::make_shared<bolt::node>(bucket);
+    std::string k1 = "00000001";
+    std::string k2 = "00000002";
+    std::string v = "0123456701234567";
+    auto s_k1 = to_bytes(k1);
+    auto s_k2 = to_bytes(k2);
+    auto s_v = to_bytes(v);
+    n->put(s_k1, s_k1, s_v, 0, 0);
+    n->put(s_k2, s_k2, s_v, 0, 0);
+    auto split = n->split(20);
+    if (!n->parent.expired()) {
+        return TestResult(false, "expected nullptr parent");
+    }
     return true;
 }
 
@@ -208,5 +220,27 @@ TestResult TestNode_split_SinglePage() {
     bolt::TxPtr tx = std::make_shared<bolt::Tx>(db, meta);
     bolt::BucketPtr bucket = std::make_shared<bolt::Bucket>(tx);
     auto n = std::make_shared<bolt::node>(bucket);
+    std::string k1 = "00000001";
+    std::string k2 = "00000002";
+    std::string k3 = "00000003";
+    std::string k4 = "00000004";
+    std::string k5 = "00000005";
+    std::string v = "0123456701234567";
+    auto s_k1 = to_bytes(k1);
+    auto s_k2 = to_bytes(k2);
+    auto s_k3 = to_bytes(k3);
+    auto s_k4 = to_bytes(k4);
+    auto s_k5 = to_bytes(k5);
+    auto s_v = to_bytes(v);
+    n->put(s_k1, s_k1, s_v, 0, 0);
+    n->put(s_k2, s_k2, s_v, 0, 0);
+    n->put(s_k3, s_k3, s_v, 0, 0);
+    n->put(s_k4, s_k4, s_v, 0, 0);
+    n->put(s_k5, s_k5, s_v, 0, 0);
+
+    auto splits = n->split(4096);
+    if (!n->parent.expired()) {
+        return TestResult(false, "expected nullptr parent");
+    }
     return true;
 }
