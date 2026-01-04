@@ -49,7 +49,7 @@ TestResult TestDB_OpenInvalid() {
     f.close();
 
     auto db = std::make_shared<bolt::DB>();
-    auto err = db->Open(path, true);
+    auto err = db->Open(path, false);
     if (err != bolt::ErrorCode::ErrorDatabaseInvalid) {
         return TestResult(false, "expected open error code invalid");
     }

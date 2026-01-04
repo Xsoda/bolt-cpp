@@ -13,7 +13,7 @@
 
 namespace bolt {
 
-DB::DB() { freelist = std::make_unique<bolt::freelist>(); }
+DB::DB() { dataref = NULL; }
 
 bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
     this->path = path;
@@ -36,7 +36,9 @@ bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
     std::tie(size, err) = file.Size();
     if (size == 0 && err == bolt::ErrorCode::Success) {
         err = init();
-        return err;
+        if (err != bolt::ErrorCode::Success) {
+            return err;
+        }
     } else {
         std::vector<std::byte> buf;
         buf.assign(0x1000, std::byte(0));
@@ -435,6 +437,12 @@ bolt::ErrorCode DB::mmap(std::uint64_t minsz) {
         return err;
     }
 
+    if (!readOnly) {
+       auto err = file.Truncate(size);
+       if (err != bolt::ErrorCode::Success) {
+           return err;
+       }
+    }
     // Memory-map the data file as a byte slice.
     std::uintptr_t ptr;
     std::tie(ptr, err) = file.Mmap(size);
@@ -475,7 +483,7 @@ bolt::ErrorCode DB::munmap() {
 // Returns an error if the new mmap size is greater than the max allowed.
 std::tuple<std::uint64_t, bolt::ErrorCode> DB::mmapSize(std::uint64_t size) {
     // Double the size from 32KB until 1GB.
-    for (std::uint32_t i = std::uint32_t(15); i <= 30; i++) {
+    for (std::uint32_t i = 15; i <= 30; i++) {
         if (size <= std::uint64_t(1) << i) {
             return std::make_tuple(1 << i, bolt::ErrorCode::Success);
         }

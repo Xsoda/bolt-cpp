@@ -6,7 +6,7 @@
 
 #ifdef WIN32
 #include <windows.h>
-
+#include <cassert>
 namespace bolt {
 
 int Getpagesize() {
@@ -16,7 +16,7 @@ int Getpagesize() {
 }
 
 struct File::FileImpl {
-    FileImpl() : file(INVALID_HANDLE_VALUE), lockfile(INVALID_HANDLE_VALUE) {};
+    FileImpl() : file(INVALID_HANDLE_VALUE), lockfile(INVALID_HANDLE_VALUE), ptr(NULL) {};
     ~FileImpl();
     std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf,
                                                        std::uint64_t offset);
@@ -44,22 +44,20 @@ std::string wstr2str(const std::wstring &ws) {
     int len;
     int slen = (int)ws.length() + 1;
     len = WideCharToMultiByte(CP_ACP, 0, ws.c_str(), slen, NULL, 0, NULL, NULL);
-    char *buf = new char[len];
-    WideCharToMultiByte(CP_ACP, 0, ws.c_str(), slen, buf, len, NULL, NULL);
-    std::string r(buf);
-    delete[] buf;
-    return r;
+    std::vector<char> buf;
+    buf.assign(len, char(0));
+    WideCharToMultiByte(CP_ACP, 0, ws.c_str(), slen, buf.data(), len, NULL, NULL);
+    return std::string(buf.data());
 }
 
 std::wstring str2wstr(const std::string &s) {
     int len;
     int slength = (int)s.length() + 1;
     len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, NULL, 0);
-    wchar_t *buf = new wchar_t[len];
-    MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, buf, len);
-    std::wstring r(buf);
-    delete[] buf;
-    return r;
+    std::vector<wchar_t> buf;
+    buf.assign(len, wchar_t(0));
+    MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, buf.data(), len);
+    return std::wstring(buf.data());
 }
 
 File::FileImpl::~FileImpl() {
@@ -77,7 +75,7 @@ File::FileImpl::WriteAt(bolt::bytes buf, std::uint64_t offset) {
     LARGE_INTEGER li = {0};
     li.QuadPart = offset;
     if (!SetFilePointerEx(file, li, NULL, FILE_BEGIN)) {
-        return bolt::ErrorCode::ErrorSystemCall;
+        return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
     }
     if (!WriteFile(file, buf.data(), buf.size(), &written, NULL)) {
         return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
@@ -91,7 +89,7 @@ File::FileImpl::ReadAt(bolt::bytes buf, std::uint64_t offset) {
     LARGE_INTEGER li = {0};
     li.QuadPart = offset;
     if (!SetFilePointerEx(file, li, NULL, FILE_BEGIN)) {
-        return bolt::ErrorCode::ErrorSystemCall;
+        return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
     }
     if (!ReadFile(file, buf.data(), buf.size(), &readed, NULL)) {
         return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
@@ -122,15 +120,17 @@ std::tuple<std::uint64_t, bolt::ErrorCode> File::FileImpl::Size() {
 
 bolt::ErrorCode File::FileImpl::Open(std::string path, bool readOnly) {
     this->path = str2wstr(path);
+    DWORD shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
     DWORD dwDesiredAccess = GENERIC_READ;
     if (!readOnly) {
         dwDesiredAccess = GENERIC_WRITE;
     }
-    file = CreateFile(this->path.c_str(), dwDesiredAccess, 0, NULL, OPEN_ALWAYS,
+    file = CreateFile(this->path.c_str(), dwDesiredAccess, shareMode, NULL, OPEN_ALWAYS,
                       FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE) {
         return bolt::ErrorCode::ErrorSystemCall;
     }
+    return bolt::ErrorCode::Success;
 }
 
 bolt::ErrorCode File::FileImpl::Close() {
@@ -151,41 +151,44 @@ bolt::ErrorCode File::FileImpl::Flock(bool exclusive,
     std::wstring lock_path = path;
     lock_path += L".lock";
 
-    HANDLE l = CreateFile(lock_path.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
-                          NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (lockfile == INVALID_HANDLE_VALUE) {
+    HANDLE l = CreateFile(lock_path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_READ,
+                          NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (l == INVALID_HANDLE_VALUE) {
         return bolt::ErrorCode::ErrorSystemCall;
     }
 
     lockfile = l;
-    auto start =
-        std::chrono::system_clock::now();
-    while (true) {
-      auto since = std::chrono::system_clock::now();
-      if (timeout > 1us &&
-          std::chrono::duration_cast<std::chrono::milliseconds>(since - start) >
-              timeout) {
-          return bolt::ErrorCode::ErrorTimeout;
-      }
-      BOOL ret = LockFileEx(lockfile, flags, 0, 1, 0, NULL);
-      if (ret) {
-          break;
-      } else {
-          DWORD err = GetLastError();
-          if (err != ERROR_LOCK_VIOLATION) {
-              return bolt::ErrorCode::ErrorSystemCall;
-          }
-      }
-      std::this_thread::sleep_for(50ms);
-    }
+	auto start =
+		std::chrono::system_clock::now();
+	while (true) {
+		OVERLAPPED sOverlapped = { 0 };
+		auto since = std::chrono::system_clock::now();
+		if (timeout > 1us &&
+			std::chrono::duration_cast<std::chrono::milliseconds>(since - start) >
+			timeout) {
+			return bolt::ErrorCode::ErrorTimeout;
+		}
+		BOOL ret = LockFileEx(lockfile, flags, 0, 1, 0, &sOverlapped);
+		if (ret) {
+			break;
+		}
+		else {
+			DWORD err = GetLastError();
+			if (err != ERROR_LOCK_VIOLATION) {
+				return bolt::ErrorCode::ErrorSystemCall;
+			}
+		}
+		std::this_thread::sleep_for(50ms);
+	}
     return bolt::ErrorCode::Success;
 }
 
 bolt::ErrorCode File::FileImpl::Funlock() {
+    OVERLAPPED sOverlapped = { 0 };
     std::wstring lock_path = path;
     lock_path += L".lock";
 
-    BOOL ret = UnlockFileEx(lockfile, 0, 0, 1, NULL);
+    BOOL ret = UnlockFileEx(lockfile, 0, 1, 0, &sOverlapped);
     if (!ret) {
         return bolt::ErrorCode::ErrorSystemCall;
     }
@@ -211,11 +214,15 @@ bolt::ErrorCode File::FileImpl::Fsync() {
 }
 
 std::tuple<std::uintptr_t, bolt::ErrorCode> File::FileImpl::Mmap(std::uint64_t size) {
-    DWORD sizelo = (DWORD)(size >> 32);
-    DWORD sizehi = (DWORD)(size & 0xFFFFFFFF);
+    DWORD sizehi = (DWORD)(size >> 32);
+    DWORD sizelo = (DWORD)(size & 0xFFFFFFFF);
+    assert(ptr == NULL);
     HANDLE fm =
-        CreateFileMapping(file, NULL, PAGE_READONLY, sizelo, sizehi, NULL);
-    if (fm == INVALID_HANDLE_VALUE) {
+        CreateFileMapping(file, NULL, PAGE_READONLY, sizehi, sizelo, NULL);
+    if (fm == NULL) {
+        auto [size, err] = Size();
+        std::cout << "File Size " << size << std::endl;
+        std::cout << "Last Error " << GetLastError() << std::endl;
         return std::make_tuple((std::uintptr_t)nullptr,
                                bolt::ErrorCode::ErrorSystemCall);
     }
@@ -230,11 +237,17 @@ std::tuple<std::uintptr_t, bolt::ErrorCode> File::FileImpl::Mmap(std::uint64_t s
 }
 
 bolt::ErrorCode File::FileImpl::Munmap(std::uintptr_t ptr) {
-    if (UnmapViewOfFile((LPCVOID)ptr)) {
-        this->ptr = (std::uintptr_t)nullptr;
+    if (this->ptr == ptr && ptr != NULL) {
+        if (UnmapViewOfFile((LPCVOID)ptr)) {
+            this->ptr = (std::uintptr_t)nullptr;
+            return bolt::ErrorCode::Success;
+        }
+        else {
+            return bolt::ErrorCode::ErrorSystemCall;
+        }
+    }
+    else {
         return bolt::ErrorCode::Success;
-    } else {
-        return bolt::ErrorCode::ErrorSystemCall;
     }
 }
 
