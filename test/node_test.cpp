@@ -12,7 +12,7 @@ bool Compare(A a, B b) {
                                         b.begin(), b.end()));
 }
 
-std::span<std::byte> to_bytes(const std::string &str) {
+std::span<std::byte> to_bytes(std::string &str) {
     return std::span<std::byte>(reinterpret_cast<std::byte*>(str.data()), str.size());
 }
 
@@ -149,7 +149,7 @@ TestResult TestNode_write_LeafPage() {
 
     k = n2->inodes[2].key;
     v = n2->inodes[2].value;
-    if (!Compare(k, s_susy), || !Compare(v, s_que)) {
+    if (!Compare(k, s_susy) || !Compare(v, s_que)) {
         return TestResult(false, "expected inodes[2] is <susy, que>");
     }
     return true;
@@ -167,7 +167,29 @@ TestResult TestNode_split() {
     std::string k4 = "00000004";
     std::string k5 = "00000005";
     std::string v = "0123456701234567";
+    auto s_k1 = to_bytes(k1);
+    auto s_k2 = to_bytes(k2);
+    auto s_k3 = to_bytes(k3);
+    auto s_k4 = to_bytes(k4);
+    auto s_k5 = to_bytes(k5);
+    auto s_v = to_bytes(v);
+    n->put(s_k1, s_k1, s_v, 0, 0);
+    n->put(s_k2, s_k2, s_v, 0, 0);
+    n->put(s_k3, s_k3, s_v, 0, 0);
+    n->put(s_k4, s_k4, s_v, 0, 0);
+    n->put(s_k5, s_k5, s_v, 0, 0);
 
+    auto splits = n->split(100);
+    auto parent = n->parent.lock();
+    if (parent->children.size() != 2) {
+        return TestResult(false, "expected parent->children size is 2");
+    }
+    if (parent->children[0]->inodes.size() != 2) {
+        return TestResult(false, "expected parent->children[0] inodes is 2");
+    }
+    if (parent->children[1]->inodes.size() != 3) {
+        return TestResult(false, "expected parent->children[1] inodes is 3");
+    }
     return true;
 }
 
