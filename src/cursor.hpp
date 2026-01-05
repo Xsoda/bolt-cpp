@@ -27,6 +27,7 @@ struct Cursor : public std::enable_shared_from_this<Cursor> {
     std::weak_ptr<bolt::Bucket> bucket;
     std::vector<bolt::elemRef> stack;
 
+    explicit Cursor(bolt::BucketPtr bucket): bucket(bucket) {};
     bolt::BucketPtr Bucket();
     std::tuple<bolt::bytes, bolt::bytes> First();
     std::tuple<bolt::bytes, bolt::bytes> Last();

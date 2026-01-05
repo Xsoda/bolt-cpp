@@ -1,4 +1,5 @@
 #include "cursor.hpp"
+#include "common.hpp"
 #include "node.hpp"
 #include "page.hpp"
 #include <algorithm>
@@ -43,6 +44,48 @@ bolt::node_ptr Cursor::node() const {
     }
     assert(n->isLeaf);
     return n->shared_from_this();
+}
+
+// First moves the cursor to the first item in the bucket and returns its key
+// and value. If the bucket is empty then a nil key and value are returned. The
+// returned key and value are only valid for the life of the transaction.
+std::tuple<bolt::bytes, bolt::bytes> Cursor::First() {
+    assert(!bucket.expired());
+    auto bptr = bucket.lock();
+    assert("tx closed" && !bptr->tx.expired());
+    stack.clear();
+
+    auto [p, n] = bptr->pageNode(bptr->bucket.root);
+    stack.push_back(elemRef(p, n, 0));
+    first();
+
+    // If we land on an empty page then move to the next value.
+    // https://github.com/boltdb/bolt/issues/450
+    if (stack.back().count() == 0) {
+        next();
+    }
+
+    auto [k, v, flags] = keyValue();
+    if ((flags & bolt::bucketLeafFlag) != 0) {
+        return std::make_tuple(k, bolt::bytes());
+    }
+    return std::make_tuple(k, v);
+}
+
+// Next moves the cursor to the next item in the bucket and returns its key and
+// value. If the cursor is at the end of the bucket then a nil key and value are
+// returned. The returned key and value are only valid for the life of the
+// transaction.
+std::tuple<bolt::bytes, bolt::bytes> Cursor::Next() {
+    assert(!bucket.expired());
+    auto bptr = bucket.lock();
+    assert("tx closed" && !bptr->tx.expired());
+
+    auto [k, v, flags] = next();
+    if ((flags & bolt::bucketLeafFlag) != 0) {
+        return std::make_tuple(k, bolt::bytes());
+    }
+    return std::make_tuple(k, v);
 }
 
 std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::keyValue() {
@@ -211,7 +254,7 @@ void Cursor::searchNode(bolt::bytes key, bolt::node_ptr n) {
           auto ret = std::lexicographical_compare_three_way(
               item.key.begin(), item.key.end(), key.begin(), key.end());
           if (std::is_eq(ret)) {
-            exact = true;
+              exact = true;
           }
           return !std::is_lt(ret);
         });

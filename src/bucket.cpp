@@ -4,6 +4,7 @@
 #include "tx.hpp"
 #include "db.hpp"
 #include "node.hpp"
+#include "cursor.hpp"
 #include <cassert>
 
 namespace bolt {
@@ -28,16 +29,20 @@ bool Bucket::Writable() const {
     return false;
 }
 
+bolt::CursorPtr Bucket::Cursor() {
+    return std::make_shared<bolt::Cursor>(shared_from_this());
+}
+
 bolt::node_ptr Bucket::node(bolt::pgid pgid, bolt::node_ptr parent) {
     auto it = nodes.find(pgid);
     if (it != nodes.end()) {
         return it->second;
     }
-    auto n = new bolt::node(shared_from_this(), false, parent);
+    auto n = std::make_shared<bolt::node>(shared_from_this(), false, parent);
     if (parent == nullptr) {
-        rootNode = n->shared_from_this();
+        rootNode = n;
     } else {
-        parent->children.push_back(n->shared_from_this());
+        parent->children.push_back(n);
     }
 
     assert("Tx already invalid in Bucket" && tx.expired());
@@ -49,20 +54,32 @@ bolt::node_ptr Bucket::node(bolt::pgid pgid, bolt::node_ptr parent) {
         }
     }
     n->read(p);
-    nodes[pgid] = n->shared_from_this();
+    nodes[pgid] = n;
     if (t) {
         t->stats.NodeCount++;
     }
-    return n->shared_from_this();
+    return n;
 }
 
+// ForEach executes a function for each key/value pair in a bucket.
+// If the provided function returns an error then the iteration is stopped and
+// the error is returned to the caller. The provided function must not modify
+// the bucket; this will result in undefined behavior.
 bolt::ErrorCode Bucket::ForEach(
     std::function<bolt::ErrorCode(bolt::bytes key, bolt::bytes val)> &&fn) {
     auto txptr = tx.lock();
     if (!txptr) {
         return bolt::ErrorCode::ErrorTxClosed;
     }
-    // TODO: Cursor
+    auto c = Cursor();
+    auto [k, v] = c->First();
+    while (!k.empty()) {
+        auto err = fn(k, v);
+        if (err != bolt::ErrorCode::Success) {
+            return err;
+        }
+        std::tie(k, v) = c->Next();
+    }
     return bolt::ErrorCode::Success;
 }
 

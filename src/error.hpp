@@ -25,7 +25,8 @@ namespace bolt {
   XX(FileResizeFail, "file resize fail")                                       \
   XX(FileSyncFail, "file sync fail")                                           \
   XX(FileSizeTooSmall, "file size too small")                                  \
-  XX(MmapTooLarge, "mmap too large")
+  XX(MmapTooLarge, "mmap too large")                                           \
+  XX(DatabaseEOF, "database eof")
 
 typedef enum {
   Success = 0,

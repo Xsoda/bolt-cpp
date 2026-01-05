@@ -3,35 +3,34 @@
 
 #include "common.hpp"
 #include "error.hpp"
+#include "pimpl.hpp"
 #include <chrono>
 
 namespace bolt {
 
     int Getpagesize();
 
+    struct FileImpl;
     struct File {
-        explicit File();
-        ~File();
-        std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf,
-                                                          std::uint64_t offset);
-        std::tuple<std::uint64_t, bolt::ErrorCode> ReadAt(bolt::bytes buf,
+      explicit File();
+      ~File();
+      std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf,
                                                          std::uint64_t offset);
-        bolt::ErrorCode Fdatasync();
-        bolt::ErrorCode Fsync();
-        bolt::ErrorCode Flock(bool exclusive,
-                              std::chrono::milliseconds timeout);
-        bolt::ErrorCode Funlock();
-        bolt::ErrorCode Open(std::string path, bool readOnly);
-        bolt::ErrorCode Close();
-        bolt::ErrorCode Truncate(std::uint64_t size);
-        std::tuple<std::uint64_t, bolt::ErrorCode> Size();
-        std::tuple<std::uintptr_t, bolt::ErrorCode> Mmap(std::uint64_t size);
-        bolt::ErrorCode Munmap(std::uintptr_t ptr);
+      std::tuple<std::uint64_t, bolt::ErrorCode> ReadAt(bolt::bytes buf,
+                                                        std::uint64_t offset);
+      bolt::ErrorCode Fdatasync();
+      bolt::ErrorCode Fsync();
+      bolt::ErrorCode Flock(bool exclusive, std::chrono::milliseconds timeout);
+      bolt::ErrorCode Funlock();
+      bolt::ErrorCode Open(std::string path, bool readOnly);
+      bolt::ErrorCode Close();
+      bolt::ErrorCode Truncate(std::uint64_t size);
+      std::tuple<std::uint64_t, bolt::ErrorCode> Size();
+      std::tuple<std::uintptr_t, bolt::ErrorCode> Mmap(std::uint64_t size);
+      bolt::ErrorCode Munmap(std::uintptr_t ptr);
 
     private:
-        struct FileImpl;
-        std::unique_ptr<FileImpl> pImpl;
+        bolt::pimpl<bolt::FileImpl> pImpl;
     };
-
 }
 #endif  // __FILE_HPP__

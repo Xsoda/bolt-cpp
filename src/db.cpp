@@ -53,7 +53,15 @@ bolt::ErrorCode munmap(bolt::DB *db) {
     return err;
 }
 
-DB::DB() { dataref = (std::uintptr_t)NULL; }
+DB::DB() {
+    dataref = (std::uintptr_t)NULL;
+    datasz = 0;
+    filesz = 0;
+    meta0 = NULL;
+    meta1 = NULL;
+    pageSize = 0;
+    opened = false;
+}
 
 bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
     this->path = path;
@@ -83,12 +91,14 @@ bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
         std::vector<std::byte> buf;
         buf.assign(0x1000, std::byte(0));
         std::tie(std::ignore, err) = file.ReadAt(buf, 0);
-        auto m = pageInBuffer(buf, 0)->meta();
-        err = m->validate();
-        if (err != bolt::ErrorCode::Success) {
-            pageSize = Getpagesize();
-        } else {
-            pageSize = m->pageSize;
+        if (err == bolt::ErrorCode::Success) {
+            auto m = pageInBuffer(buf, 0)->meta();
+            err = m->validate();
+            if (err != bolt::ErrorCode::Success) {
+                pageSize = Getpagesize();
+            } else {
+                pageSize = m->pageSize;
+            }
         }
     }
 

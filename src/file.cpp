@@ -15,7 +15,7 @@ int Getpagesize() {
   return (int)info.dwPageSize;
 }
 
-struct File::FileImpl {
+struct FileImpl {
     FileImpl() : file(INVALID_HANDLE_VALUE), lockfile(INVALID_HANDLE_VALUE), ptr(NULL) {};
     ~FileImpl();
     std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf,
@@ -60,7 +60,7 @@ std::wstring str2wstr(const std::string &s) {
     return std::wstring(buf.data());
 }
 
-File::FileImpl::~FileImpl() {
+FileImpl::~FileImpl() {
     if (ptr != (std::uintptr_t)nullptr) {
         Munmap(ptr);
     }
@@ -70,7 +70,7 @@ File::FileImpl::~FileImpl() {
 }
 
 std::tuple<std::uint64_t, bolt::ErrorCode>
-File::FileImpl::WriteAt(bolt::bytes buf, std::uint64_t offset) {
+FileImpl::WriteAt(bolt::bytes buf, std::uint64_t offset) {
     DWORD written;
     LARGE_INTEGER li = {0};
     li.QuadPart = offset;
@@ -84,7 +84,7 @@ File::FileImpl::WriteAt(bolt::bytes buf, std::uint64_t offset) {
 }
 
 std::tuple<std::uint64_t, bolt::ErrorCode>
-File::FileImpl::ReadAt(bolt::bytes buf, std::uint64_t offset) {
+FileImpl::ReadAt(bolt::bytes buf, std::uint64_t offset) {
     DWORD readed;
     LARGE_INTEGER li = {0};
     li.QuadPart = offset;
@@ -97,7 +97,7 @@ File::FileImpl::ReadAt(bolt::bytes buf, std::uint64_t offset) {
     return std::make_tuple(std::uint64_t(readed), bolt::ErrorCode::Success);
 }
 
-bolt::ErrorCode File::FileImpl::Truncate(std::uint64_t size) {
+bolt::ErrorCode FileImpl::Truncate(std::uint64_t size) {
     LARGE_INTEGER li;
     li.QuadPart = size;
     if (!SetFilePointerEx(file, li, NULL, FILE_BEGIN)) {
@@ -109,7 +109,7 @@ bolt::ErrorCode File::FileImpl::Truncate(std::uint64_t size) {
     return bolt::ErrorCode::Success;
 }
 
-std::tuple<std::uint64_t, bolt::ErrorCode> File::FileImpl::Size() {
+std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::Size() {
     LARGE_INTEGER li;
     if (GetFileSizeEx(file, &li)) {
         return std::make_tuple(std::uint64_t(li.QuadPart), bolt::ErrorCode::Success);
@@ -118,7 +118,7 @@ std::tuple<std::uint64_t, bolt::ErrorCode> File::FileImpl::Size() {
 }
 
 
-bolt::ErrorCode File::FileImpl::Open(std::string path, bool readOnly) {
+bolt::ErrorCode FileImpl::Open(std::string path, bool readOnly) {
     this->path = str2wstr(path);
     DWORD shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
     DWORD dwDesiredAccess = GENERIC_READ;
@@ -133,7 +133,7 @@ bolt::ErrorCode File::FileImpl::Open(std::string path, bool readOnly) {
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode File::FileImpl::Close() {
+bolt::ErrorCode FileImpl::Close() {
     BOOL ret = CloseHandle(file);
     if (ret) {
         file = INVALID_HANDLE_VALUE;
@@ -142,7 +142,7 @@ bolt::ErrorCode File::FileImpl::Close() {
     return bolt::ErrorCode::ErrorSystemCall;
 }
 
-bolt::ErrorCode File::FileImpl::Flock(bool exclusive,
+bolt::ErrorCode FileImpl::Flock(bool exclusive,
                                 std::chrono::milliseconds timeout) {
     DWORD flags = LOCKFILE_FAIL_IMMEDIATELY;
     if (exclusive) {
@@ -183,7 +183,7 @@ bolt::ErrorCode File::FileImpl::Flock(bool exclusive,
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode File::FileImpl::Funlock() {
+bolt::ErrorCode FileImpl::Funlock() {
     OVERLAPPED sOverlapped = { 0 };
     std::wstring lock_path = path;
     lock_path += L".lock";
@@ -201,7 +201,7 @@ bolt::ErrorCode File::FileImpl::Funlock() {
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode File::FileImpl::Fdatasync() {
+bolt::ErrorCode FileImpl::Fdatasync() {
     int ret = FlushFileBuffers(file) ? 0 : -1;
     if (ret == -1) {
         return bolt::ErrorCode::ErrorSystemCall;
@@ -209,11 +209,11 @@ bolt::ErrorCode File::FileImpl::Fdatasync() {
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode File::FileImpl::Fsync() {
+bolt::ErrorCode FileImpl::Fsync() {
     return Fdatasync();
 }
 
-std::tuple<std::uintptr_t, bolt::ErrorCode> File::FileImpl::Mmap(std::uint64_t size) {
+std::tuple<std::uintptr_t, bolt::ErrorCode> FileImpl::Mmap(std::uint64_t size) {
     DWORD sizehi = (DWORD)(size >> 32);
     DWORD sizelo = (DWORD)(size & 0xFFFFFFFF);
     assert(ptr == NULL);
@@ -236,7 +236,7 @@ std::tuple<std::uintptr_t, bolt::ErrorCode> File::FileImpl::Mmap(std::uint64_t s
     return std::make_tuple(ptr, bolt::ErrorCode::Success);
 }
 
-bolt::ErrorCode File::FileImpl::Munmap(std::uintptr_t ptr) {
+bolt::ErrorCode FileImpl::Munmap(std::uintptr_t ptr) {
     if (this->ptr == ptr && ptr != NULL) {
         if (UnmapViewOfFile((LPCVOID)ptr)) {
             this->ptr = (std::uintptr_t)nullptr;
@@ -265,7 +265,7 @@ namespace bolt {
 
 int Getpagesize() { return (int)sysconf(_SC_PAGE_SIZE); }
 
-struct File::FileImpl {
+struct FileImpl {
     FileImpl() : ptr(NULL), fd(-1), size(0){};
     ~FileImpl();
     std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf,
@@ -290,7 +290,7 @@ struct File::FileImpl {
     size_t size;                // mmap size
 };
 
-File::FileImpl::~FileImpl() {
+FileImpl::~FileImpl() {
     if (ptr != nullptr) {
         Munmap(std::uintptr_t(ptr));
     }
@@ -300,7 +300,7 @@ File::FileImpl::~FileImpl() {
 }
 
 std::tuple<std::uint64_t, bolt::ErrorCode>
-File::FileImpl::WriteAt(bolt::bytes buf, std::uint64_t offset) {
+FileImpl::WriteAt(bolt::bytes buf, std::uint64_t offset) {
     off_t ret = lseek(fd, offset, SEEK_SET);
     if (ret == -1) {
         return std::make_tuple(std::uint64_t(0),
@@ -310,12 +310,15 @@ File::FileImpl::WriteAt(bolt::bytes buf, std::uint64_t offset) {
     if (sz == -1) {
         return std::make_tuple(std::uint64_t(0),
                                bolt::ErrorCode::ErrorSystemCall);
+    } else if (sz < buf.size()) {
+            return std::make_tuple(std::uint64_t(sz),
+                                   bolt::ErrorCode::ErrorSystemCall);
     }
     return std::make_tuple(std::uint64_t(sz), bolt::ErrorCode::Success);
 }
 
 std::tuple<std::uint64_t, bolt::ErrorCode>
-File::FileImpl::ReadAt(bolt::bytes buf, std::uint64_t offset) {
+FileImpl::ReadAt(bolt::bytes buf, std::uint64_t offset) {
     off_t ret = lseek(fd, offset, SEEK_SET);
     if (ret == -1) {
         return std::make_tuple(std::uint64_t(0),
@@ -325,11 +328,13 @@ File::FileImpl::ReadAt(bolt::bytes buf, std::uint64_t offset) {
     if (sz == -1) {
         return std::make_tuple(std::uint64_t(0),
                                bolt::ErrorCode::ErrorSystemCall);
+    } else if (sz < buf.size()) {
+        return std::make_tuple(std::uint64_t(sz), bolt::ErrorCode::ErrorDatabaseEOF);
     }
     return std::make_tuple(std::uint64_t(sz), bolt::ErrorCode::Success);
 }
 
-bolt::ErrorCode File::FileImpl::Open(std::string path, bool readOnly) {
+bolt::ErrorCode FileImpl::Open(std::string path, bool readOnly) {
     int flag = O_CREAT;
     if (readOnly) {
         flag |= O_RDONLY;
@@ -343,14 +348,14 @@ bolt::ErrorCode File::FileImpl::Open(std::string path, bool readOnly) {
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode File::FileImpl::Truncate(std::uint64_t size) {
+bolt::ErrorCode FileImpl::Truncate(std::uint64_t size) {
     if (ftruncate(fd, (off_t)size)) {
         return bolt::ErrorCode::ErrorSystemCall;
     }
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode File::FileImpl::Close() {
+bolt::ErrorCode FileImpl::Close() {
     if (close(fd)) {
         return bolt::ErrorCode::ErrorSystemCall;
     }
@@ -358,7 +363,7 @@ bolt::ErrorCode File::FileImpl::Close() {
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode File::FileImpl::Flock(bool exclusive, std::chrono::milliseconds timeout) {
+bolt::ErrorCode FileImpl::Flock(bool exclusive, std::chrono::milliseconds timeout) {
     int flag = LOCK_SH;
     if (exclusive) {
         flag = LOCK_EX;
@@ -380,7 +385,7 @@ bolt::ErrorCode File::FileImpl::Flock(bool exclusive, std::chrono::milliseconds 
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode File::FileImpl::Funlock() {
+bolt::ErrorCode FileImpl::Funlock() {
     int ret = flock(fd, LOCK_UN);
     if (!ret) {
         return bolt::ErrorCode::Success;
@@ -388,7 +393,7 @@ bolt::ErrorCode File::FileImpl::Funlock() {
     return bolt::ErrorCode::ErrorSystemCall;
 }
 
-std::tuple<std::uintptr_t, bolt::ErrorCode> File::FileImpl::Mmap(std::uint64_t size) {
+std::tuple<std::uintptr_t, bolt::ErrorCode> FileImpl::Mmap(std::uint64_t size) {
     ptr = mmap(NULL, size, PROT_READ, MAP_SHARED | MAP_POPULATE, fd, 0);
     if (ptr == (void *)-1) {
         return std::make_tuple(std::uintptr_t(nullptr), bolt::ErrorCode::ErrorSystemCall);
@@ -397,7 +402,7 @@ std::tuple<std::uintptr_t, bolt::ErrorCode> File::FileImpl::Mmap(std::uint64_t s
     return std::make_tuple(std::uintptr_t(ptr), bolt::ErrorCode::Success);
 }
 
-bolt::ErrorCode File::FileImpl::Munmap(std::uintptr_t ptr) {
+bolt::ErrorCode FileImpl::Munmap(std::uintptr_t ptr) {
     if (this->ptr == (void*)ptr && this->ptr != NULL) {
         int ret = munmap((void *)ptr, (size_t)size);
         if (ret) {
@@ -409,7 +414,7 @@ bolt::ErrorCode File::FileImpl::Munmap(std::uintptr_t ptr) {
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode File::FileImpl::Fdatasync() {
+bolt::ErrorCode FileImpl::Fdatasync() {
     int ret = fdatasync(fd);
     if (ret) {
         return bolt::ErrorCode::ErrorSystemCall;
@@ -417,7 +422,7 @@ bolt::ErrorCode File::FileImpl::Fdatasync() {
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode File::FileImpl::Fsync() {
+bolt::ErrorCode FileImpl::Fsync() {
     int ret = fsync(fd);
     if (ret) {
         return bolt::ErrorCode::ErrorSystemCall;
@@ -425,7 +430,7 @@ bolt::ErrorCode File::FileImpl::Fsync() {
     return bolt::ErrorCode::Success;
 }
 
-std::tuple<std::uint64_t, bolt::ErrorCode> File::FileImpl::Size() {
+std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::Size() {
     struct stat buf;
     int ret = fstat(fd, &buf);
     if (ret) {
