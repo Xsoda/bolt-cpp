@@ -1,9 +1,7 @@
 #ifndef __FILE_HPP__
 #define __FILE_HPP__
 
-#include "common.hpp"
-#include "error.hpp"
-#include "pimpl.hpp"
+#include "bolt/pimpl.hpp"
 #include "utils.hpp"
 #include <tuple>
 #include <chrono>

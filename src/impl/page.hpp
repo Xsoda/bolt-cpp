@@ -1,7 +1,6 @@
 #ifndef __PAGE_HPP__
 #define __PAGE_HPP__
 
-#include "common.hpp"
 #include "utils.hpp"
 
 namespace bolt::impl {

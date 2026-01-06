@@ -3,7 +3,7 @@
 #include "impl/tx.hpp"
 #include "impl/node.hpp"
 #include "impl/meta.hpp"
-#include "error.hpp"
+#include "bolt/error.hpp"
 #include "test.hpp"
 #include "impl/utils.hpp"
 #include <memory>

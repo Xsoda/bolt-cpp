@@ -1,7 +1,7 @@
 #ifndef __BATCH_HPP__
 #define __BATCH_HPP__
 
-#include "error.hpp"
+#include "utils.hpp"
 #include <chrono>
 #include <functional>
 #include <future>

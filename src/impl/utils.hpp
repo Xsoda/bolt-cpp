@@ -7,6 +7,9 @@
 #include <memory>
 #include <chrono>
 
+#include "bolt/common.hpp"
+#include "bolt/error.hpp"
+
 namespace bolt::impl {
     using namespace std::chrono_literals;
 

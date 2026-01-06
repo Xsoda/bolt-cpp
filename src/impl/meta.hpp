@@ -1,10 +1,8 @@
 #ifndef __META_HPP__
 #define __META_HPP__
 
-#include "common.hpp"
-#include "utils.hpp"
 #include "bucket.hpp"
-#include "error.hpp"
+#include "utils.hpp"
 
 namespace bolt::impl {
 

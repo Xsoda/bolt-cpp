@@ -2,7 +2,6 @@
 #include "db.hpp"
 #include "tx.hpp"
 #include "freelist.hpp"
-#include "utils.hpp"
 #include <cassert>
 #include <algorithm>
 #include <cstring>

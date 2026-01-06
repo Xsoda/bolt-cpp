@@ -1,8 +1,6 @@
 #ifndef __FREELIST_HPP__
 #define __FREELIST_HPP__
 
-#include "common.hpp"
-#include "error.hpp"
 #include "utils.hpp"
 
 namespace bolt::impl {

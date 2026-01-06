@@ -1,7 +1,7 @@
 #include "impl/freelist.hpp"
 #include "impl/page.hpp"
 #include "impl/utils.hpp"
-#include "error.hpp"
+#include "bolt/error.hpp"
 #include "test.hpp"
 #include <cstring>
 

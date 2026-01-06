@@ -1,5 +1,4 @@
 #include "tx.hpp"
-#include "common.hpp"
 #include "page.hpp"
 #include "bucket.hpp"
 #include "db.hpp"

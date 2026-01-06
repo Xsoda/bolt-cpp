@@ -1,12 +1,10 @@
 #include "db.hpp"
 #include "async.hpp"
 #include "batch.hpp"
-#include "common.hpp"
 #include "file.hpp"
 #include "freelist.hpp"
 #include "page.hpp"
 #include "tx.hpp"
-#include "utils.hpp"
 #include <cassert>
 #include <mutex>
 #include <tuple>

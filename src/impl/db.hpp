@@ -1,11 +1,11 @@
 #ifndef __DB_HPP__
 #define __DB_HPP__
 
-#include "common.hpp"
 #include "tx.hpp"
 #include "file.hpp"
 #include "freelist.hpp"
 #include "batch.hpp"
+#include "utils.hpp"
 #include <memory>
 #include <mutex>
 #include <shared_mutex>

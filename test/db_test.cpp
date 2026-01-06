@@ -1,9 +1,9 @@
+#include "bolt/error.hpp"
 #include "impl/db.hpp"
 #include "test.hpp"
-#include "error.hpp"
 #include <filesystem>
-#include <memory>
 #include <fstream>
+#include <memory>
 
 std::string tempfile() {
 	auto tmpdir = std::filesystem::temp_directory_path();

@@ -2,8 +2,6 @@
 #define __TX_HPP__
 
 #include "bucket.hpp"
-#include "common.hpp"
-#include "error.hpp"
 #include "meta.hpp"
 #include "utils.hpp"
 #include <functional>

@@ -1,7 +1,7 @@
 #ifndef __NODE_HPP__
 #define __NODE_HPP__
 
-#include "common.hpp"
+#include "utils.hpp"
 #include "bucket.hpp"
 #include "page.hpp"
 #include <initializer_list>

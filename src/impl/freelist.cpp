@@ -1,6 +1,5 @@
 #include "freelist.hpp"
 #include "page.hpp"
-#include "utils.hpp"
 #include <algorithm>
 #include <cassert>
 #include <iostream>

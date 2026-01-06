@@ -1,8 +1,6 @@
 #ifndef __CURSOR_HPP__
 #define __CURSOR_HPP__
 
-#include "common.hpp"
-#include "error.hpp"
 #include "utils.hpp"
 #include <memory>
 #include <tuple>
