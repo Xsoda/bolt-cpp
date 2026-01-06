@@ -30,27 +30,27 @@ target_sources(${PROJECT_NAME}
   PRIVATE
   include/pimpl.hpp
   include/common.hpp
-  src/utils.hpp
-  src/page.cpp
-  src/page.hpp
-  src/meta.cpp
-  src/meta.hpp
-  src/freelist.cpp
-  src/freelist.hpp
-  src/bucket.cpp
-  src/bucket.hpp
-  src/tx.cpp
-  src/tx.hpp
-  src/db.cpp
-  src/db.hpp
-  src/node.cpp
-  src/node.hpp
-  src/batch.cpp
-  src/batch.hpp
-  src/file.cpp
-  src/file.hpp
-  src/cursor.cpp
-  src/cursor.hpp
+  src/impl/utils.hpp
+  src/impl/page.cpp
+  src/impl/page.hpp
+  src/impl/meta.cpp
+  src/impl/meta.hpp
+  src/impl/freelist.cpp
+  src/impl/freelist.hpp
+  src/impl/bucket.cpp
+  src/impl/bucket.hpp
+  src/impl/tx.cpp
+  src/impl/tx.hpp
+  src/impl/db.cpp
+  src/impl/db.hpp
+  src/impl/node.cpp
+  src/impl/node.hpp
+  src/impl/batch.cpp
+  src/impl/batch.hpp
+  src/impl/file.cpp
+  src/impl/file.hpp
+  src/impl/cursor.cpp
+  src/impl/cursor.hpp
 )
 
 target_sources(${PROJECT_NAME}

@@ -1,7 +1,7 @@
 #include "test.hpp"
-#include "page.hpp"
-#include "freelist.hpp"
-#include "utils.hpp"
+#include "impl/page.hpp"
+#include "impl/freelist.hpp"
+#include "impl/utils.hpp"
 #include <span>
 
 TestResult TestPageType() {
