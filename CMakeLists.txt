@@ -28,8 +28,9 @@ endif()
 
 target_sources(${PROJECT_NAME}
   PRIVATE
-  include/pimpl.hpp
-  include/common.hpp
+  include/bolt/pimpl.hpp
+  include/bolt/common.hpp
+  include/bolt/error.hpp
   src/impl/utils.hpp
   src/impl/page.cpp
   src/impl/page.hpp
