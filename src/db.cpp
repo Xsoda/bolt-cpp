@@ -1,20 +1,21 @@
 #include "db.hpp"
+#include "async.hpp"
 #include "batch.hpp"
 #include "common.hpp"
 #include "file.hpp"
 #include "freelist.hpp"
-#include "tx.hpp"
 #include "page.hpp"
-#include <mutex>
-#include "async.hpp"
+#include "tx.hpp"
+#include "utils.hpp"
 #include <cassert>
+#include <mutex>
 #include <tuple>
 #include <type_traits>
 
-namespace bolt {
+namespace bolt::impl {
 
 #ifdef WIN32
-bolt::ErrorCode mmap(bolt::DB *db, std::uint64_t sz) {
+bolt::ErrorCode mmap(impl::DB *db, std::uint64_t sz) {
     if (!db->readOnly) {
         auto err = db->file.Truncate(sz);
         if (err != bolt::ErrorCode::Success) {
@@ -32,7 +33,7 @@ bolt::ErrorCode mmap(bolt::DB *db, std::uint64_t sz) {
 #endif
 
 #ifdef __linux__
-bolt::ErrorCode mmap(bolt::DB *db, std::uint64_t sz) {
+bolt::ErrorCode mmap(impl::DB *db, std::uint64_t sz) {
     auto [ptr, err] = db->file.Mmap(sz);
     if (err != bolt::ErrorCode::Success) {
         return err;
@@ -43,7 +44,7 @@ bolt::ErrorCode mmap(bolt::DB *db, std::uint64_t sz) {
 }
 #endif
 
-bolt::ErrorCode munmap(bolt::DB *db) {
+bolt::ErrorCode munmap(impl::DB *db) {
     if (db->dataref == (std::uintptr_t)NULL) {
         return bolt::ErrorCode::Success;
     }
@@ -110,7 +111,7 @@ bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
     }
 
     // Read in the freelist.
-    freelist = std::make_unique<bolt::freelist>();
+    freelist = std::make_unique<impl::freelist>();
     freelist->read(page(meta()->freelist));
     opened = true;
 
@@ -147,20 +148,20 @@ std::string DB::Path() const {
 
 bolt::ErrorCode DB::init() {
     // Set the page size to the OS page size.
-    pageSize = bolt::Getpagesize();
+    pageSize = impl::Getpagesize();
 
     // Create two meta pages on a buffer.
     std::vector<std::byte> buf;
     buf.assign(pageSize * 4, (std::byte)0);
     for (int i = 0; i < 2; i++) {
-        bolt::page *p = pageInBuffer(buf, i);
+        impl::page *p = pageInBuffer(buf, i);
         p->id = i;
-        p->flags = metaPageFlag;
+        p->flags = impl::metaPageFlag;
 
         // Initialize the meta page.
         auto m = p->meta();
-        m->magic = bolt::magic;
-        m->version = bolt::version;
+        m->magic = impl::magic;
+        m->version = impl::version;
         m->pageSize = (std::uint32_t)pageSize;
         m->freelist = 2;
         m->root.root = 3;
@@ -170,15 +171,15 @@ bolt::ErrorCode DB::init() {
     }
 
     // Write an empty freelist at page 3.
-    bolt::page *p = pageInBuffer(buf, (bolt::pgid)2);
+    impl::page *p = pageInBuffer(buf, (impl::pgid)2);
     p->id = 2;
-    p->flags = bolt::freeListPageFlag;
+    p->flags = impl::freeListPageFlag;
     p->count = 0;
 
     // Write an empty leaf page at page 4.
-    p = pageInBuffer(buf, bolt::pgid(3));
+    p = pageInBuffer(buf, impl::pgid(3));
     p->id = 3;
-    p->flags = bolt::leafPageFlag;
+    p->flags = impl::leafPageFlag;
     p->count = 0;
 
     auto [_, err] = file.WriteAt(buf, 0);
@@ -188,13 +189,13 @@ bolt::ErrorCode DB::init() {
     return file.Fdatasync();
 }
 
-bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
-    std::shared_ptr<bolt::call> c = std::make_shared<bolt::call>();
+bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
+    std::shared_ptr<impl::call> c = std::make_shared<impl::call>();
     do {
         std::lock_guard<std::mutex> lock(batchMu);
         if (batch == nullptr || (batch != nullptr
                                  && batch->calls.size() >= MaxBatchSize)) {
-            batch = std::make_unique<bolt::batch>(shared_from_this());
+            batch = std::make_unique<impl::batch>(shared_from_this());
             AfterFunc(MaxBatchDelay, [&]() {
                 batch->trigger();
             });
@@ -217,7 +218,7 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
+bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     auto [tx, err] = Begin(true);
     if (err != bolt::ErrorCode::Success) {
         return err;
@@ -245,7 +246,7 @@ bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
     return err;
 }
 
-bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
+bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     auto [tx, err] = Begin(false);
     if (err != bolt::ErrorCode::Success) {
         return err;
@@ -273,24 +274,24 @@ bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(bolt::TxPtr)> &&fn) {
     return err;
 }
 
-std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::Begin(bool writable) {
+std::tuple<impl::TxPtr, bolt::ErrorCode> DB::Begin(bool writable) {
     if (writable) {
         return beginRWTx();
     }
     return beginTx();
 }
 
-std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::beginTx() {
+std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginTx() {
     metalock.lock();
     mmaplock.lock_shared();
     if (!opened) {
         mmaplock.unlock_shared();
         metalock.unlock();
-        return std::make_tuple<bolt::TxPtr, bolt::ErrorCode>(
+        return std::make_tuple<impl::TxPtr, bolt::ErrorCode>(
             nullptr, bolt::ErrorCode::ErrorDatabaseNotOpen);
 
     }
-    bolt::TxPtr tx = std::make_shared<bolt::Tx>(shared_from_this(), false);
+    impl::TxPtr tx = std::make_shared<impl::Tx>(shared_from_this(), false);
     txs.push_back(tx);
     metalock.unlock();
 
@@ -301,10 +302,10 @@ std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::beginTx() {
     return std::make_tuple(tx, bolt::ErrorCode::Success);
 }
 
-std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
+std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
     // If the database was opened with Options.ReadOnly, return an error.
     if (readOnly) {
-        return std::make_tuple<bolt::TxPtr, bolt::ErrorCode>(
+        return std::make_tuple<impl::TxPtr, bolt::ErrorCode>(
             nullptr, bolt::ErrorCode::ErrorDatabaseReadOnly);
     }
     // Obtain writer lock. This is released by the transaction when it closes.
@@ -318,17 +319,17 @@ std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
     // Exit if the database is not open yet.
     if (!opened) {
         rwlock.unlock();
-        return std::make_tuple<bolt::TxPtr, bolt::ErrorCode>(
+        return std::make_tuple<impl::TxPtr, bolt::ErrorCode>(
             nullptr, bolt::ErrorCode::ErrorDatabaseNotOpen);
     }
 
     // Create a transaction associated with the database.
-    std::shared_ptr<bolt::Tx> tx =
-        std::make_shared<bolt::Tx>(shared_from_this(), true);
+    std::shared_ptr<impl::Tx> tx =
+        std::make_shared<impl::Tx>(shared_from_this(), true);
     rwtx = tx;
 
     // Free any pages associated with closed read-only transactions.
-    bolt::txid minid = 0xFFFFFFFFFFFFFFFF;
+    impl::txid minid = 0xFFFFFFFFFFFFFFFF;
     for (auto it : txs) {
         if (it->meta.txid < minid) {
             minid = it->meta.txid;
@@ -340,11 +341,11 @@ std::tuple<bolt::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
     return std::make_tuple(tx, bolt::ErrorCode::Success);
 }
 
-void DB::removeTx(bolt::TxPtr tx) {
+void DB::removeTx(impl::TxPtr tx) {
     mmaplock.unlock_shared();
 
     metalock.lock();
-    std::erase_if(txs, [&](bolt::TxPtr item) -> bool { return item == tx; });
+    std::erase_if(txs, [&](impl::TxPtr item) -> bool { return item == tx; });
     metalock.unlock();
 
     statlock.lock();
@@ -354,7 +355,7 @@ void DB::removeTx(bolt::TxPtr tx) {
 }
 
 // meta retrieves the current meta page reference.
-bolt::meta *DB::meta() {
+impl::meta *DB::meta() {
     // We have to return the meta with the highest txid which doesn't fail
     // validation. Otherwise, we can cause errors when in fact the database is
     // in a consistent state. metaA is the one with the higher txid.
@@ -378,13 +379,13 @@ bolt::meta *DB::meta() {
     return nullptr;
 }
 
-bolt::page *DB::page(bolt::pgid id) {
-    auto pos = id * (bolt::pgid)pageSize;
-    return reinterpret_cast<bolt::page *>(&((std::byte *)dataref)[pos]);
+impl::page *DB::page(impl::pgid id) {
+    auto pos = id * (impl::pgid)pageSize;
+    return reinterpret_cast<impl::page *>(&((std::byte *)dataref)[pos]);
 }
 
-bolt::page *DB::pageInBuffer(bolt::bytes b, bolt::pgid id) {
-    return reinterpret_cast<bolt::page *>(&b[id *(bolt::pgid)pageSize]);
+impl::page *DB::pageInBuffer(bolt::bytes b, impl::pgid id) {
+    return reinterpret_cast<impl::page *>(&b[id *(impl::pgid)pageSize]);
 }
 
 // grow grows the size of the database to the given sz.
@@ -418,12 +419,12 @@ bolt::ErrorCode DB::grow(std::uint64_t sz) {
 }
 
 // allocate returns a contiguous block of memory starting at a given page.
-std::tuple<bolt::page *, bolt::ErrorCode> DB::allocate(int count) {
+std::tuple<impl::page *, bolt::ErrorCode> DB::allocate(int count) {
     // Allocate a temporary buffer for the page.
     std::lock_guard<std::mutex> lock(poolMutex);
     auto buf = std::make_unique<std::vector<std::byte>>();
     buf->assign(count * pageSize, std::byte(0));
-    bolt::page *p = reinterpret_cast<bolt::page *>(&(*buf)[0]);
+    impl::page *p = reinterpret_cast<impl::page *>(&(*buf)[0]);
     p->overflow = std::uint32_t(count - 1);
 
     // Use pages from the freelist if they are available.
@@ -444,12 +445,12 @@ std::tuple<bolt::page *, bolt::ErrorCode> DB::allocate(int count) {
     }
 
     // Move the page id high water mark.
-    rwtx->meta.pgid += bolt::pgid(count);
+    rwtx->meta.pgid += impl::pgid(count);
     pagePool.insert(std::make_pair(p, std::move(buf)));
     return std::make_tuple(p, bolt::ErrorCode::Success);
 }
 
-void DB::releasePage(bolt::page *p) {
+void DB::releasePage(impl::page *p) {
     std::lock_guard<std::mutex> lock(poolMutex);
     auto it = pagePool.find(p);
     if (it != pagePool.end()) {
@@ -488,7 +489,7 @@ bolt::ErrorCode DB::mmap(std::uint64_t minsz) {
     }
 
     // Memory-map the data file as a byte slice.
-    err = bolt::mmap(this, size);
+    err = impl::mmap(this, size);
     if (err != bolt::ErrorCode::Success) {
         return err;
     }
@@ -510,7 +511,7 @@ bolt::ErrorCode DB::mmap(std::uint64_t minsz) {
 
 // munmap unmaps the data file from memory.
 bolt::ErrorCode DB::munmap() {
-    auto err = bolt::munmap(this);
+    auto err = impl::munmap(this);
     if (err != bolt::ErrorCode::Success) {
         return err;
     }
@@ -529,7 +530,7 @@ std::tuple<std::uint64_t, bolt::ErrorCode> DB::mmapSize(std::uint64_t size) {
     }
 
     // Verify the requested size is not above the maximum allowed.
-    if (size > bolt::maxMapSize) {
+    if (size > impl::maxMapSize) {
         return std::make_tuple(0, bolt::ErrorCode::ErrorMmapTooLarge);
     }
 
@@ -540,8 +541,8 @@ std::tuple<std::uint64_t, bolt::ErrorCode> DB::mmapSize(std::uint64_t size) {
     }
 
     // If we've exceeded the max size then only grow up to the max size.
-    if (size > bolt::maxMapSize) {
-        size = bolt::maxMapSize;
+    if (size > impl::maxMapSize) {
+        size = impl::maxMapSize;
     }
     return std::make_tuple(size, bolt::ErrorCode::Success);
 }

@@ -5,13 +5,12 @@
 #include "common.hpp"
 #include "error.hpp"
 #include "meta.hpp"
+#include "utils.hpp"
 #include <functional>
 #include <memory>
 #include <future>
 
-namespace bolt {
-
-struct DB;
+namespace bolt::impl {
 
 struct TxStats {
     // Page statistics.
@@ -45,24 +44,24 @@ struct TxStats {
 struct Tx : public std::enable_shared_from_this<Tx> {
     bool writable;
     bool managed;
-    std::weak_ptr<bolt::DB> db;
-    bolt::meta meta;
-    bolt::BucketPtr root;
-    std::map<bolt::pgid, bolt::page*> pages;
-    bolt::TxStats stats;
+    std::weak_ptr<impl::DB> db;
+    impl::meta meta;
+    impl::BucketPtr root;
+    std::map<impl::pgid, impl::page*> pages;
+    impl::TxStats stats;
     std::vector<std::function<void()>> commitHandlers;
     int WriteFlag;
 
     explicit Tx();
-    explicit Tx(bolt::meta meta) : meta(meta){};
-    explicit Tx(bolt::DBPtr db, bolt::meta meta);
+    explicit Tx(impl::meta meta) : meta(meta){};
+    explicit Tx(impl::DBPtr db, impl::meta meta);
     // init initializes the transaction.
-    explicit Tx(bolt::DBPtr db, bool writable);
+    explicit Tx(impl::DBPtr db, bool writable);
     // ID returns the transaction id.
     int ID() const;
 
     // DB returns a reference to the database that created the transaction.
-    std::shared_ptr<bolt::DB> DB() const;
+    std::shared_ptr<impl::DB> DB() const;
 
     // Size returns current database size in bytes as seen by this transaction.
     std::int64_t Size() const;
@@ -73,9 +72,9 @@ struct Tx : public std::enable_shared_from_this<Tx> {
         commitHandlers.push_back(fn);
     };
 
-    bolt::TxStats Stats() const;
+    impl::TxStats Stats() const;
 
-    bolt::page *page(bolt::pgid id);
+    impl::page *page(impl::pgid id);
 
     bolt::ErrorCode writeMeta();
     bolt::ErrorCode write();
@@ -84,14 +83,14 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     bolt::ErrorCode Rollback();
     void rollback();
     void close();
-    std::tuple<bolt::page *, bolt::ErrorCode> allocate(int count);
+    std::tuple<impl::page *, bolt::ErrorCode> allocate(int count);
     std::future<std::vector<std::string>> Check();
-    void checkBucket(bolt::BucketPtr bucket,
-                     std::map<bolt::pgid, bolt::page *> &reachable,
-                     std::map<bolt::pgid, bool> &freed,
+    void checkBucket(impl::BucketPtr bucket,
+                     std::map<impl::pgid, impl::page *> &reachable,
+                     std::map<impl::pgid, bool> &freed,
                      std::vector<std::string> &errors);
-    void forEachPage(bolt::pgid pgid, int depth,
-                     std::function<void(bolt::page *, int)> fn);
+    void forEachPage(impl::pgid pgid, int depth,
+                     std::function<void(impl::page *, int)> fn);
 };
 
 }

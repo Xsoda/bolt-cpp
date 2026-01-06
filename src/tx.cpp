@@ -5,12 +5,13 @@
 #include "db.hpp"
 #include "meta.hpp"
 #include "freelist.hpp"
+#include "utils.hpp"
 #include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <mutex>
 
-namespace bolt {
+namespace bolt::impl {
 
 TxStats TxStats::operator-(const TxStats &other) {
     TxStats diff;
@@ -45,11 +46,11 @@ TxStats &TxStats::operator+=(const TxStats &other) {
     return *this;
 }
 
-Tx::Tx(bolt::DBPtr db, bolt::meta meta) : db(db), meta(meta) {}
+Tx::Tx(impl::DBPtr db, impl::meta meta) : db(db), meta(meta) {}
 
 Tx::Tx() {}
 
-Tx::Tx(std::shared_ptr<bolt::DB> db, bool writable)
+Tx::Tx(std::shared_ptr<impl::DB> db, bool writable)
     : db(db), writable(writable) {
     db->meta()->copy(&meta);
     root->bucket = meta.root;
@@ -58,7 +59,7 @@ Tx::Tx(std::shared_ptr<bolt::DB> db, bool writable)
     }
 }
 
-std::shared_ptr<bolt::DB> Tx::DB() const { return db.lock(); }
+std::shared_ptr<impl::DB> Tx::DB() const { return db.lock(); }
 
 int Tx::ID() const { return meta.txid; }
 
@@ -72,9 +73,9 @@ std::int64_t Tx::Size() const {
 
 bool Tx::Writable() const { return writable; }
 
-bolt::TxStats Tx::Stats() const { return stats; }
+impl::TxStats Tx::Stats() const { return stats; }
 
-bolt::page *Tx::page(bolt::pgid id) {
+impl::page *Tx::page(impl::pgid id) {
     auto it = pages.find(id);
     if (it != pages.end()) {
         return it->second;
@@ -94,7 +95,7 @@ bolt::ErrorCode Tx::writeMeta() {
     std::vector<std::byte> buf;
     buf.assign(dbptr->pageSize, std::byte(0x00));
 
-    bolt::page *p = dbptr->pageInBuffer(bolt::bytes(buf.begin(), buf.end()), 0);
+    impl::page *p = dbptr->pageInBuffer(bolt::bytes(buf.begin(), buf.end()), 0);
     meta.write(p);
     auto [_, err] = dbptr->file.WriteAt(bolt::bytes(buf.begin(), buf.end()),
                                 (std::int64_t)p->id * dbptr->pageSize);
@@ -114,7 +115,7 @@ bolt::ErrorCode Tx::writeMeta() {
 
 bolt::ErrorCode Tx::write() {
     // Sort pages by id.
-    std::vector<bolt::page *> pages;
+    std::vector<impl::page *> pages;
     auto dbptr = db.lock();
     if (!dbptr) {
         return bolt::ErrorCode::ErrorTxClosed;
@@ -128,7 +129,7 @@ bolt::ErrorCode Tx::write() {
     this->pages.clear();
 
     std::sort(pages.begin(), pages.end(),
-              [&](bolt::page *a, bolt::page *b) { return a->id < b->id; });
+              [&](impl::page *a, impl::page *b) { return a->id < b->id; });
 
     // Write pages to disk in order.
     for (auto it : pages) {
@@ -140,8 +141,8 @@ bolt::ErrorCode Tx::write() {
         while (true) {
             // Limit our write to our max allocation size.
             auto sz = size;
-            if (sz > bolt::maxAllocSize - 1) {
-                sz = bolt::maxAllocSize - 1;
+            if (sz > impl::maxAllocSize - 1) {
+                sz = impl::maxAllocSize - 1;
             }
             // Write chunk to disk.
             auto [_, err] = dbptr->file.WriteAt(bolt::bytes(ptr, sz), offset);
@@ -304,7 +305,7 @@ void Tx::close() {
 }
 
 // allocate returns a contiguous block of memory starting at a given page.
-std::tuple<bolt::page *, bolt::ErrorCode> Tx::allocate(int count) {
+std::tuple<impl::page *, bolt::ErrorCode> Tx::allocate(int count) {
     auto dbptr = db.lock();
     if (!dbptr) {
         return std::make_tuple(nullptr, bolt::ErrorCode::ErrorTxClosed);
@@ -318,8 +319,8 @@ std::tuple<bolt::page *, bolt::ErrorCode> Tx::allocate(int count) {
 
 std::future<std::vector<std::string>> Tx::Check() {
     auto fn = [this]() -> std::vector<std::string> {
-      std::map<bolt::pgid, bool> freed;
-      std::vector<bolt::pgid> all;
+      std::map<impl::pgid, bool> freed;
+      std::vector<impl::pgid> all;
       std::vector<std::string> errors;
       char buf[1024];
       auto dbptr = db.lock();
@@ -328,7 +329,7 @@ std::future<std::vector<std::string>> Tx::Check() {
         return errors;
       }
       // Check if any pages are double freed.
-      all.assign(dbptr->freelist->count(), bolt::pgid(0));
+      all.assign(dbptr->freelist->count(), impl::pgid(0));
       dbptr->freelist->copyall(all);
       for (auto item : all) {
         auto it = freed.find(item);
@@ -339,7 +340,7 @@ std::future<std::vector<std::string>> Tx::Check() {
         freed[item] = true;
       }
       // Track every reachable page.
-      std::map<bolt::pgid, bolt::page *> reachable;
+      std::map<impl::pgid, impl::page *> reachable;
       reachable[0] = page(0);
       reachable[1] = page(1);
       for (std::uint32_t i = 0; i <= page(meta.freelist)->overflow; i++) {
@@ -350,7 +351,7 @@ std::future<std::vector<std::string>> Tx::Check() {
       checkBucket(root, reachable, freed, errors);
 
       // Ensure all pages below high water mark are either reachable or freed.
-      for (bolt::pgid i = 0; i < meta.pgid; i++) {
+      for (impl::pgid i = 0; i < meta.pgid; i++) {
         auto it = reachable.find(i);
         auto itf = freed.find(i);
         if (it == reachable.end() && itf == freed.end()) {
@@ -362,9 +363,9 @@ std::future<std::vector<std::string>> Tx::Check() {
     return std::async(fn);
 }
 
-void Tx::checkBucket(bolt::BucketPtr bucket,
-                     std::map<bolt::pgid, bolt::page *> &reachable,
-                     std::map<bolt::pgid, bool> &freed,
+void Tx::checkBucket(impl::BucketPtr bucket,
+                     std::map<impl::pgid, impl::page *> &reachable,
+                     std::map<impl::pgid, bool> &freed,
                      std::vector<std::string> &errors) {
     // Ignore inline buckets.
     if (bucket->bucket.root == 0) {
@@ -376,7 +377,7 @@ void Tx::checkBucket(bolt::BucketPtr bucket,
     }
 
     // Check every page used by this bucket.
-    txptr->forEachPage(bucket->bucket.root, 0, [&](bolt::page *p, int depth) {
+    txptr->forEachPage(bucket->bucket.root, 0, [&](impl::page *p, int depth) {
         char buf[1024];
         if (p->id > txptr->meta.pgid) {
             snprintf(buf, sizeof(buf), "page %d: out of bounds: %d", (int)p->id,
@@ -384,7 +385,7 @@ void Tx::checkBucket(bolt::BucketPtr bucket,
             errors.push_back(buf);
         }
         // Ensure each page is only referenced once.
-        for (bolt::pgid i = 0; i <= p->overflow; i++) {
+        for (impl::pgid i = 0; i <= p->overflow; i++) {
             auto id = p->id + 1;
             auto it = reachable.find(id);
             if (it != reachable.end()) {
@@ -399,8 +400,8 @@ void Tx::checkBucket(bolt::BucketPtr bucket,
         if (it != freed.end()) {
             snprintf(buf, sizeof(buf), "page %d: reachable freed", (int)p->id);
             errors.push_back(buf);
-        } else if ((p->flags & bolt::branchPageFlag) == 0 &&
-                   (p->flags & bolt::leafPageFlag) == 0) {
+        } else if ((p->flags & impl::branchPageFlag) == 0 &&
+                   (p->flags & impl::leafPageFlag) == 0) {
             snprintf(buf, sizeof(buf), "page %d: invalid type: %s", (int)p->id,
                      p->type().c_str());
             errors.push_back(buf);
@@ -413,15 +414,15 @@ void Tx::checkBucket(bolt::BucketPtr bucket,
     });
 }
 
-void Tx::forEachPage(bolt::pgid pgid, int depth,
-                     std::function<void(bolt::page *, int)> fn) {
+void Tx::forEachPage(impl::pgid pgid, int depth,
+                     std::function<void(impl::page *, int)> fn) {
     auto p = page(pgid);
 
     // Execute function.
     fn(p, depth);
 
     // Recursively loop over children.
-    if (p->flags & bolt::branchPageFlag) {
+    if (p->flags & impl::branchPageFlag) {
         for (std::uint16_t i = 0; i < p->count; i++) {
             auto elem = p->branchPageElement(i);
             forEachPage(elem->pgid, depth + 1, fn);

@@ -1,5 +1,4 @@
 #include "file.hpp"
-#include "error.hpp"
 #include <chrono>
 #include <thread>
 #include <iostream>
@@ -7,12 +6,12 @@
 #ifdef WIN32
 #include <windows.h>
 #include <cassert>
-namespace bolt {
+namespace bolt::impl {
 
 int Getpagesize() {
-  SYSTEM_INFO info;
-  GetSystemInfo(&info);
-  return (int)info.dwPageSize;
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+    return (int)info.dwPageSize;
 }
 
 struct FileImpl {
@@ -268,7 +267,7 @@ bolt::ErrorCode FileImpl::Munmap(std::uintptr_t ptr) {
     }
 }
 
-} // namespace bolt
+} // namespace bolt::impl
 #endif
 
 #ifdef __linux__
@@ -278,7 +277,7 @@ bolt::ErrorCode FileImpl::Munmap(std::uintptr_t ptr) {
 #include <sys/mman.h>
 #include <sys/stat.h>
 
-namespace bolt {
+namespace bolt::impl {
 
 int Getpagesize() { return (int)sysconf(_SC_PAGE_SIZE); }
 
@@ -456,12 +455,12 @@ std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::Size() {
     return std::make_tuple(std::uint64_t(buf.st_size), bolt::ErrorCode::Success);
 }
 
-}
+} // namespace bolt::impl
 #endif
 
-namespace bolt {
+namespace bolt::impl {
 
-File::File() : pImpl(std::make_unique<FileImpl>()) {
+File::File() : pImpl(std::make_unique<impl::FileImpl>()) {
 }
 
 File::~File() {
@@ -509,5 +508,4 @@ bolt::ErrorCode File::Truncate(std::uint64_t size) {
     return pImpl->Truncate(size);
 }
 
-
-}
+} // namespace bolt::impl

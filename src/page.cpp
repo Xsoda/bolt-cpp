@@ -1,49 +1,51 @@
 #include "page.hpp"
+#include "common.hpp"
+#include "utils.hpp"
 
-namespace bolt {
+namespace bolt::impl {
 
 std::string page::type() const {
-    if (flags & bolt::branchPageFlag) {
+    if (flags & impl::branchPageFlag) {
         return "branch";
-    } else if (flags & bolt::leafPageFlag) {
+    } else if (flags & impl::leafPageFlag) {
         return "leaf";
-    } else if (flags & bolt::metaPageFlag) {
+    } else if (flags & impl::metaPageFlag) {
         return "meta";
-    } else if (flags & bolt::freeListPageFlag) {
+    } else if (flags & impl::freeListPageFlag) {
         return "freelist";
     } else {
         return "unknown";
     }
 }
 
-bolt::meta *page::meta() {
-    return reinterpret_cast<bolt::meta*>(&this->ptr);
+impl::meta *page::meta() {
+    return reinterpret_cast<impl::meta*>(&this->ptr);
 }
 
-bolt::leafPageElement *page::leafPageElement(std::uint16_t index) {
-    bolt::leafPageElement *array = reinterpret_cast<bolt::leafPageElement*>(&this->ptr);
+impl::leafPageElement *page::leafPageElement(std::uint16_t index) {
+    impl::leafPageElement *array = reinterpret_cast<impl::leafPageElement*>(&this->ptr);
     return &array[index];
 }
 
-std::span<bolt::leafPageElement> page::leafPageElements() {
-    bolt::leafPageElement *array = reinterpret_cast<bolt::leafPageElement*>(&this->ptr);
+std::span<impl::leafPageElement> page::leafPageElements() {
+    impl::leafPageElement *array = reinterpret_cast<impl::leafPageElement*>(&this->ptr);
     if (this->count == 0) {
-        return std::span<bolt::leafPageElement>{};
+        return std::span<impl::leafPageElement>{};
     }
-    return std::span<bolt::leafPageElement>(array, this->count);
+    return std::span<impl::leafPageElement>(array, this->count);
 }
 
-bolt::branchPageElement *page::branchPageElement(std::uint16_t index) {
-    bolt::branchPageElement *array = reinterpret_cast<bolt::branchPageElement*>(&this->ptr);
+impl::branchPageElement *page::branchPageElement(std::uint16_t index) {
+    impl::branchPageElement *array = reinterpret_cast<impl::branchPageElement*>(&this->ptr);
     return &array[index];
 }
 
-std::span<bolt::branchPageElement> page::branchPageElements() {
-    bolt::branchPageElement *array = reinterpret_cast<bolt::branchPageElement*>(&this->ptr);
+std::span<impl::branchPageElement> page::branchPageElements() {
+    impl::branchPageElement *array = reinterpret_cast<impl::branchPageElement*>(&this->ptr);
     if (this->count == 0) {
-        return std::span<bolt::branchPageElement>{};
+        return std::span<impl::branchPageElement>{};
     }
-    return std::span<bolt::branchPageElement>(array, this->count);
+    return std::span<impl::branchPageElement>(array, this->count);
 }
 
 bolt::bytes branchPageElement::key() {

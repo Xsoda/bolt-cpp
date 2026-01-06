@@ -7,7 +7,7 @@
 #include <iterator>
 #include <cassert>
 
-namespace bolt {
+namespace bolt::impl {
 
 void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn) {
     AsyncFireAndForget([fn](std::chrono::milliseconds delay) {
@@ -34,7 +34,7 @@ void batch::run() {
 
     while (calls.size() > 0) {
         int failIdx = -1;
-        auto err = dbptr->Update([&](bolt::TxPtr tx) -> bolt::ErrorCode {
+        auto err = dbptr->Update([&](impl::TxPtr tx) -> bolt::ErrorCode {
             for (auto it = calls.begin(); it != calls.end(); it++) {
                 auto ret = it->get()->fn(tx);
                 if (ret != bolt::ErrorCode::Success) {

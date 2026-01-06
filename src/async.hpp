@@ -7,7 +7,7 @@
 #include <thread>
 #include <tuple>
 
-namespace bolt {
+namespace bolt::impl {
 
 template <typename Fn, typename... Args> void AsyncFireAndForget(Fn &&func, Args &&...args) {
   std::thread([func = std::forward<Fn>(func),

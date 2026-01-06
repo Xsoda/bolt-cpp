@@ -3,32 +3,33 @@
 
 #include "common.hpp"
 #include "error.hpp"
+#include "utils.hpp"
 
-namespace bolt {
+namespace bolt::impl {
 
 struct page;
 
-void mergepgids(std::span<bolt::pgid> dest, std::span<bolt::pgid> a,
-                std::span<bolt::pgid> b);
+void mergepgids(std::span<impl::pgid> dest, std::span<impl::pgid> a,
+                std::span<impl::pgid> b);
 
 struct freelist {
-    std::vector<bolt::pgid> ids;
-    std::map<bolt::txid, std::vector<bolt::pgid>> pending;
-    std::map<bolt::pgid, bool> cache;
+    std::vector<impl::pgid> ids;
+    std::map<impl::txid, std::vector<impl::pgid>> pending;
+    std::map<impl::pgid, bool> cache;
 
     int size();
     int count();
     int free_count();
     int pending_count();
-    void copyall(std::span<bolt::pgid> dest);
-    bolt::pgid allocate(int n);
-    void free(bolt::txid txid, bolt::page *p);
-    void rollback(bolt::txid txid);
-    void release(bolt::txid txid);
-    bool freed(bolt::pgid pgid);
-    void read(bolt::page *p);
-    bolt::ErrorCode write(bolt::page *p);
-    void reload(bolt::page *p);
+    void copyall(std::span<impl::pgid> dest);
+    impl::pgid allocate(int n);
+    void free(impl::txid txid, impl::page *p);
+    void rollback(impl::txid txid);
+    void release(impl::txid txid);
+    bool freed(impl::pgid pgid);
+    void read(impl::page *p);
+    bolt::ErrorCode write(impl::page *p);
+    void reload(impl::page *p);
     void reindex();
 };
 }

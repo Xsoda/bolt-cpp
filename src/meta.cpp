@@ -2,14 +2,15 @@
 #include "common.hpp"
 #include "page.hpp"
 #include "fnv64.hpp"
+#include "utils.hpp"
 #include <cassert>
 
-namespace bolt {
+namespace bolt::impl {
 
 meta::meta() {
-    magic = bolt::magic;
-    version = bolt::version;
-    pageSize = bolt::defaultPageSize;
+    magic = impl::magic;
+    version = impl::version;
+    pageSize = impl::defaultPageSize;
     flags = 0;
     root.root = 0;
     root.sequence = 0;
@@ -19,10 +20,10 @@ meta::meta() {
     checksum = 0;
 }
 
-meta::meta(bolt::pgid id) {
-    magic = bolt::magic;
-    version = bolt::version;
-    pageSize = bolt::defaultPageSize;
+meta::meta(impl::pgid id) {
+    magic = impl::magic;
+    version = impl::version;
+    pageSize = impl::defaultPageSize;
     flags = 0;
     root.root = 0;
     root.sequence = 0;
@@ -32,16 +33,16 @@ meta::meta(bolt::pgid id) {
     checksum = 0;
 }
 
-void meta::copy(bolt::meta *dest) const {
+void meta::copy(impl::meta *dest) const {
     *dest = *this;
 }
 
-void meta::write(bolt::page *p) {
+void meta::write(impl::page *p) {
     assert(this->root.root >= pgid);
     assert(this->freelist > pgid);
 
     p->id = this->txid % 2;
-    p->flags |= bolt::metaPageFlag;
+    p->flags |= impl::metaPageFlag;
 
     checksum = this->sum64();
 
@@ -56,9 +57,9 @@ std::uint64_t meta::sum64() {
 }
 
 bolt::ErrorCode meta::validate() {
-    if (this->magic != bolt::magic) {
+    if (this->magic != impl::magic) {
         return bolt::ErrorCode::ErrorDatabaseInvalid;
-    } else if (this->version != bolt::version) {
+    } else if (this->version != impl::version) {
         return bolt::ErrorCode::ErrorVersionMismatch;
     } else if (this->checksum != 0 && this->checksum != this->sum64()) {
         return bolt::ErrorCode::ErrorChecksum;

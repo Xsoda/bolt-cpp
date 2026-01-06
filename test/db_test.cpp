@@ -1,5 +1,6 @@
-#include "../src/db.hpp"
+#include "db.hpp"
 #include "test.hpp"
+#include "error.hpp"
 #include <filesystem>
 #include <memory>
 #include <fstream>
@@ -15,7 +16,7 @@ std::string tempfile() {
 }
 
 TestResult TestDB_Open() {
-    auto db = std::make_shared<bolt::DB>();
+    auto db = std::make_shared<bolt::impl::DB>();
     auto path = tempfile();
     auto err = db->Open(path, false);
     if (err != bolt::ErrorCode::Success) {
@@ -33,7 +34,7 @@ TestResult TestDB_Open() {
 }
 
 TestResult TestDB_OpenPathRequired() {
-    auto db = std::make_shared<bolt::DB>();
+    auto db = std::make_shared<bolt::impl::DB>();
     auto err = db->Open("", false);
     if (err == bolt::ErrorCode::Success) {
         return TestResult(false, "expected open database fail");
@@ -48,7 +49,7 @@ TestResult TestDB_OpenInvalid() {
     f.write(content.c_str(), content.size());
     f.close();
 
-    auto db = std::make_shared<bolt::DB>();
+    auto db = std::make_shared<bolt::impl::DB>();
     auto err = db->Open(path, false);
     if (err != bolt::ErrorCode::ErrorDatabaseInvalid) {
         return TestResult(false, "expected open error code invalid");

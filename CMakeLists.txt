@@ -28,6 +28,9 @@ endif()
 
 target_sources(${PROJECT_NAME}
   PRIVATE
+  include/pimpl.hpp
+  include/common.hpp
+  src/utils.hpp
   src/page.cpp
   src/page.hpp
   src/meta.cpp
@@ -61,4 +64,8 @@ target_sources(${PROJECT_NAME}
 )
 
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/test" "${CMAKE_CURRENT_SOURCE_DIR}/src")
+include_directories(
+  "${CMAKE_CURRENT_SOURCE_DIR}/test"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)

@@ -5,19 +5,20 @@
 #include "db.hpp"
 #include "node.hpp"
 #include "cursor.hpp"
+#include "meta.hpp"
 #include <cassert>
 
-namespace bolt {
+namespace bolt::impl {
 
-Bucket::Bucket(bolt::TxPtr tx): tx(tx) {
+Bucket::Bucket(impl::TxPtr tx): tx(tx) {
     FillPercent = bolt::DefaultFillPercent;
 }
 
-bolt::TxPtr Bucket::Tx() const {
+impl::TxPtr Bucket::Tx() const {
     return tx.lock();
 }
 
-bolt::pgid Bucket::Root() const {
+impl::pgid Bucket::Root() const {
     return bucket.root;
 }
 
@@ -29,16 +30,16 @@ bool Bucket::Writable() const {
     return false;
 }
 
-bolt::CursorPtr Bucket::Cursor() {
-    return std::make_shared<bolt::Cursor>(shared_from_this());
+impl::CursorPtr Bucket::Cursor() {
+    return std::make_shared<impl::Cursor>(shared_from_this());
 }
 
-bolt::node_ptr Bucket::node(bolt::pgid pgid, bolt::node_ptr parent) {
+impl::node_ptr Bucket::node(impl::pgid pgid, impl::node_ptr parent) {
     auto it = nodes.find(pgid);
     if (it != nodes.end()) {
         return it->second;
     }
-    auto n = std::make_shared<bolt::node>(shared_from_this(), false, parent);
+    auto n = std::make_shared<impl::node>(shared_from_this(), false, parent);
     if (parent == nullptr) {
         rootNode = n;
     } else {
@@ -114,11 +115,11 @@ bool Bucket::inlineable() const {
 
     // Bucket is not inlineable if it contains subbuckets or if it goes beyond
     // our threshold for inline bucket size.
-    auto size = bolt::pageHeaderSize;
+    auto size = impl::pageHeaderSize;
     for (auto &inode : n->inodes) {
         size +=
-            bolt::leafPageElementSize + inode.key.size() + inode.value.size();
-        if ((inode.flags & bolt::bucketLeafFlag) != 0) {
+            impl::leafPageElementSize + inode.key.size() + inode.value.size();
+        if ((inode.flags & impl::bucketLeafFlag) != 0) {
             return false;
         } else if (size > maxInlineBucketSize()) {
             return false;
@@ -180,7 +181,7 @@ std::vector<std::byte> Bucket::write() {
 
 // pageNode returns the in-memory node, if it exists.
 // Otherwise returns the underlying page.
-std::tuple<bolt::page *, bolt::node_ptr> Bucket::pageNode(bolt::pgid id) {
+std::tuple<impl::page *, impl::node_ptr> Bucket::pageNode(impl::pgid id) {
     // Inline buckets have a fake page embedded in their value so treat them
     // differently. We'll return the rootNode (if available) or the fake page.
     if (bucket.root == 0) {

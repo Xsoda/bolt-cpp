@@ -2,16 +2,17 @@
 #include "common.hpp"
 #include "node.hpp"
 #include "page.hpp"
+#include "utils.hpp"
 #include <algorithm>
 #include <cassert>
 
-namespace bolt {
+namespace bolt::impl {
 
 bool elemRef::isLeaf() const {
     if (auto n = node.lock()) {
         return n->isLeaf;
     }
-    return (this->page->flags & bolt::leafPageFlag) != 0;
+    return (this->page->flags & impl::leafPageFlag) != 0;
 }
 
 int elemRef::count() const {
@@ -21,7 +22,7 @@ int elemRef::count() const {
     return this->page->count;
 }
 
-bolt::node_ptr Cursor::node() const {
+impl::node_ptr Cursor::node() const {
     size_t len = stack.size();
     assert(len > 0);
     auto &ref = stack.back();
@@ -66,7 +67,7 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::First() {
     }
 
     auto [k, v, flags] = keyValue();
-    if ((flags & bolt::bucketLeafFlag) != 0) {
+    if ((flags & impl::bucketLeafFlag) != 0) {
         return std::make_tuple(k, bolt::bytes());
     }
     return std::make_tuple(k, v);
@@ -82,7 +83,7 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::Next() {
     assert("tx closed" && !bptr->tx.expired());
 
     auto [k, v, flags] = next();
-    if ((flags & bolt::bucketLeafFlag) != 0) {
+    if ((flags & impl::bucketLeafFlag) != 0) {
         return std::make_tuple(k, bolt::bytes());
     }
     return std::make_tuple(k, v);
@@ -98,7 +99,7 @@ std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::keyValue() {
         return std::make_tuple(inode.key, inode.value, inode.flags);
     }
 
-    bolt::leafPageElement *elem = ref.page->leafPageElement(ref.index);
+    impl::leafPageElement *elem = ref.page->leafPageElement(ref.index);
     return std::make_tuple(elem->key(), elem->value(), elem->flags);
 }
 
@@ -127,7 +128,7 @@ void Cursor::first() {
         }
 
         // Keep adding pages pointing to the first element to the stack.
-        bolt::pgid pgid;
+        impl::pgid pgid;
         if (!ref.node.expired()) {
             auto n = ref.node.lock();
             pgid = n->inodes[ref.index].pgid;
@@ -153,7 +154,7 @@ void Cursor::last() {
         }
 
         // Keep adding pages pointing to the last element in the stack.
-        bolt::pgid pgid;
+        impl::pgid pgid;
         if (!ref.node.expired()) {
             auto n = ref.node.lock();
             pgid = n->inodes[ref.index].pgid;
@@ -206,10 +207,10 @@ std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::next() {
     }
 }
 
-void Cursor::search(bolt::bytes key, bolt::pgid pgid) {
+void Cursor::search(bolt::bytes key, impl::pgid pgid) {
     auto b = bucket.lock();
     auto [p, n] = b->pageNode(pgid);
-    if (p != nullptr && (p->flags & (branchPageFlag | leafPageFlag)) == 0) {
+    if (p != nullptr && (p->flags & (impl::branchPageFlag | impl::leafPageFlag)) == 0) {
         assert("invalid page type" && false);
     }
     elemRef e{p, n};
@@ -247,10 +248,10 @@ func (c *Cursor) searchNode(key []byte, n *node) {
         c.search(key, n.inodes[index].pgid)
 }
 */
-void Cursor::searchNode(bolt::bytes key, bolt::node_ptr n) {
+void Cursor::searchNode(bolt::bytes key, impl::node_ptr n) {
     bool exact = false;
     auto it = std::find_if(
-        n->inodes.begin(), n->inodes.end(), [&](bolt::inode &item) -> bool {
+        n->inodes.begin(), n->inodes.end(), [&](impl::inode &item) -> bool {
           auto ret = std::lexicographical_compare_three_way(
               item.key.begin(), item.key.end(), key.begin(), key.end());
           if (std::is_eq(ret)) {
@@ -270,12 +271,12 @@ void Cursor::searchNode(bolt::bytes key, bolt::node_ptr n) {
     search(key, n->inodes[index].pgid);
 }
 
-void Cursor::searchPage(bolt::bytes key, bolt::page *p) {
+void Cursor::searchPage(bolt::bytes key, impl::page *p) {
     // Binary search for the correct range.
     auto inodes = p->branchPageElements();
     bool exact = false;
     auto it = std::find_if(inodes.begin(), inodes.end(),
-                           [&](bolt::branchPageElement &item) -> bool {
+                           [&](impl::branchPageElement &item) -> bool {
                              auto k = item.key();
                              auto ret = std::lexicographical_compare_three_way(
                                  k.begin(), k.end(), key.begin(), key.end());
@@ -304,7 +305,7 @@ void Cursor::nsearch(bolt::bytes key) {
         auto nptr = n.lock();
         auto it = std::find_if(
             nptr->inodes.begin(), nptr->inodes.end(),
-            [&](bolt::inode item) -> bool {
+            [&](impl::inode item) -> bool {
               auto ret = std::lexicographical_compare_three_way(
                   item.key.begin(), item.key.end(), key.begin(), key.end());
               return !std::is_lt(ret);
@@ -317,7 +318,7 @@ void Cursor::nsearch(bolt::bytes key) {
     // If we have a page then search its leaf elements.
     auto inodes = p->leafPageElements();
     auto it = std::find_if(inodes.begin(), inodes.end(),
-                           [&](bolt::leafPageElement &item) -> bool {
+                           [&](impl::leafPageElement &item) -> bool {
                              auto k = item.key();
                              auto ret = std::lexicographical_compare_three_way(
                                  k.begin(), k.end(), key.begin(), key.end());

@@ -2,15 +2,16 @@
 #define __PAGE_HPP__
 
 #include "common.hpp"
+#include "utils.hpp"
 
-namespace bolt {
+namespace bolt::impl {
 
 struct meta;
 
 struct branchPageElement {
     std::uint32_t pos;
     std::uint32_t ksize;
-    bolt::pgid pgid;
+    impl::pgid pgid;
 
     bolt::bytes key();
 };
@@ -26,22 +27,22 @@ struct leafPageElement {
 };
 
 struct page {
-    bolt::pgid id;
+    impl::pgid id;
     std::uint16_t flags;
     std::uint16_t count;
     std::uint32_t overflow;
     std::uintptr_t ptr;
 
     page() = default;
-    page(bolt::pgid id): id(id), flags(0), count(0), overflow(0) {};
-    page(bolt::pgid id, std::uint32_t overflow): id(id), overflow(overflow), flags(0), count(0) {};
+    page(impl::pgid id): id(id), flags(0), count(0), overflow(0) {};
+    page(impl::pgid id, std::uint32_t overflow): id(id), overflow(overflow), flags(0), count(0) {};
     std::string type() const;
-    bolt::meta *meta();
-    bolt::leafPageElement *leafPageElement(std::uint16_t index);
-    std::span<bolt::leafPageElement> leafPageElements();
+    impl::meta *meta();
+    impl::leafPageElement *leafPageElement(std::uint16_t index);
+    std::span<impl::leafPageElement> leafPageElements();
 
-    bolt::branchPageElement *branchPageElement(std::uint16_t index);
-    std::span<bolt::branchPageElement> branchPageElements();
+    impl::branchPageElement *branchPageElement(std::uint16_t index);
+    std::span<impl::branchPageElement> branchPageElements();
 };
 
 

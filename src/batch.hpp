@@ -7,7 +7,7 @@
 #include <future>
 #include <mutex>
 
-namespace bolt {
+namespace bolt::impl {
 
 struct DB;
 struct Tx;
@@ -15,7 +15,7 @@ struct Tx;
 void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn);
 
 struct call {
-    std::function<bolt::ErrorCode(std::shared_ptr<bolt::Tx>)> fn;
+    std::function<bolt::ErrorCode(std::shared_ptr<impl::Tx>)> fn;
     std::promise<bolt::ErrorCode> err;
     call() = default;
     call(const call &other) = delete;
@@ -23,11 +23,11 @@ struct call {
 };
 
 struct batch {
-    std::weak_ptr<bolt::DB> db;
+    std::weak_ptr<impl::DB> db;
     std::once_flag start;
     std::vector<std::shared_ptr<call>> calls;
 
-    batch(std::shared_ptr<bolt::DB> db) : db(db){};
+    batch(std::shared_ptr<impl::DB> db) : db(db){};
     void trigger();
     void run();
 };

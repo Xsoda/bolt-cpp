@@ -2,9 +2,11 @@
 #define __META_HPP__
 
 #include "common.hpp"
+#include "utils.hpp"
 #include "bucket.hpp"
+#include "error.hpp"
 
-namespace bolt {
+namespace bolt::impl {
 
 struct page;
 
@@ -13,16 +15,16 @@ struct meta {
     std::uint32_t version;
     std::uint32_t pageSize;
     std::uint32_t flags;
-    bolt::bucket root;
-    bolt::pgid freelist;
-    bolt::pgid pgid;
-    bolt::txid txid;
+    impl::bucket root;
+    impl::pgid freelist;
+    impl::pgid pgid;
+    impl::txid txid;
     std::uint64_t checksum;
 
     explicit meta();
-    explicit meta(bolt::pgid id);
-    void copy(bolt::meta *dest) const;
-    void write(bolt::page *page);
+    explicit meta(impl::pgid id);
+    void copy(impl::meta *dest) const;
+    void write(impl::page *page);
     std::uint64_t sum64();
     bolt::ErrorCode validate();
 };

@@ -1,11 +1,13 @@
 #include "freelist.hpp"
 #include "page.hpp"
+#include "utils.hpp"
+#include "error.hpp"
 #include "test.hpp"
 #include <cstring>
 
 TestResult TestFreelist_free() {
-    bolt::page page{12};
-    bolt::freelist freelist;
+    bolt::impl::page page{12};
+    bolt::impl::freelist freelist;
     freelist.free(100, &page);
     auto it = freelist.pending.find(100);
     if (it == freelist.pending.end()) {
@@ -14,7 +16,7 @@ TestResult TestFreelist_free() {
     if (freelist.pending_count() != 1) {
         return TestResult(false, "freelist pending count");
     }
-    auto vec = std::vector<bolt::pgid>({12});
+    auto vec = std::vector<bolt::impl::pgid>({12});
     for (int i = 0; i < vec.size(); i++) {
         if (it->second[i] != vec[i]) {
             return TestResult(false, "freelist pending page");
@@ -24,8 +26,8 @@ TestResult TestFreelist_free() {
 }
 
 TestResult TestFreelist_free_overflow() {
-    bolt::page page{12, 3};
-    bolt::freelist freelist;
+    bolt::impl::page page{12, 3};
+    bolt::impl::freelist freelist;
     freelist.free(100, &page);
     auto it = freelist.pending.find(100);
     if (it == freelist.pending.end()) {
@@ -34,7 +36,7 @@ TestResult TestFreelist_free_overflow() {
     if (freelist.pending_count() != 4) {
         return TestResult(false, "freelist pending count");
     }
-    auto vec = std::vector<bolt::pgid>({12, 13, 14, 15});
+    auto vec = std::vector<bolt::impl::pgid>({12, 13, 14, 15});
     for (int i = 0; i < vec.size(); i++) {
         if (it->second[i] != vec[i]) {
             return TestResult(false, "freelist pending page");
@@ -44,16 +46,16 @@ TestResult TestFreelist_free_overflow() {
 }
 
 TestResult TestFreelist_release() {
-    bolt::page p1{12, 1};
-    bolt::page p2{9};
-    bolt::page p3{39};
-    bolt::freelist freelist;
+    bolt::impl::page p1{12, 1};
+    bolt::impl::page p2{9};
+    bolt::impl::page p3{39};
+    bolt::impl::freelist freelist;
     freelist.free(100, &p1);
     freelist.free(100, &p2);
     freelist.free(102, &p3);
     freelist.release(100);
     freelist.release(101);
-    auto vec = std::vector<bolt::pgid>({9, 12, 13});
+    auto vec = std::vector<bolt::impl::pgid>({9, 12, 13});
     if (freelist.ids.size() != vec.size()) {
         return TestResult(false, "freelist ids count not equal");
     }
@@ -64,7 +66,7 @@ TestResult TestFreelist_release() {
     }
 
     freelist.release(102);
-    vec = std::vector<bolt::pgid>({9, 12, 13, 39});
+    vec = std::vector<bolt::impl::pgid>({9, 12, 13, 39});
     if (freelist.ids.size() != vec.size()) {
         return TestResult(false, "freelist ids count not equal");
     }
@@ -77,8 +79,8 @@ TestResult TestFreelist_release() {
 }
 
 TestResult TestFreelist_allocate() {
-    bolt::freelist freelist;
-    freelist.ids = std::vector<bolt::pgid>({3, 4, 5, 6, 7, 9, 12, 13, 18});
+    bolt::impl::freelist freelist;
+    freelist.ids = std::vector<bolt::impl::pgid>({3, 4, 5, 6, 7, 9, 12, 13, 18});
     auto id = freelist.allocate(3);
     if (id != 3) {
         return TestResult(false, "freelist allocate(3) expect result 3");
@@ -103,7 +105,7 @@ TestResult TestFreelist_allocate() {
     if (id != 0) {
         return TestResult(false, "freelist allocate(0) expect result 0");
     }
-    std::vector<bolt::pgid> vec = {9, 18};
+    std::vector<bolt::impl::pgid> vec = {9, 18};
     if (freelist.ids.size() != vec.size()) {
         return TestResult(false, "freelist ids count not equal");
     }
@@ -118,16 +120,16 @@ TestResult TestFreelist_allocate() {
 TestResult TestFreelist_read() {
     std::byte buf[4096];
     std::memset(buf, 0, sizeof(buf));
-    bolt::page *page = reinterpret_cast<bolt::page *>(buf);
-    page->flags = bolt::freeListPageFlag;
+    bolt::impl::page *page = reinterpret_cast<bolt::impl::page *>(buf);
+    page->flags = bolt::impl::freeListPageFlag;
     page->count = 2;
-    std::span<bolt::pgid> ids(&page->ptr, page->count);
+    std::span<bolt::impl::pgid> ids(&page->ptr, page->count);
     ids[0] = 23;
     ids[1] = 50;
 
-    bolt::freelist freelist;
+    bolt::impl::freelist freelist;
     freelist.read(page);
-    std::vector<bolt::pgid> vec = {23, 50};
+    std::vector<bolt::impl::pgid> vec = {23, 50};
     if (freelist.ids.size() != vec.size()) {
         return TestResult(false, "freelist ids count not equal");
     }
@@ -142,19 +144,19 @@ TestResult TestFreelist_read() {
 TestResult TestFreelist_write() {
     std::byte buf[4096];
     std::memset(buf, 0, sizeof(buf));
-    bolt::freelist freelist;
-    freelist.ids = std::vector<bolt::pgid>({12, 39});
-    freelist.pending[100] = std::vector<bolt::pgid>({28, 11});
-    freelist.pending[101] = std::vector<bolt::pgid>({3});
-    bolt::page *page = reinterpret_cast<bolt::page *>(buf);
+    bolt::impl::freelist freelist;
+    freelist.ids = std::vector<bolt::impl::pgid>({12, 39});
+    freelist.pending[100] = std::vector<bolt::impl::pgid>({28, 11});
+    freelist.pending[101] = std::vector<bolt::impl::pgid>({3});
+    bolt::impl::page *page = reinterpret_cast<bolt::impl::page *>(buf);
     auto ret = freelist.write(page);
-    if (ret != bolt::Success) {
+    if (ret != bolt::ErrorCode::Success) {
         return TestResult(false, "freelist write page fail");
     }
 
-    bolt::freelist freelist2;
+    bolt::impl::freelist freelist2;
     freelist.read(page);
-    std::vector<bolt::pgid> vec = {3, 11, 12, 28, 39};
+    std::vector<bolt::impl::pgid> vec = {3, 11, 12, 28, 39};
     if (freelist.ids.size() != vec.size()) {
         return TestResult(false, "freelist ids count not equal");
     }

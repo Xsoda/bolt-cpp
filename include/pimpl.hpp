@@ -3,8 +3,9 @@
 #ifndef __PIMPL_HPP__
 #define __PIMPL_HPP__
 
-namespace bolt {
 #include <memory>
+
+namespace bolt {
 
 template <typename T> class pimpl {
 public:
@@ -12,7 +13,7 @@ public:
     pimpl(Args... args)
         : pImpl(std::make_unique<T>(std::forward<Args>(args)...)) {};
     pimpl() : pImpl(std::make_unique<T>()){};
-    pimpl(std::unique_ptr<T> oth) : pImpl(std::move(oth)){};
+    pimpl(std::unique_ptr<T> uptr) : pImpl(std::move(uptr)){};
     T *operator->() { return pImpl.get(); };
     T &operator*() { return *pImpl.get(); };
     virtual ~pimpl() = default;
@@ -25,6 +26,6 @@ public:
 private:
     std::unique_ptr<T> pImpl;
 };
-}
+} // namespace bolt
 
 #endif  // !__PIMPL_HPP__

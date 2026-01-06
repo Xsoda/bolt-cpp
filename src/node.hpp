@@ -7,14 +7,14 @@
 #include <initializer_list>
 #include <memory>
 
-namespace bolt {
+namespace bolt::impl {
 
 // inode represents an internal node inside of a node.
 // It can be used to point to elements in a page or point
 // to an element which hasn't been added to a page yet.
 struct inode {
     std::uint32_t flags;
-    bolt::pgid pgid;
+    impl::pgid pgid;
     bolt::bytes key;
     bolt::bytes value;
     std::vector<std::byte> memory;
@@ -22,24 +22,24 @@ struct inode {
 
 // node represents an in-memory, deserialized page.
 struct node : public std::enable_shared_from_this<node> {
-    std::weak_ptr<bolt::Bucket> bucket;
+    std::weak_ptr<impl::Bucket> bucket;
     bool isLeaf;
     bool unbalanced;
     bool spilled;
     bolt::bytes key;
-    bolt::pgid pgid;
-    std::weak_ptr<bolt::node> parent;
-    std::vector<bolt::node_ptr> children;
-    std::vector<bolt::inode> inodes;
+    impl::pgid pgid;
+    std::weak_ptr<impl::node> parent;
+    std::vector<impl::node_ptr> children;
+    std::vector<impl::inode> inodes;
     std::vector<std::byte> memory;
 
     explicit node(){};
-    explicit node(bolt::BucketPtr bucket);
-    explicit node(bolt::BucketPtr bucket, bool isLeaf, bolt::node_ptr parent);
-    explicit node(bolt::BucketPtr bucket, std::initializer_list<bolt::node_ptr> children);
+    explicit node(impl::BucketPtr bucket);
+    explicit node(impl::BucketPtr bucket, bool isLeaf, impl::node_ptr parent);
+    explicit node(impl::BucketPtr bucket, std::initializer_list<impl::node_ptr> children);
 
     // root returns the top-level node this node is attached to.
-    bolt::node_ptr root();
+    impl::node_ptr root();
 
     // minKeys returns the minimum number of inodes this node should have.
     int minKeys() const;
@@ -56,39 +56,39 @@ struct node : public std::enable_shared_from_this<node> {
     int pageElementSize() const;
 
     // childAt returns the child node at a given index.
-    bolt::node_ptr childAt(int index);
+    impl::node_ptr childAt(int index);
 
     // childIndex returns the index of a given child node.
-    int childIndex(bolt::node_ptr child);
+    int childIndex(impl::node_ptr child);
 
     // numChildren returns the number of children.
     int numChildren() const;
 
     // nextSibling returns the next node with the same parent.
-    bolt::node_ptr nextSibling();
+    impl::node_ptr nextSibling();
 
     // prevSibling returns the previous node with the same parent.
-    bolt::node_ptr prevSibling();
+    impl::node_ptr prevSibling();
 
     // put inserts a key/value.
-    void put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value, bolt::pgid pgid, std::uint32_t flags);
+    void put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value, impl::pgid pgid, std::uint32_t flags);
 
     // del removes a key from the node.
     void del(bolt::bytes key);
 
     // read initializes the node from a page.
-    void read(bolt::page *p);
+    void read(impl::page *p);
 
     // write writes the items onto one or more pages.
-    void write(bolt::page *p);
+    void write(impl::page *p);
 
     // split breaks up a node into multiple smaller nodes, if appropriate.
     // This should only be called from the spill() function.
-    std::vector<bolt::node_ptr> split(int pageSize);
+    std::vector<impl::node_ptr> split(int pageSize);
 
     // splitTwo breaks up a node into two smaller nodes, if appropriate.
     // This should only be called from the split() function.
-    std::tuple<bolt::node_ptr, bolt::node_ptr> splitTwo(int pageSize);
+    std::tuple<impl::node_ptr, impl::node_ptr> splitTwo(int pageSize);
 
     // splitIndex finds the position where a page will fill a given threshold.
     // It returns the index as well as the size of the first page.
@@ -105,7 +105,7 @@ struct node : public std::enable_shared_from_this<node> {
 
     // removes a node from the list of in-memory children.
     // This does not affect the inodes.
-    void removeChild(bolt::node_ptr target);
+    void removeChild(impl::node_ptr target);
 
     // dereference causes the node to copy all its inode key/value references to heap memory.
     // This is required when the mmap is reallocated so inodes are not pointing to stale data.

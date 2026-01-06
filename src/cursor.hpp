@@ -3,32 +3,33 @@
 
 #include "common.hpp"
 #include "error.hpp"
+#include "utils.hpp"
 #include <memory>
 #include <tuple>
 
-namespace bolt {
+namespace bolt::impl {
 
 struct page;
 struct node;
 
 struct elemRef {
-    bolt::page *page;
-    std::weak_ptr<bolt::node> node;
+    impl::page *page;
+    std::weak_ptr<impl::node> node;
     int index;
 
-    elemRef(bolt::page *page, bolt::node_ptr node) : page(page), node(node){};
-    elemRef(bolt::page *page, bolt::node_ptr node, int index)
+    elemRef(impl::page *page, impl::node_ptr node) : page(page), node(node){};
+    elemRef(impl::page *page, impl::node_ptr node, int index)
         : page(page), node(node), index(index){};
     bool isLeaf() const;
     int count() const;
 };
 
 struct Cursor : public std::enable_shared_from_this<Cursor> {
-    std::weak_ptr<bolt::Bucket> bucket;
-    std::vector<bolt::elemRef> stack;
+    std::weak_ptr<impl::Bucket> bucket;
+    std::vector<impl::elemRef> stack;
 
-    explicit Cursor(bolt::BucketPtr bucket): bucket(bucket) {};
-    bolt::BucketPtr Bucket();
+    explicit Cursor(impl::BucketPtr bucket): bucket(bucket) {};
+    impl::BucketPtr Bucket();
     std::tuple<bolt::bytes, bolt::bytes> First();
     std::tuple<bolt::bytes, bolt::bytes> Last();
     std::tuple<bolt::bytes, bolt::bytes> Next();
@@ -40,13 +41,13 @@ struct Cursor : public std::enable_shared_from_this<Cursor> {
     void first();
     void last();
     std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> next();
-    void search(bolt::bytes key, bolt::pgid pgid);
+    void search(bolt::bytes key, impl::pgid pgid);
     void nsearch(bolt::bytes key);
-    void searchPage(bolt::bytes key, bolt::page *p);
-    void searchNode(bolt::bytes key, bolt::node_ptr n);
+    void searchPage(bolt::bytes key, impl::page *p);
+    void searchNode(bolt::bytes key, impl::node_ptr n);
 
     std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> keyValue();
-    bolt::node_ptr node() const;
+    impl::node_ptr node() const;
 };
 
 }

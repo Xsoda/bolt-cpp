@@ -1,30 +1,14 @@
-#ifndef __COMMON_HPP__
-#define __COMMON_HPP__
+#pragma once
 
-#include <string>
-#include <cstddef>
-#include <map>
-#include <span>
-#include <vector>
+#ifndef __UTILS_HPP__
+#define __UTILS_HPP__
+
+#include <cstdint>
 #include <memory>
 #include <chrono>
-#include <limits>
-#include <functional>
 
-namespace bolt {
+namespace bolt::impl {
     using namespace std::chrono_literals;
-    using pgid = std::uint64_t;
-    using txid = std::uint64_t;
-    using bytes = std::span<std::byte>;
-
-    // Default values if not set in a DB instance.
-    constexpr int DefaultMaxBatchSize = 100;
-    constexpr std::chrono::milliseconds DefaultMaxBatchDelay = 10ms;
-    constexpr int DefaultAllocSize = 16 * 1024 * 1024;
-
-    constexpr int MaxKeySize = 32768;
-    constexpr int MaxValueSize = std::numeric_limits<int>::max() - 2;
-    constexpr float DefaultFillPercent = 0.5;
 
     // Represents a marker value to indicate that a file is a Bolt DB.
     constexpr std::uint32_t magic = 0xED0CDAED;
@@ -52,6 +36,9 @@ namespace bolt {
     using BucketPtr = std::shared_ptr<Bucket>;
     using node_ptr = std::shared_ptr<node>;
     using CursorPtr = std::shared_ptr<Cursor>;
+
+    using pgid = std::uint64_t;
+    using txid = std::uint64_t;
 }
 
-#endif  // __COMMON_HPP__
+#endif  // !__UTILS_HPP__
