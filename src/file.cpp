@@ -67,6 +67,9 @@ FileImpl::~FileImpl() {
     if (file != INVALID_HANDLE_VALUE) {
         Close();
     }
+    if (lockfile != INVALID_HANDLE_VALUE) {
+        Funlock();
+    }
 }
 
 std::tuple<std::uint64_t, bolt::ErrorCode>
@@ -79,6 +82,9 @@ FileImpl::WriteAt(bolt::bytes buf, std::uint64_t offset) {
     }
     if (!WriteFile(file, buf.data(), buf.size(), &written, NULL)) {
         return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
+    }
+    if (written != buf.size()) {
+        return std::make_tuple(std::uint64_t(written), bolt::ErrorCode::Success);
     }
     return std::make_tuple(std::uint64_t(written), bolt::ErrorCode::Success);
 }
@@ -93,6 +99,9 @@ FileImpl::ReadAt(bolt::bytes buf, std::uint64_t offset) {
     }
     if (!ReadFile(file, buf.data(), buf.size(), &readed, NULL)) {
         return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
+    }
+    if (readed < buf.size()) {
+        return std::make_tuple(std::uint64_t(readed), bolt::ErrorCode::ErrorSystemCall);
     }
     return std::make_tuple(std::uint64_t(readed), bolt::ErrorCode::Success);
 }
@@ -120,12 +129,15 @@ std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::Size() {
 
 bolt::ErrorCode FileImpl::Open(std::string path, bool readOnly) {
     this->path = str2wstr(path);
+    SECURITY_ATTRIBUTES sa = { 0 };
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.bInheritHandle = true;
     DWORD shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
     DWORD dwDesiredAccess = GENERIC_READ;
     if (!readOnly) {
-        dwDesiredAccess = GENERIC_WRITE;
+        dwDesiredAccess |= GENERIC_WRITE;
     }
-    file = CreateFile(this->path.c_str(), dwDesiredAccess, shareMode, NULL, OPEN_ALWAYS,
+    file = CreateFile(this->path.c_str(), dwDesiredAccess, shareMode, &sa, OPEN_ALWAYS,
                       FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE) {
         return bolt::ErrorCode::ErrorSystemCall;
@@ -149,10 +161,12 @@ bolt::ErrorCode FileImpl::Flock(bool exclusive,
         flags |= LOCKFILE_EXCLUSIVE_LOCK;
     }
     std::wstring lock_path = path;
-    lock_path += L".lock";
-
+    lock_path.append(L".lock");
+    SECURITY_ATTRIBUTES sa = { 0 };
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.bInheritHandle = true;
     HANDLE l = CreateFile(lock_path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_READ,
-                          NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+                          &sa, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (l == INVALID_HANDLE_VALUE) {
         return bolt::ErrorCode::ErrorSystemCall;
     }
@@ -214,11 +228,14 @@ bolt::ErrorCode FileImpl::Fsync() {
 }
 
 std::tuple<std::uintptr_t, bolt::ErrorCode> FileImpl::Mmap(std::uint64_t size) {
+    SECURITY_ATTRIBUTES sa = { 0 };
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.bInheritHandle = true;
     DWORD sizehi = (DWORD)(size >> 32);
     DWORD sizelo = (DWORD)(size & 0xFFFFFFFF);
     assert(ptr == NULL);
     HANDLE fm =
-        CreateFileMapping(file, NULL, PAGE_READONLY, sizehi, sizelo, NULL);
+        CreateFileMapping(file, &sa, PAGE_READONLY, sizehi, sizelo, NULL);
     if (fm == NULL) {
         auto [size, err] = Size();
         std::cout << "File Size " << size << std::endl;

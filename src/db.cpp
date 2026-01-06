@@ -23,7 +23,7 @@ bolt::ErrorCode mmap(bolt::DB *db, std::uint64_t sz) {
     }
     auto [ptr, err] = db->file.Mmap(sz);
     if (err != bolt::ErrorCode::Success) {
-        return err
+        return err;
     }
     db->dataref = ptr;
     db->datasz = sz;
