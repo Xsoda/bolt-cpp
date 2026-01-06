@@ -12,27 +12,27 @@ namespace bolt::impl {
 
 struct TxStats {
     // Page statistics.
-    int PageCount;
-    int PageAlloc;
+    size_t PageCount;
+    size_t PageAlloc;
 
     // Cursor statistics.
-    int CursorCount;
+    size_t CursorCount;
 
     // Node statistics
-    int NodeCount;
-    int NodeDeref;
+    size_t NodeCount;
+    size_t NodeDeref;
 
     // Rebalance statistics.
-    int Rebalance;
+    size_t Rebalance;
     std::chrono::milliseconds RebalanceTime;
 
     // Split/Spill statistics.
-    int Split;
-    int Spill;
+    size_t Split;
+    size_t Spill;
     std::chrono::milliseconds SpillTime;
 
     // Write statistics.
-    int Write;
+    size_t Write;
     std::chrono::milliseconds WriteTime;
 
     TxStats operator-(const TxStats &other);
@@ -56,7 +56,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     // init initializes the transaction.
     explicit Tx(impl::DBPtr db, bool writable);
     // ID returns the transaction id.
-    int ID() const;
+    impl::txid ID() const;
 
     // DB returns a reference to the database that created the transaction.
     std::shared_ptr<impl::DB> DB() const;
@@ -81,7 +81,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     bolt::ErrorCode Rollback();
     void rollback();
     void close();
-    std::tuple<impl::page *, bolt::ErrorCode> allocate(int count);
+    std::tuple<impl::page *, bolt::ErrorCode> allocate(size_t count);
     std::future<std::vector<std::string>> Check();
     void checkBucket(impl::BucketPtr bucket,
                      std::map<impl::pgid, impl::page *> &reachable,

@@ -60,7 +60,7 @@ Tx::Tx(std::shared_ptr<impl::DB> db, bool writable)
 
 std::shared_ptr<impl::DB> Tx::DB() const { return db.lock(); }
 
-int Tx::ID() const { return meta.txid; }
+impl::txid Tx::ID() const { return meta.txid; }
 
 std::int64_t Tx::Size() const {
     if (auto dbptr = db.lock()) {
@@ -282,9 +282,9 @@ void Tx::close() {
         return;
     }
     if (writable) {
-        int freelistFreeN = dbptr->freelist->free_count();
-        int freelistPendingN = dbptr->freelist->pending_count();
-        int freelistAlloc = dbptr->freelist->size();
+        size_t freelistFreeN = dbptr->freelist->free_count();
+        size_t freelistPendingN = dbptr->freelist->pending_count();
+        size_t freelistAlloc = dbptr->freelist->size();
 
         dbptr->rwtx = nullptr;
         dbptr->rwlock.unlock();
@@ -304,7 +304,7 @@ void Tx::close() {
 }
 
 // allocate returns a contiguous block of memory starting at a given page.
-std::tuple<impl::page *, bolt::ErrorCode> Tx::allocate(int count) {
+std::tuple<impl::page *, bolt::ErrorCode> Tx::allocate(size_t count) {
     auto dbptr = db.lock();
     if (!dbptr) {
         return std::make_tuple(nullptr, bolt::ErrorCode::ErrorTxClosed);
@@ -333,7 +333,7 @@ std::future<std::vector<std::string>> Tx::Check() {
       for (auto item : all) {
         auto it = freed.find(item);
         if (it != freed.end()) {
-          snprintf(buf, sizeof(buf), "page %ld: already freed", item);
+          snprintf(buf, sizeof(buf), "page %lld: already freed", item);
           errors.push_back(buf);
         }
         freed[item] = true;
@@ -354,7 +354,7 @@ std::future<std::vector<std::string>> Tx::Check() {
         auto it = reachable.find(i);
         auto itf = freed.find(i);
         if (it == reachable.end() && itf == freed.end()) {
-          snprintf(buf, sizeof(buf), "page %ld: unreachable unfreed", i);
+          snprintf(buf, sizeof(buf), "page %lld: unreachable unfreed", i);
         }
       }
       return errors;

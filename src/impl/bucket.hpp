@@ -78,8 +78,8 @@ struct Bucket : public std::enable_shared_from_this<impl::Bucket> {
 };
 
 constexpr int bucketHeaderSize = sizeof(bucket);
-constexpr float minFillPercent = 0.1;
-constexpr float maxFillPercent = 1.0;
+constexpr float minFillPercent = 0.1f;
+constexpr float maxFillPercent = 1.0f;
 
 }
 

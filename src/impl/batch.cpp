@@ -33,7 +33,7 @@ void batch::run() {
     } while (0);
 
     while (calls.size() > 0) {
-        int failIdx = -1;
+        ptrdiff_t failIdx = -1;
         auto err = dbptr->Update([&](impl::TxPtr tx) -> bolt::ErrorCode {
             for (auto it = calls.begin(); it != calls.end(); it++) {
                 auto ret = it->get()->fn(tx);

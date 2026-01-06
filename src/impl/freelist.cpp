@@ -6,24 +6,24 @@
 
 namespace bolt::impl {
 
-int freelist::size() {
-    int n = this->count();
+size_t freelist::size() {
+    size_t n = this->count();
     if (n >= 0xFFFF) {
         n++;
     }
-    return impl::pageHeaderSize + int(sizeof(impl::pgid) * n);
+    return impl::pageHeaderSize + sizeof(impl::pgid) * n;
 }
 
-int freelist::count() {
+size_t freelist::count() {
     return this->free_count() + this->pending_count();
 }
 
-int freelist::free_count() {
+size_t freelist::free_count() {
     return this->ids.size();
 }
 
-int freelist::pending_count() {
-    int count = 0;
+size_t freelist::pending_count() {
+    size_t count = 0;
     for (auto it : pending) {
         count += it.second.size();
     }
@@ -78,12 +78,12 @@ void freelist::copyall(std::span<impl::pgid> dest) {
 
 // allocate returns the starting page id of a contiguous list of pages of a
 // given size. If a contiguous block cannot be found then 0 is returned.
-impl::pgid freelist::allocate(int n) {
+impl::pgid freelist::allocate(size_t n) {
     if (ids.size() == 0) {
         return 0;
     }
     impl::pgid initial = 0, previd = 0;
-    for (int i = 0; i < ids.size(); i++) {
+    for (size_t i = 0; i < ids.size(); i++) {
         impl::pgid id = ids[i];
         if (id <= 1) {
             assert("invalid page allocation" && 0);

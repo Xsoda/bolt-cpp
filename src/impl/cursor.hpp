@@ -13,13 +13,13 @@ struct node;
 struct elemRef {
     impl::page *page;
     std::weak_ptr<impl::node> node;
-    int index;
+    size_t index;
 
     elemRef(impl::page *page, impl::node_ptr node) : page(page), node(node){};
-    elemRef(impl::page *page, impl::node_ptr node, int index)
+    elemRef(impl::page *page, impl::node_ptr node, size_t index)
         : page(page), node(node), index(index){};
     bool isLeaf() const;
-    int count() const;
+    size_t count() const;
 };
 
 struct Cursor : public std::enable_shared_from_this<Cursor> {

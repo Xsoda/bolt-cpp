@@ -17,12 +17,12 @@ struct meta;
 struct batch;
 
 struct Stats {
-    int FreePageN;
-    int PendingPageN;
-    int FreeAlloc;
-    int FreelistInuse;
-    int TxN;
-    int OpenTxN;
+    size_t FreePageN;
+    size_t PendingPageN;
+    size_t FreeAlloc;
+    size_t FreelistInuse;
+    size_t TxN;
+    size_t OpenTxN;
     impl::TxStats TxStats;
 };
 
@@ -102,7 +102,7 @@ struct DB : public std::enable_shared_from_this<DB> {
 
     impl::page *page(impl::pgid id);
     impl::page *pageInBuffer(bolt::bytes b, impl::pgid id);
-    std::tuple<impl::page *, bolt::ErrorCode> allocate(int count);
+    std::tuple<impl::page *, bolt::ErrorCode> allocate(size_t count);
     bolt::ErrorCode grow(std::uint64_t sz);
     bolt::ErrorCode mmap(std::uint64_t minsz);
     bolt::ErrorCode munmap();

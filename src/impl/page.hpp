@@ -52,9 +52,9 @@ struct PageInfo {
     int OverflowCount;
 };
 
-const int branchPageElementSize = sizeof(branchPageElement);
-const int leafPageElementSize = sizeof(leafPageElement);
-const int pageHeaderSize = offsetof(page, ptr);
+constexpr size_t branchPageElementSize = sizeof(branchPageElement);
+constexpr size_t leafPageElementSize = sizeof(leafPageElement);
+constexpr size_t pageHeaderSize = offsetof(page, ptr);
 
 }
 

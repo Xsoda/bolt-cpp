@@ -79,7 +79,7 @@ FileImpl::WriteAt(bolt::bytes buf, std::uint64_t offset) {
     if (!SetFilePointerEx(file, li, NULL, FILE_BEGIN)) {
         return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
     }
-    if (!WriteFile(file, buf.data(), buf.size(), &written, NULL)) {
+    if (!WriteFile(file, buf.data(), (DWORD)buf.size(), &written, NULL)) {
         return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
     }
     if (written != buf.size()) {
@@ -96,7 +96,7 @@ FileImpl::ReadAt(bolt::bytes buf, std::uint64_t offset) {
     if (!SetFilePointerEx(file, li, NULL, FILE_BEGIN)) {
         return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
     }
-    if (!ReadFile(file, buf.data(), buf.size(), &readed, NULL)) {
+    if (!ReadFile(file, buf.data(), (DWORD)buf.size(), &readed, NULL)) {
         return std::make_tuple(0, bolt::ErrorCode::ErrorSystemCall);
     }
     if (readed < buf.size()) {

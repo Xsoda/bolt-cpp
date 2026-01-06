@@ -13,7 +13,7 @@ bool elemRef::isLeaf() const {
     return (this->page->flags & impl::leafPageFlag) != 0;
 }
 
-int elemRef::count() const {
+size_t elemRef::count() const {
     if (auto n = node.lock()) {
         return n->inodes.size();
     }
@@ -97,7 +97,7 @@ std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::keyValue() {
         return std::make_tuple(inode.key, inode.value, inode.flags);
     }
 
-    impl::leafPageElement *elem = ref.page->leafPageElement(ref.index);
+    impl::leafPageElement *elem = ref.page->leafPageElement((uint16_t)ref.index);
     return std::make_tuple(elem->key(), elem->value(), elem->flags);
 }
 

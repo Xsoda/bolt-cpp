@@ -417,7 +417,7 @@ bolt::ErrorCode DB::grow(std::uint64_t sz) {
 }
 
 // allocate returns a contiguous block of memory starting at a given page.
-std::tuple<impl::page *, bolt::ErrorCode> DB::allocate(int count) {
+std::tuple<impl::page *, bolt::ErrorCode> DB::allocate(size_t count) {
     // Allocate a temporary buffer for the page.
     std::lock_guard<std::mutex> lock(poolMutex);
     auto buf = std::make_unique<std::vector<std::byte>>();

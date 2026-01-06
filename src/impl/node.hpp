@@ -42,27 +42,27 @@ struct node : public std::enable_shared_from_this<node> {
     impl::node_ptr root();
 
     // minKeys returns the minimum number of inodes this node should have.
-    int minKeys() const;
+    size_t minKeys() const;
 
     // size returns the size of the node after serialization.
-    int size() const;
+    size_t size() const;
 
     // sizeLessThan returns true if the node is less than a given size.
     // This is an optimization to avoid calculating a large node when we only need
     // to know if it fits inside a certain page size.
-    bool sizeLessThan(int v) const;
+    bool sizeLessThan(size_t v) const;
 
     // pageElementSize returns the size of each page element based on the type of node.
-    int pageElementSize() const;
+    size_t pageElementSize() const;
 
     // childAt returns the child node at a given index.
-    impl::node_ptr childAt(int index);
+    impl::node_ptr childAt(ptrdiff_t index);
 
     // childIndex returns the index of a given child node.
-    int childIndex(impl::node_ptr child);
+    ptrdiff_t childIndex(impl::node_ptr child);
 
     // numChildren returns the number of children.
-    int numChildren() const;
+    size_t numChildren() const;
 
     // nextSibling returns the next node with the same parent.
     impl::node_ptr nextSibling();
@@ -84,16 +84,16 @@ struct node : public std::enable_shared_from_this<node> {
 
     // split breaks up a node into multiple smaller nodes, if appropriate.
     // This should only be called from the spill() function.
-    std::vector<impl::node_ptr> split(int pageSize);
+    std::vector<impl::node_ptr> split(size_t pageSize);
 
     // splitTwo breaks up a node into two smaller nodes, if appropriate.
     // This should only be called from the split() function.
-    std::tuple<impl::node_ptr, impl::node_ptr> splitTwo(int pageSize);
+    std::tuple<impl::node_ptr, impl::node_ptr> splitTwo(size_t pageSize);
 
     // splitIndex finds the position where a page will fill a given threshold.
     // It returns the index as well as the size of the first page.
     // This is only be called from split().
-    std::tuple<int, int> splitIndex(int threshold);
+    std::tuple<size_t, size_t> splitIndex(size_t threshold);
 
     // spill writes the nodes to dirty pages and splits nodes as it goes.
     // Returns an error if dirty pages cannot be allocated.

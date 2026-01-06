@@ -33,16 +33,16 @@ impl::node_ptr node::root() {
     return parent.lock()->root();
 }
 
-int node::minKeys() const {
+size_t node::minKeys() const {
     if (isLeaf) {
         return 1;
     }
     return 2;
 }
 
-int node::size() const {
-    int sz = impl::pageHeaderSize;
-    int elsz = pageElementSize();
+size_t node::size() const {
+    size_t sz = impl::pageHeaderSize;
+    size_t elsz = pageElementSize();
     for (size_t i = 0; i < inodes.size(); i++) {
         auto &item = inodes[i];
         sz += elsz + item.key.size() + item.value.size();
@@ -50,9 +50,9 @@ int node::size() const {
     return sz;
 }
 
-bool node::sizeLessThan(int v) const {
-    int sz = impl::pageHeaderSize;
-    int elsz = pageElementSize();
+bool node::sizeLessThan(size_t v) const {
+    size_t sz = impl::pageHeaderSize;
+    size_t elsz = pageElementSize();
     for (size_t i = 0; i < inodes.size(); i++) {
         auto &item = inodes[i];
         sz += elsz + item.key.size() + item.value.size();
@@ -63,14 +63,14 @@ bool node::sizeLessThan(int v) const {
     return true;
 }
 
-int node::pageElementSize() const {
+size_t node::pageElementSize() const {
     if (isLeaf) {
         return impl::leafPageElementSize;
     }
     return impl::branchPageElementSize;
 }
 
-impl::node_ptr node::childAt(int index) {
+impl::node_ptr node::childAt(ptrdiff_t index) {
     if (isLeaf) {
         assert("invalid chatAt() on a leaf node" && false);
     }
@@ -81,7 +81,7 @@ impl::node_ptr node::childAt(int index) {
     return ptr->node(inodes[index].pgid, shared_from_this());
 }
 
-int node::childIndex(impl::node_ptr child) {
+ptrdiff_t node::childIndex(impl::node_ptr child) {
     auto it =
         std::find_if(inodes.begin(), inodes.end(), [&](impl::inode &n) -> bool {
           auto ret = std::lexicographical_compare_three_way(std::begin(child->key), std::end(child->key),
@@ -91,7 +91,7 @@ int node::childIndex(impl::node_ptr child) {
     return std::distance(inodes.begin(), it);
 }
 
-int node::numChildren() const {
+size_t node::numChildren() const {
     return inodes.size();
 }
 
@@ -100,7 +100,7 @@ impl::node_ptr node::nextSibling() {
         return nullptr;
     }
     auto pptr = parent.lock();
-    int index = pptr->childIndex(shared_from_this());
+    size_t index = (size_t)pptr->childIndex(shared_from_this());
     if (index >= pptr->numChildren() - 1) {
         return nullptr;
     }
@@ -112,7 +112,7 @@ impl::node_ptr node::prevSibling() {
         return nullptr;
     }
     auto pptr = parent.lock();
-    int index = pptr->childIndex(shared_from_this());
+    size_t index = (size_t)pptr->childIndex(shared_from_this());
     if (index >= pptr->numChildren() - 1) {
         return nullptr;
     }
@@ -146,7 +146,7 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
                 item.key.begin(), item.key.end(), oldKey.begin(), oldKey.end());
             return !std::is_lt(ret);
         });
-    int index = std::distance(inodes.begin(), it);
+    auto index = (size_t)std::distance(inodes.begin(), it);
 
     // Add capacity and shift nodes if we don't have an exact match and need to
     // insert.
@@ -220,7 +220,7 @@ void node::write(impl::page *p) {
     if (inodes.size() > 0xFFFF) {
         assert("inode overflow" && 0);
     }
-    p->count = inodes.size();
+    p->count = (uint16_t)inodes.size();
 
     if (p->count == 0) {
         return;
@@ -231,15 +231,15 @@ void node::write(impl::page *p) {
         auto item = inodes[i];
         assert("write: zero-length inode key" && item.key.size() > 0);
         if (isLeaf) {
-            auto elem = p->leafPageElement(i);
-            elem->pos = buf - reinterpret_cast<std::byte*>(elem);
+            auto elem = p->leafPageElement((uint16_t)i);
+            elem->pos = (uint32_t)(buf - reinterpret_cast<std::byte*>(elem));
             elem->flags = item.flags;
-            elem->ksize = item.key.size();
-            elem->vsize = item.value.size();
+            elem->ksize = (uint32_t)item.key.size();
+            elem->vsize = (uint32_t)item.value.size();
         } else {
-            auto elem = p->branchPageElement(i);
-            elem->pos = buf - reinterpret_cast<std::byte*>(elem);
-            elem->ksize = item.key.size();
+            auto elem = p->branchPageElement((uint16_t)i);
+            elem->pos = (uint32_t)(buf - reinterpret_cast<std::byte*>(elem));
+            elem->ksize = (uint32_t)item.key.size();
             elem->pgid = item.pgid;
             assert("write: circular dependency occurred" && elem->pgid != p->id);
         }
@@ -251,7 +251,7 @@ void node::write(impl::page *p) {
     }
 }
 
-std::tuple<impl::node_ptr, impl::node_ptr> node::splitTwo(int pageSize) {
+std::tuple<impl::node_ptr, impl::node_ptr> node::splitTwo(size_t pageSize) {
     if (inodes.size() <= impl::minKeysPerPage * 2
         || sizeLessThan(pageSize)) {
         return std::make_tuple(shared_from_this(), nullptr);
@@ -264,8 +264,8 @@ std::tuple<impl::node_ptr, impl::node_ptr> node::splitTwo(int pageSize) {
     } else if (fillPercent > maxFillPercent) {
         fillPercent = maxFillPercent;
     }
-    int threshold = (int)(pageSize * fillPercent);
-    int splitIdx;
+    size_t threshold = (size_t)(pageSize * fillPercent);
+    size_t splitIdx;
     std::tie(splitIdx, std::ignore) = splitIndex(threshold);
     auto pptr = parent.lock();
     if (!pptr) {
@@ -289,13 +289,13 @@ std::tuple<impl::node_ptr, impl::node_ptr> node::splitTwo(int pageSize) {
     return std::make_tuple(shared_from_this(), next);
 }
 
-std::tuple<int, int> node::splitIndex(int threshold) {
-    int index;
-    int sz = impl::pageHeaderSize;
+std::tuple<size_t, size_t> node::splitIndex(size_t threshold) {
+    size_t index;
+    size_t sz = impl::pageHeaderSize;
     for (size_t i = 0; i < inodes.size() - impl::minKeysPerPage; i++) {
         index = i;
         impl::inode &inode = inodes.at(i);
-        int elsize = pageElementSize() + inode.key.size() + inode.value.size();
+        size_t elsize = pageElementSize() + inode.key.size() + inode.value.size();
 
         if (i >= impl::minKeysPerPage && sz + elsize > threshold) {
             break;
@@ -563,7 +563,7 @@ void node::free() {
     }
 }
 
-std::vector<impl::node_ptr> node::split(int pageSize) {
+std::vector<impl::node_ptr> node::split(size_t pageSize) {
     std::vector<impl::node_ptr> nodes;
     auto node = shared_from_this();
     while (true) {

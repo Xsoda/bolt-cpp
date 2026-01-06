@@ -15,12 +15,12 @@ struct freelist {
     std::map<impl::txid, std::vector<impl::pgid>> pending;
     std::map<impl::pgid, bool> cache;
 
-    int size();
-    int count();
-    int free_count();
-    int pending_count();
+    size_t size();
+    size_t count();
+    size_t free_count();
+    size_t pending_count();
     void copyall(std::span<impl::pgid> dest);
-    impl::pgid allocate(int n);
+    impl::pgid allocate(size_t n);
     void free(impl::txid txid, impl::page *p);
     void rollback(impl::txid txid);
     void release(impl::txid txid);
