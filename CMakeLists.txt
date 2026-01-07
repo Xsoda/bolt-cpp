@@ -4,6 +4,8 @@ project(bolt-cpp CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
   set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
@@ -62,6 +64,8 @@ target_sources(${PROJECT_NAME}
   test/node_test.cpp
   test/db_test.cpp
   test/test.hpp
+  test/random.hpp
+  test/random.cpp
 )
 
 
