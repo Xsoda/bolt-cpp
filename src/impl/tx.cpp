@@ -430,4 +430,25 @@ void Tx::forEachPage(impl::pgid pgid, int depth,
     }
 }
 
+std::tuple<impl::BucketPtr, bolt::ErrorCode>
+Tx::CreateBucket(bolt::bytes name) {
+    return root->CreateBucket(name);
+}
+
+std::tuple<impl::BucketPtr, bolt::ErrorCode>
+Tx::CreateBucketIfNotExists(bolt::bytes name) {
+    return root->CreateBucketIfNotExists(name);
+}
+
+bolt::ErrorCode Tx::DeleteBucket(bolt::bytes name) {
+    return root->DeleteBucket(name);
+}
+
+bolt::ErrorCode Tx::ForEach(
+    std::function<bolt::ErrorCode(bolt::bytes name, impl::BucketPtr b)> &&fn) {
+    return root->ForEach(
+        [this, fn = std::move(fn)](bolt::bytes k, bolt::bytes v) -> bolt::ErrorCode {
+            return fn(k, root->RetrieveBucket(v));
+        });
+}
 }

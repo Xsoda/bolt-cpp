@@ -22,8 +22,10 @@ node::node(impl::BucketPtr bucket, bool isLeaf, impl::node_ptr parent) {
     this->isLeaf = isLeaf;
 }
 
-node::node(impl::BucketPtr bucket) {
-    this->bucket = bucket;
+node::node(impl::BucketPtr bucket) { this->bucket = bucket; }
+
+node::node(bool isLeaf) {
+    this->isLeaf = isLeaf;
 }
 
 impl::node_ptr node::root() {

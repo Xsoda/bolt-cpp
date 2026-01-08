@@ -1,10 +1,12 @@
 #include "bucket.hpp"
+#include "impl/utils.hpp"
 #include "page.hpp"
 #include "tx.hpp"
 #include "db.hpp"
 #include "node.hpp"
 #include "cursor.hpp"
 #include "meta.hpp"
+#include <algorithm>
 #include <cassert>
 
 namespace bolt::impl {
@@ -154,8 +156,36 @@ bolt::ErrorCode Bucket::spill() {
         if (child->rootNode == nullptr) {
             continue;
         }
-        // TODO: Cursor
+
+        // Update parent node.
+        std::vector<std::byte> key(name.size());
+        std::transform(name.begin(), name.end(), key.begin(),
+                       [](char c) -> std::byte {
+                           return std::byte(c);
+                       });
+        auto c = Cursor();
+        auto [k, v, flags] = c->seek(key);
+        if (!std::is_eq(std::lexicographical_compare_three_way(
+                key.begin(), key.end(), k.begin(), k.end()))) {
+            assert("misplaced bucket header" && false);
+        }
+        if ((flags & bolt::impl::bucketLeafFlag) == 0) {
+            assert("unexpceted bucket header falg");
+        }
+        c->node()->put(key, key, value, 0, bolt::impl::bucketLeafFlag);
     }
+    // Ignore if there's not a masterialized root node.
+    if (rootNode == nullptr) {
+        return bolt::ErrorCode::Success;
+    }
+    rootNode = rootNode->root();
+
+    // Update the root node for this bucket.
+    auto txptr = tx.lock();
+    if (rootNode->pgid >= txptr->meta.pgid) {
+        assert("pgid above high water mark");
+    }
+    bucket.root = rootNode->pgid;
     return bolt::ErrorCode::Success;
 }
 
@@ -173,9 +203,41 @@ int Bucket::maxInlineBucketSize() const {
     return dbptr->pageSize / 4;
 }
 
-void Bucket::free() {}
+// free recursively frees all pages in the bucket.
+void Bucket::free() {
+    if (bucket.root == 0) {
+        return;
+    }
+    // TODO: Check ptr
+    auto txptr = tx.lock();
+    auto dbptr = txptr->db.lock();
+    forEachPageNode(
+        [dbptr, txptr](bolt::impl::page *p, bolt::impl::node_ptr n, int _) {
+            if (p != nullptr) {
+                dbptr->freelist->free(txptr->meta.txid, p);
+            } else {
+                n->free();
+            }
+        });
+    bucket.root = 0;
+}
+
+// write allocates and writes a bucket to a byte slice.
 std::vector<std::byte> Bucket::write() {
-    return std::vector<std::byte>();
+    // Allocate the appropriate size.
+    auto n = rootNode;
+    std::vector<std::byte> value;
+    value.assign(bolt::impl::bucketHeaderSize + n->size(), std::byte(0));
+
+    // Write a bucket header.
+    auto b = reinterpret_cast<bolt::impl::bucket *>(value.data());
+    *b = bucket;
+
+    // Convert byte slice to a fake page and write the root node
+    auto p = reinterpret_cast<bolt::impl::page *>(value.data() +
+                                                  bolt::impl::bucketHeaderSize);
+    n->write(p);
+    return value;
 }
 
 // pageNode returns the in-memory node, if it exists.
@@ -201,5 +263,206 @@ std::tuple<impl::page *, impl::node_ptr> Bucket::pageNode(impl::pgid id) {
     // Finally lookup the page from the transaction if no node is materialized.
     auto txptr = tx.lock();
     return std::make_tuple(txptr->page(id), nullptr);
+}
+
+// Bucket retrieves a nested bucket by name.
+// Returns nil if the bucket does not exist.
+// The bucket instance is only valid for the lifetime of the transaction.
+impl::BucketPtr Bucket::RetrieveBucket(bolt::bytes name) {
+    std::string key{reinterpret_cast<char*>(name.data()), name.size()};
+    auto it = buckets.find(key);
+    if (it != buckets.end()) {
+        return it->second;
+    }
+
+    // Move cursor to key.
+    auto c = Cursor();
+    auto [k, v, flags] = c->seek(name);
+
+    // Return nil if the key doesn't exist or it is not a bucket.
+    if (!std::is_eq(std::lexicographical_compare_three_way(
+            name.begin(), name.end(), k.begin(), k.end())) ||
+        (flags & bolt::impl::bucketLeafFlag) == 0) {
+        return nullptr;
+    }
+
+    // Otherwise create a bucket and cache it.
+    auto child = openBucket(v);
+    buckets.insert(std::make_pair(key, child));
+    return child;
+}
+
+// Helper method that re-interprets a sub-bucket value
+// from a parent into a Bucket
+impl::BucketPtr Bucket::openBucket(bolt::bytes value) {
+    auto txptr = tx.lock();
+    if (!txptr) {
+        assert("tx closed" && false);
+        return nullptr;
+    }
+    auto child = std::make_shared<impl::Bucket>(txptr);
+    auto b = reinterpret_cast<bolt::impl::bucket *>(value.data());
+    child->bucket = *b;
+
+    // Save a reference to the inline page if the bucket is inline.
+    if (child->bucket.root == 0) {
+        child->page = reinterpret_cast<bolt::impl::page*>(value.data() + bolt::impl::bucketHeaderSize);
+    }
+    return child;
+}
+
+// CreateBucket creates a new bucket at the given key and returns the new
+// bucket. Returns an error if the key already exists, if the bucket name is
+// blank, or if the bucket name is too long. The bucket instance is only valid
+// for the lifetime of the transaction.
+std::tuple<impl::BucketPtr, bolt::ErrorCode>
+Bucket::CreateBucket(bolt::bytes key) {
+    if (tx.expired()) {
+        return std::make_tuple(nullptr, bolt::ErrorCode::ErrorTxClosed);
+    }
+    auto txptr = tx.lock();
+    if (txptr->db.expired()) {
+        return std::make_tuple(nullptr, bolt::ErrorCode::ErrorTxClosed);
+    } else if (!txptr->writable) {
+        return std::make_tuple(nullptr, bolt::ErrorCode::ErrorTxNotWritable);
+    } else if (key.empty()) {
+        return std::make_tuple(nullptr, bolt::ErrorCode::ErrorBucketNameRequired);
+    }
+
+    // Move cursor to correct position.
+    auto c = Cursor();
+    auto [k, v, flags] = c->seek(key);
+
+    // Return an error if there is an existing key.
+    if (std::is_eq(std::lexicographical_compare_three_way(
+            key.begin(), key.end(), k.begin(), k.end()))) {
+        if ((flags & bolt::impl::bucketLeafFlag) != 0) {
+            return std::make_tuple(nullptr, bolt::ErrorCode::ErrorBucketExists);
+        }
+        return std::make_tuple(nullptr, bolt::ErrorCode::ErrorIncompatiableValue);
+    }
+
+    // Create empty, inline bucket.
+    auto b = std::make_shared<impl::Bucket>(nullptr);
+    b->rootNode = std::make_shared<impl::node>(true);
+    b->FillPercent = bolt::DefaultFillPercent;
+    auto value = b->write();
+
+    c->node()->put(key, key, value, 0, bolt::impl::bucketLeafFlag);
+
+    // Since subbuckets are not allowed on inline buckets, we need to
+    // dereference the inline page, if it exists. This will cause the bucket
+    // to be treated as a regular, non-inline bucket for the rest of the tx.
+    this->page = nullptr;
+    return std::make_tuple(RetrieveBucket(key), bolt::ErrorCode::Success);
+}
+
+// forEachPageNode iterates over every page (or node) in a bucket.
+// This also includes inline pages.
+void Bucket::forEachPageNode(
+    std::function<void(impl::page *, impl::node_ptr, int)> &&fn) {
+    // If we have an inline page or root node then just use that.
+    if (page != nullptr) {
+        fn(page, nullptr, 0);
+        return;
+    }
+    return _forEachPageNode(bucket.root, 0, std::move(fn));
+}
+
+void Bucket::_forEachPageNode(
+    impl::pgid pgid, int depth,
+    std::function<void(impl::page *, impl::node_ptr, int)> &&fn) {
+    auto [p, n] = pageNode(pgid);
+
+    // Execute function.
+    fn(p, n, depth);
+
+    // Recursively loop over children.
+    if (p != nullptr) {
+        if ((p->flags & bolt::impl::branchPageFlag) != 0) {
+            for (size_t i = 0; i < p->count; i++) {
+                auto elem = p->branchPageElement(std::uint16_t(i));
+                _forEachPageNode(elem->pgid, depth+1, std::forward<decltype(fn)>(fn));
+            }
+        }
+    } else {
+        if (!n->isLeaf) {
+            for (auto &inode : n->inodes) {
+                _forEachPageNode(inode.pgid, depth+1, std::forward<decltype(fn)>(fn));
+            }
+        }
+    }
+}
+
+// CreateBucketIfNotExists creates a new bucket if it doesn't already exist and
+// returns a reference to it. Returns an error if the bucket name is blank, or
+// if the bucket name is too long. The bucket instance is only valid for the
+// lifetime of the transaction.
+std::tuple<impl::BucketPtr, bolt::ErrorCode>
+Bucket::CreateBucketIfNotExists(bolt::bytes key) {
+    auto [child, err] = CreateBucket(key);
+    if (err == bolt::ErrorCode::ErrorBucketExists) {
+        return std::make_tuple(RetrieveBucket(key), bolt::ErrorCode::Success);
+    } else if (err != bolt::ErrorCode::Success) {
+        return std::make_tuple(nullptr, err);
+    }
+    return std::make_tuple(child, err);
+}
+
+// DeleteBucket deletes a bucket at the given key.
+// Returns an error if the bucket does not exists, or if the key represents a
+// non-bucket value.
+bolt::ErrorCode Bucket::DeleteBucket(bolt::bytes key) {
+    auto txptr = tx.lock();
+    if (!txptr || txptr->db.expired()) {
+        return bolt::ErrorCode::ErrorTxClosed;
+    } else if (!Writable()) {
+        return bolt::ErrorCode::ErrorTxClosed;
+    }
+
+    // Move cursor to correct position.
+    auto c = Cursor();
+    auto [k, v, flags] = c->seek(key);
+
+    // Return an error if bucket doesn't exist or is not a bucket.
+    if (!std::is_eq(std::lexicographical_compare_three_way(
+            key.begin(), key.end(), k.begin(), k.end()))) {
+        return bolt::ErrorCode::ErrorBucketNotFound;
+    } else if ((flags & bolt::impl::bucketLeafFlag) == 0) {
+        return bolt::ErrorCode::ErrorIncompatiableValue;
+    }
+
+    // Recursively delete all child buckets.
+    auto child = RetrieveBucket(key);
+    auto err =
+        child->ForEach([&](bolt::bytes ck, bolt::bytes cv) -> bolt::ErrorCode {
+          if (cv.empty()) {
+            auto err = child->DeleteBucket(ck);
+            if (err != bolt::ErrorCode::Success) {
+              return err;
+            }
+          }
+          return bolt::ErrorCode::Success;
+        });
+    if (err != bolt::ErrorCode::Success) {
+        return err;
+    }
+
+    // Remove cached copy.
+    auto it = buckets.find(
+        std::string(reinterpret_cast<char *>(key.data()), key.size()));
+    if (it != buckets.end()) {
+        buckets.erase(it);
+    }
+
+    // Release all bucket pages to freelist.
+    child->nodes.clear();
+    child->rootNode = nullptr;
+    child->free();
+
+    // Delete the node if we have a matching key.
+    c->node()->del(key);
+
+    return bolt::ErrorCode::Success;
 }
 }

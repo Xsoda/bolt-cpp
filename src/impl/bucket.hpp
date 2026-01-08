@@ -10,9 +10,13 @@ namespace bolt::impl {
 struct page;
 struct node;
 
+// bucket represents the on-file representation of a bucket.
+// This is stored as the "value" of a bucket key. If the bucket is small enough,
+// then its root page can be stored inline in the "value", after the bucket
+// header. In the case of inline buckets, the "root" will be 0.
 struct bucket {
-    impl::pgid root;
-    std::uint64_t sequence;
+    impl::pgid root;            // page id of the bucket's root-level page
+    std::uint64_t sequence; // monotonically incrementing, used by NextSequence()
 };
 
 struct BucketStats {
@@ -61,7 +65,7 @@ struct Bucket : public std::enable_shared_from_this<impl::Bucket> {
     ForEach(std::function<bolt::ErrorCode(bolt::bytes key, bolt::bytes val)> &&fn);
     impl::BucketStats Stats();
     void forEachPage(std::function<void(impl::page *, int)> fn);
-    void forEachPageNode(std::function<void(impl::page *, impl::node *, int)> &&fn);
+    void forEachPageNode(std::function<void(impl::page *, impl::node_ptr , int)> &&fn);
     void
     _forEachPageNode(impl::pgid pgid, int depth,
                      std::function<void(impl::page *, impl::node_ptr, int)> &&fn);

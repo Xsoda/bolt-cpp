@@ -18,6 +18,8 @@ TestResult TestNode_split_SinglePage();
 TestResult TestDB_Open();
 TestResult TestDB_OpenPathRequired();
 TestResult TestDB_OpenInvalid();
+TestResult TestDB_OpenErrVersionMismatch();
+TestResult TestDB_OpenErrChecksum();
 
 static const std::vector<Test> tests = {
     {"Test Page Type", TestPageType},
@@ -36,7 +38,9 @@ static const std::vector<Test> tests = {
     {"Test Node split_SinglePage", TestNode_split_SinglePage},
     {"Test DB Open", TestDB_Open},
     {"Test DB Open Path Required", TestDB_OpenPathRequired},
-    {"Test DB Open Invalid", TestDB_OpenInvalid},
+    {"Test DB Open ErrorDatabaseInvalid", TestDB_OpenInvalid},
+    {"Test DB Open ErrorVersionMismatch", TestDB_OpenErrVersionMismatch},
+    {"Test DB Open ErrorChecksum", TestDB_OpenErrChecksum},
 };
 
 int main(int argc, char **argv) {

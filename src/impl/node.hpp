@@ -34,6 +34,7 @@ struct node : public std::enable_shared_from_this<node> {
     std::vector<std::byte> memory;
 
     explicit node(){};
+    explicit node(bool isLeaf);
     explicit node(impl::BucketPtr bucket);
     explicit node(impl::BucketPtr bucket, bool isLeaf, impl::node_ptr parent);
     explicit node(impl::BucketPtr bucket, std::initializer_list<impl::node_ptr> children);
