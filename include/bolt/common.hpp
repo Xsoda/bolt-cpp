@@ -3,6 +3,24 @@
 #ifndef __COMMON_HPP__
 #define __COMMON_HPP__
 
+#ifndef BOLT_STATIC
+#  ifdef _WIN32
+#    ifdef BOLT_EXPORT_API
+#      define BOLT_API __declspec(dllexport)
+#    else
+#      define BOLT_API __declspec(dllimport)
+#    endif
+#  else
+#    if __GNUC__ >= 4
+#      define BOLT_API __attribute__(visibility("default"))
+#    else
+#      define BOLT_API
+#    endif
+#  endif
+#else
+#  define BOLT_API
+#endif
+
 #include <string>
 #include <map>
 #include <span>

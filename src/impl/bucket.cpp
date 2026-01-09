@@ -1,4 +1,5 @@
 #include "bucket.hpp"
+#include "bolt/common.hpp"
 #include "impl/utils.hpp"
 #include "page.hpp"
 #include "tx.hpp"
@@ -208,9 +209,16 @@ void Bucket::free() {
     if (bucket.root == 0) {
         return;
     }
-    // TODO: Check ptr
     auto txptr = tx.lock();
+    if (!txptr) {
+        assert("txptr invalid" && false);
+        return;
+    }
     auto dbptr = txptr->db.lock();
+    if (!dbptr) {
+        assert("dbptr invalid" && false);
+        return;
+    }
     forEachPageNode(
         [dbptr, txptr](bolt::impl::page *p, bolt::impl::node_ptr n, int _) {
             if (p != nullptr) {
@@ -465,4 +473,125 @@ bolt::ErrorCode Bucket::DeleteBucket(bolt::bytes key) {
 
     return bolt::ErrorCode::Success;
 }
+
+// Get retrieves the value for a key in the bucket.
+// Returns a nil value if the key does not exist or if the key is a nested
+// bucket. The returned value is only valid for the life of the transaction.
+bolt::bytes Bucket::Get(bolt::bytes key) {
+    auto c = Cursor();
+    auto [k, v, flags] = c->seek(key);
+
+    // Return nil if this is a bucket.
+    if ((flags & bolt::impl::bucketLeafFlag) != 0) {
+        return bolt::bytes{};
+    }
+
+    // If our target node isn't the same key as what's passed in then return
+    // nil.
+    if (!std::is_eq(std::lexicographical_compare_three_way(
+            key.begin(), key.end(), k.begin(), k.end()))) {
+        return bolt::bytes{};
+    }
+    return v;
+}
+
+// Put sets the value for a key in the bucket.
+// If the key exist then its previous value will be overwritten.
+// Supplied value must remain valid for the life of the transaction.
+// Returns an error if the bucket was created from a read-only transaction, if
+// the key is blank, if the key is too large, or if the value is too large.
+bolt::ErrorCode Bucket::Put(bolt::bytes key, bolt::bytes value) {
+    if (tx.expired()) {
+        return bolt::ErrorCode::ErrorTxClosed;
+    }
+    auto txptr = tx.lock();
+    if (txptr->db.expired()) {
+        return bolt::ErrorCode::ErrorTxClosed;
+    } else if (!Writable()) {
+        return bolt::ErrorCode::ErrorTxNotWritable;
+    } else if (key.size() == 0) {
+        return bolt::ErrorCode::ErrorKeyRequired;
+    } else if (key.size() > bolt::MaxKeySize) {
+        return bolt::ErrorCode::ErrorKeyTooLarge;
+    } else if (value.size() > bolt::MaxValueSize) {
+        return bolt::ErrorCode::ErrorValueTooLarge;
+    }
+
+    // Move cursor to correct position.
+    auto c = Cursor();
+    auto [k, v, flags] = c->seek(key);
+
+    // Return an error if there is an existing key with a bucket value.
+    if (std::is_eq(std::lexicographical_compare_three_way(
+            key.begin(), key.end(), k.begin(), k.end())) &&
+        (flags & bolt::impl::bucketLeafFlag) != 0) {
+        return bolt::ErrorCode::ErrorIncompatiableValue;
+    }
+
+    // Insert into node.
+    c->node()->put(key, key, value, 0, 0);
+    return bolt::ErrorCode::Success;
+}
+
+bolt::ErrorCode Bucket::Delete(bolt::bytes key) {
+    if (tx.expired()) {
+        return bolt::ErrorCode::ErrorTxClosed;
+    } else if (!Writable()) {
+        return bolt::ErrorCode::ErrorTxNotWritable;
+    }
+
+    // Move cursor to correct position.
+    auto c = Cursor();
+    auto [k, v, flags] = c->seek(key);
+
+    // Return an error if there is already existing bucket value.
+    if ((flags & bolt::impl::bucketLeafFlag) != 0) {
+        return bolt::ErrorCode::ErrorIncompatiableValue;
+    }
+
+    // Delete the node if we have a matching key.
+    c->node()->del(key);
+    return bolt::ErrorCode::Success;
+}
+
+// Sequence returns the current integer for the bucket without incrementing it.
+std::uint64_t Bucket::Sequence() { return bucket.sequence; }
+
+bolt::ErrorCode Bucket::SetSequence(std::uint64_t v) {
+    if (tx.expired()) {
+        return bolt::ErrorCode::ErrorTxClosed;
+    } else if (!Writable()) {
+        return bolt::ErrorCode::ErrorTxNotWritable;
+    }
+
+    // Materialize the root node if it hasn't been already so that the
+    // bucket will be saved during commit.
+    if (rootNode == nullptr) {
+        std::ignore = node(bucket.root, nullptr);
+    }
+
+    // Increment and return the sequence.
+    bucket.sequence = v;
+    return bolt::ErrorCode::Success;
+}
+
+// NextSequence returns an autoincrementing integer for the bucket.
+std::tuple<std::uint64_t, bolt::ErrorCode> Bucket::NextSequence() {
+    if (tx.expired()) {
+        return std::make_tuple(0,bolt::ErrorCode::ErrorTxClosed);
+    } else if (!Writable()) {
+        return std::make_tuple(0,bolt::ErrorCode::ErrorTxNotWritable);
+    }
+
+    // Materialize the root node if it hasn't been already so that the
+    // bucket will be saved during commit.
+    if (rootNode == nullptr) {
+        std::ignore = node(bucket.root, nullptr);
+    }
+
+    // Increment and return the sequence.
+    bucket.sequence++;
+    return std::make_tuple(bucket.sequence, bolt::ErrorCode::Success);
+}
+
 }

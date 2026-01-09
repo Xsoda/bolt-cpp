@@ -12,7 +12,9 @@ if(CCACHE_PROGRAM)
   set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
 
+add_subdirectory(deps/fmt)
 add_executable(${PROJECT_NAME})
+target_link_libraries(${PROJECT_NAME} fmt::fmt)
 
 if(MSVC)
   add_compile_definitions(

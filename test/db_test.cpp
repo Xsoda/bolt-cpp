@@ -44,9 +44,9 @@ void MustCheck(bolt::impl::DBPtr db) {
             auto f = tx->Check();
             auto errors = f.get();
             if (errors.size() > 0) {
-                std::cout << "Database " << db->Path() << " Check Result" << std::endl;
+                fmt::println("Database {} Check Result", db->Path());
                 for (auto &item : errors) {
-                    std::cout << "  - " << item << std::endl;
+                    fmt::println("  - {}", item);
                 }
             }
             return bolt::ErrorCode::Success;

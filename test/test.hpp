@@ -8,33 +8,33 @@
 
 #include <functional>
 #include <iostream>
-
-using namespace std;
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 
 class TestResult {
 public:
-	bool success;
-	string err_reason;
+    bool success;
+    std::string err_reason;
 
-	TestResult(bool success, string err_reason = "") : success(success), err_reason(err_reason) {}
+    TestResult(bool success, std::string err_reason = "") : success(success), err_reason(err_reason) {}
 };
 
 class Test {
 public:
-	string name;
-	function<TestResult(void)> f;
+    std::string name;
+    std::function<TestResult(void)> f;
 
-	Test(string name, std::function<TestResult(void)> testFunc) : name(name), f(testFunc) {}
+    Test(std::string name, std::function<TestResult(void)> testFunc) : name(name), f(testFunc) {}
 
-	TestResult run() {
-		cout << endl << "*** Running " << name << " test" << endl;
-		TestResult res = this->f();
-		if (res.success) {
-			cout << "*** Finished " << name << " test" << endl;
-		} else {
-			cerr << name << " test failed. Reason: " << res.err_reason << endl;
-		}
+    TestResult run() {
+        fmt::println("\n*** Running {} test", name);
+        TestResult res = this->f();
+        if (res.success) {
+            fmt::println("*** Finished {} test", name);
+        } else {
+            fmt::println(std::cerr, "{} test failed. Reason: {}", name, res.err_reason);
+        }
 
-		return res;
-	}
+        return res;
+    }
 };

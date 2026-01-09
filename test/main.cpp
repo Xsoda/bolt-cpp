@@ -62,9 +62,8 @@ int main(int argc, char **argv) {
         endTime - startTime);
     auto durationS =
         std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime);
-    std::cout << "Finished " << success_tests + failed_tests << " tests in "
-              << durationS.count() << "s (" << durationMs.count()
-              << "ms). Succeed: " << success_tests << ". Failed: " << failed_tests
-              << "." << std::endl;
+    fmt::println("Finished {} tests in {}s ({}ms). Succeed: {}. Failed: {}.",
+                 success_tests + failed_tests, durationS.count(),
+                 durationMs.count(), success_tests, failed_tests);
     return 0;
 }

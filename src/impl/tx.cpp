@@ -9,6 +9,7 @@
 #include <cassert>
 #include <chrono>
 #include <mutex>
+#include <fmt/format.h>
 #include <inttypes.h>
 
 namespace bolt::impl {
@@ -334,8 +335,7 @@ std::future<std::vector<std::string>> Tx::Check() {
       for (auto item : all) {
         auto it = freed.find(item);
         if (it != freed.end()) {
-          snprintf(buf, sizeof(buf), "page %" PRIu64 ": already freed", item);
-          errors.push_back(buf);
+          errors.push_back(fmt::format("page {}: already freed", item));
         }
         freed[item] = true;
       }
@@ -355,7 +355,7 @@ std::future<std::vector<std::string>> Tx::Check() {
         auto it = reachable.find(i);
         auto itf = freed.find(i);
         if (it == reachable.end() && itf == freed.end()) {
-          snprintf(buf, sizeof(buf), "page %" PRIu64 ": unreachable unfreed", i);
+            errors.push_back(fmt::format("page {}: unreachable unfreed", i));
         }
       }
       return errors;
@@ -380,17 +380,14 @@ void Tx::checkBucket(impl::BucketPtr bucket,
     txptr->forEachPage(bucket->bucket.root, 0, [&](impl::page *p, int depth) {
         char buf[1024];
         if (p->id > txptr->meta.pgid) {
-            snprintf(buf, sizeof(buf), "page %" PRIu64 ": out of bounds: %" PRIu64, p->id,
-                     txptr->meta.pgid);
-            errors.push_back(buf);
+            errors.push_back(fmt::format("page {}: out of bounds: {}", p->id, txptr->meta.pgid));
         }
         // Ensure each page is only referenced once.
         for (impl::pgid i = 0; i <= p->overflow; i++) {
             auto id = p->id + 1;
             auto it = reachable.find(id);
             if (it != reachable.end()) {
-                snprintf(buf, sizeof(buf), "page %" PRIu64 ": multiple references", id);
-                errors.push_back(buf);
+                errors.push_back(fmt::format("page {}: multiple references", id));
             }
             reachable[id] = p;
         }
@@ -398,13 +395,10 @@ void Tx::checkBucket(impl::BucketPtr bucket,
         // We should only encounter un-freed leaf and branch pages.
         auto it = freed.find(p->id);
         if (it != freed.end()) {
-            snprintf(buf, sizeof(buf), "page %" PRIu64 ": reachable freed", p->id);
-            errors.push_back(buf);
+            errors.push_back(fmt::format("page {}: reachable freed", p->id));
         } else if ((p->flags & impl::branchPageFlag) == 0 &&
                    (p->flags & impl::leafPageFlag) == 0) {
-            snprintf(buf, sizeof(buf), "page %" PRIu64 ": invalid type: %s", p->id,
-                     p->type().c_str());
-            errors.push_back(buf);
+            errors.push_back(fmt::format("page {}: invalid type: {}", p->id, p->type()));
         }
     });
 
