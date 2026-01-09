@@ -27,7 +27,7 @@ struct Stats {
 };
 
 struct Info {
-    int PageSize;
+    std::uint32_t PageSize;
     std::uintptr_t Data;
 };
 
@@ -115,7 +115,6 @@ struct DB : public std::enable_shared_from_this<DB> {
     std::tuple<impl::TxPtr, bolt::ErrorCode> beginRWTx();
     void removeTx(impl::TxPtr tx);
     impl::Info Info() const;
-
 
     bolt::ErrorCode Update(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn);
     bolt::ErrorCode Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn);

@@ -544,4 +544,10 @@ std::tuple<std::uint64_t, bolt::ErrorCode> DB::mmapSize(std::uint64_t size) {
     }
     return std::make_tuple(size, bolt::ErrorCode::Success);
 }
+
+impl::Info DB::Info() const {
+    impl::Info info;
+    info.Data = dataref;
+    info.PageSize = pageSize;
+};
 }

@@ -174,3 +174,11 @@ TestResult TestDB_OpenErrChecksum() {
     }
     return true;
 }
+
+TestResult TestDB_OpenSize() {
+    auto db = MustOpenDB();
+    auto path = db->Path();
+
+    auto pagesize = db->Info().PageSize;
+    return true;
+}

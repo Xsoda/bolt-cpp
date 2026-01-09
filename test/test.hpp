@@ -16,6 +16,7 @@ public:
     bool success;
     std::string err_reason;
 
+    TestResult(std::string err_reason) : success(false), err_reason(err_reason) {}
     TestResult(bool success, std::string err_reason = "") : success(success), err_reason(err_reason) {}
 };
 
