@@ -1,7 +1,7 @@
 #ifndef __FREELIST_HPP__
 #define __FREELIST_HPP__
 
-#include "utils.hpp"
+#include "impl/utils.hpp"
 
 namespace bolt::impl {
 

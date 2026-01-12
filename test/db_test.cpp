@@ -11,7 +11,7 @@
 #include <cassert>
 extern std::span<std::byte> to_bytes(std::string &str);
 
-  std::string tempfile() {
+std::string tempfile() {
     auto tmpdir = std::filesystem::temp_directory_path();
     std::string filename = "bolt-";
     filename.append(RandomCharset(5));

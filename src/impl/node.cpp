@@ -1,8 +1,7 @@
-#include "node.hpp"
-#include "db.hpp"
-#include "tx.hpp"
-#include "freelist.hpp"
-#include <cassert>
+#include "impl/node.hpp"
+#include "impl/db.hpp"
+#include "impl/tx.hpp"
+#include "impl/freelist.hpp"
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
@@ -74,10 +73,10 @@ size_t node::pageElementSize() const {
 
 impl::node_ptr node::childAt(ptrdiff_t index) {
     if (isLeaf) {
-        assert("invalid chatAt() on a leaf node" && false);
+        _assert(false, "invalid chatAt({}) on a leaf node", index);
     }
     if (bucket.expired()) {
-        assert("bucket pointer already invalid" && false);
+        _assert(false, "bucket pointer already expired");
     }
     auto ptr = bucket.lock();
     return ptr->node(inodes[index].pgid, shared_from_this());
@@ -125,20 +124,20 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
     impl::pgid pgid, std::uint32_t flags) {
     auto bptr = bucket.lock();
     if (!bptr) {
-        assert("bucket invalid" && false);
+        _assert(false, "bucket invalid");
     }
     auto tptr = bptr->tx.lock();
     if (!tptr) {
-        assert("tx invalid" && false);
+        _assert(false, "tx invalid");
     }
-    if (pgid > tptr->meta.pgid) {
-        assert("pgid above high water mark" && false);
+    if (pgid >= tptr->meta.pgid) {
+        _assert(false, "pgid ({}) above high water mark ({})", pgid, tptr->meta.pgid);
     }
     else if (oldKey.size() <= 0) {
-        assert("put: zero-length old key" && false);
+        _assert(false, "put: zero-length old key");
     }
     else if (newKey.size() <= 0) {
-        assert("put: zero-length new key" && false);
+        _assert(false, "put: zero-length new key");
     }
 
     // Find insertion index.
@@ -172,7 +171,7 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
     inode.value = bolt::bytes(inode.memory.begin() + newKey.size(), inode.memory.end());
 
     inode.pgid = pgid;
-    assert("put: zero-length inode key" && inode.key.size() > 0);
+    _assert(inode.key.size() > 0, "put: zero-length inode key");
 }
 
 void node::del(bolt::bytes key) {
@@ -205,14 +204,18 @@ void node::read(impl::page *p) {
             inode.pgid = elem->pgid;
             inode.key = elem->key();
         }
-        assert("read: zero-length inode key" && inode.key.size() > 0);
+        _assert(inode.key.size() > 0, "read: zero-length inode key");
     }
     if (inodes.size() > 0) {
         this->key = inodes[0].key;
+        _assert(this->key.size() > 0, "read: zero-length node key");
+    } else {
+        this->key = bolt::bytes();
     }
 }
 
 void node::write(impl::page *p) {
+    // Initialize page.
     if (isLeaf) {
         p->flags |= impl::leafPageFlag;
     } else {
@@ -220,18 +223,23 @@ void node::write(impl::page *p) {
     }
 
     if (inodes.size() > 0xFFFF) {
-        assert("inode overflow" && 0);
+        size_t size = inodes.size();
+        _assert(false, "inode overflow: {} (pgid={})", size, p->id);
     }
     p->count = (uint16_t)inodes.size();
 
+    // Stop here if there are no items to write.
     if (p->count == 0) {
         return;
     }
 
-    std::byte *buf = &reinterpret_cast<std::byte*>(&p->ptr)[pageElementSize() * inodes.size()];
+    // Loop over each item and write it to the page.
+    std::byte *buf = &reinterpret_cast<std::byte *>(
+        &p->ptr)[pageElementSize() * inodes.size()];
     for (size_t i = 0; i < inodes.size(); i++) {
         auto item = inodes[i];
-        assert("write: zero-length inode key" && item.key.size() > 0);
+        _assert(item.key.size() > 0, "write: zero-length inode key");
+        // Write the page element.
         if (isLeaf) {
             auto elem = p->leafPageElement((uint16_t)i);
             elem->pos = (uint32_t)(buf - reinterpret_cast<std::byte*>(elem));
@@ -243,7 +251,7 @@ void node::write(impl::page *p) {
             elem->pos = (uint32_t)(buf - reinterpret_cast<std::byte*>(elem));
             elem->ksize = (uint32_t)item.key.size();
             elem->pgid = item.pgid;
-            assert("write: circular dependency occurred" && elem->pgid != p->id);
+            _assert(elem->pgid != p->id , "write: circular dependency occurred");
         }
 
         std::memcpy(buf, item.key.data(), item.key.size());
@@ -308,6 +316,8 @@ std::tuple<size_t, size_t> node::splitIndex(size_t threshold) {
     return std::make_tuple(index, sz);
 }
 
+// spill writes the nodes to dirty pages and splits nodes as it goes.
+// Returns an error if dirty pages cannot be allocated.
 bolt::ErrorCode node::spill() {
     auto bptr = bucket.lock();
     auto tptr = bptr->tx.lock();
@@ -351,7 +361,7 @@ bolt::ErrorCode node::spill() {
 
         // Write the node.
         if (p->id >= tptr->meta.pgid) {
-            assert("pgid above high water mark" && false);
+            _assert(false, "pgid ({}) above high water mark ({})", p->id, tptr->meta.pgid);
         }
         it->pgid = p->id;
         it->write(p);
@@ -365,7 +375,7 @@ bolt::ErrorCode node::spill() {
             }
             pptr->put(key, it->inodes[0].key, bolt::bytes(), it->pgid, 0);
             it->key = it->inodes[0].key;
-            assert("spill: zero-length node key" && it->key.size() > 0);
+            _assert(it->key.size() > 0, "spill: zero-length node key");
         }
         // Update the statistics.
         tptr->stats.Spill++;
@@ -446,7 +456,7 @@ void node::rebalance() {
         return;
     }
 
-    assert("parent must have at least 2 children" && pptr->numChildren() > 1);
+    _assert(pptr->numChildren() > 1, "parent must have at least 2 children");
 
     // Destination node is right sibling if idx == 0, otherwise left sibling.
     impl::node_ptr target;
@@ -530,12 +540,13 @@ void node::dereference() {
         memory.reserve(key.size());
         std::copy(key.begin(), key.end(), std::back_inserter(memory));
         key = bolt::bytes(memory.begin(), memory.end());
+        _assert(pgid == 0 || key.size() > 0, "dereference: zero-length node key on existing node");
     }
     for (auto &it : inodes) {
         std::vector<std::byte> key, value;
         key.assign(it.key.begin(), it.key.end());
         value.assign(it.value.begin(), it.value.end());
-
+        _assert(key.size() > 0, "dereference: zero-length inode key");
         it.memory.clear();
         it.memory.reserve(key.size() + value.size());
 

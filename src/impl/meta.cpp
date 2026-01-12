@@ -1,6 +1,7 @@
-#include "meta.hpp"
-#include "page.hpp"
-#include "fnv64.hpp"
+#include "impl/meta.hpp"
+#include "impl/page.hpp"
+#include "impl/fnv64.hpp"
+#include <source_location>
 #include <cassert>
 
 namespace bolt::impl {
@@ -36,8 +37,13 @@ void meta::copy(impl::meta *dest) const {
 }
 
 void meta::write(impl::page *p) {
-    assert(this->root.root >= pgid);
-    assert(this->freelist > pgid);
+    if (this->root.root >= pgid) {
+      _assert(false, "root bucket pgid ({}) above high water mark ({})",
+              this->root.root, this->pgid);
+    } else if (this->freelist >= pgid) {
+        _assert(false, "freelist pgid ({}) above high water mark ({})",
+                this->freelist, this->pgid);
+    }
 
     p->id = this->txid % 2;
     p->flags |= impl::metaPageFlag;

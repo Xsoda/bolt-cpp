@@ -1,11 +1,10 @@
-#include "db.hpp"
-#include "async.hpp"
-#include "batch.hpp"
-#include "file.hpp"
-#include "freelist.hpp"
-#include "page.hpp"
-#include "tx.hpp"
-#include <cassert>
+#include "impl/db.hpp"
+#include "impl/async.hpp"
+#include "impl/batch.hpp"
+#include "impl/file.hpp"
+#include "impl/freelist.hpp"
+#include "impl/page.hpp"
+#include "impl/tx.hpp"
 #include <mutex>
 #include <tuple>
 #include <type_traits>
@@ -290,6 +289,7 @@ std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginTx() {
 
     }
     impl::TxPtr tx = std::make_shared<impl::Tx>(shared_from_this(), false);
+    tx->init();
     txs.push_back(tx);
     metalock.unlock();
 
@@ -324,6 +324,7 @@ std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
     // Create a transaction associated with the database.
     std::shared_ptr<impl::Tx> tx =
         std::make_shared<impl::Tx>(shared_from_this(), true);
+    tx->init();
     rwtx = tx;
 
     // Free any pages associated with closed read-only transactions.
@@ -373,7 +374,7 @@ impl::meta *DB::meta() {
 
     // This should never be reached, because both meta1 and meta0 were validated
     // on mmap() and we do fsync() on every write.
-    assert("bolt.DB.meta(): invalid meta pages" && false);
+    _assert(false, "bolt.DB.meta(): invalid meta pages");
     return nullptr;
 }
 

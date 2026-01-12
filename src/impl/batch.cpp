@@ -1,11 +1,10 @@
-#include "batch.hpp"
-#include "db.hpp"
-#include "async.hpp"
+#include "impl/batch.hpp"
+#include "impl/db.hpp"
+#include "impl/async.hpp"
 #include <chrono>
 #include <mutex>
 #include <thread>
 #include <iterator>
-#include <cassert>
 
 namespace bolt::impl {
 
@@ -21,7 +20,7 @@ void batch::trigger() { std::call_once(start, std::bind(&batch::run, this)); }
 void batch::run() {
     auto dbptr = db.lock();
     if (!dbptr) {
-        assert("DB already closed at batch" && false);
+        _assert(false, "DB already closed at batch");
         return;
     }
 

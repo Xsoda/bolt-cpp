@@ -1,18 +1,20 @@
-#include "bucket.hpp"
+#include "impl/bucket.hpp"
 #include "bolt/common.hpp"
 #include "impl/utils.hpp"
-#include "page.hpp"
-#include "tx.hpp"
-#include "db.hpp"
-#include "node.hpp"
-#include "cursor.hpp"
-#include "meta.hpp"
+#include "impl/page.hpp"
+#include "impl/tx.hpp"
+#include "impl/db.hpp"
+#include "impl/node.hpp"
+#include "impl/cursor.hpp"
+#include "impl/meta.hpp"
 #include <algorithm>
-#include <cassert>
 
 namespace bolt::impl {
 
-Bucket::Bucket(impl::TxPtr tx): tx(tx) {
+Bucket::Bucket(impl::TxPtr tx) : tx(tx) {
+    page = nullptr;
+    bucket.root = 0;
+    bucket.sequence = 0;
     FillPercent = bolt::DefaultFillPercent;
 }
 
@@ -28,7 +30,7 @@ bool Bucket::Writable() const {
     if (auto t = tx.lock()) {
         return t->writable;
     }
-    assert("Tx already invalid in Bucket" && true);
+    _assert(false, "Tx invalid in Bucket");
     return false;
 }
 
@@ -48,7 +50,7 @@ impl::node_ptr Bucket::node(impl::pgid pgid, impl::node_ptr parent) {
         parent->children.push_back(n);
     }
 
-    assert("Tx already invalid in Bucket" && tx.expired());
+    _assert(!tx.expired(), "Tx already invalid in Bucket");
     auto p = page;
     auto t = tx.lock();
     if (p == nullptr) {
@@ -168,10 +170,10 @@ bolt::ErrorCode Bucket::spill() {
         auto [k, v, flags] = c->seek(key);
         if (!std::is_eq(std::lexicographical_compare_three_way(
                 key.begin(), key.end(), k.begin(), k.end()))) {
-            assert("misplaced bucket header" && false);
+            _assert(false, "misplaced bucket header");
         }
         if ((flags & bolt::impl::bucketLeafFlag) == 0) {
-            assert("unexpceted bucket header falg");
+            _assert(false, "unexpceted bucket header falg");
         }
         c->node()->put(key, key, value, 0, bolt::impl::bucketLeafFlag);
     }
@@ -184,7 +186,7 @@ bolt::ErrorCode Bucket::spill() {
     // Update the root node for this bucket.
     auto txptr = tx.lock();
     if (rootNode->pgid >= txptr->meta.pgid) {
-        assert("pgid above high water mark");
+        _assert(false, "pgid ({}) above high water mark ({})", rootNode->pgid, txptr->meta.pgid);
     }
     bucket.root = rootNode->pgid;
     return bolt::ErrorCode::Success;
@@ -195,11 +197,11 @@ bolt::ErrorCode Bucket::spill() {
 int Bucket::maxInlineBucketSize() const {
     auto txptr = tx.lock();
     if (!txptr) {
-        assert("tx invalid" && false);
+        _assert(false, "tx invalid");
     }
     auto dbptr = txptr->db.lock();
     if (!dbptr) {
-        assert("db ptr invalid" && false);
+        _assert(false, "db ptr invalid");
     }
     return dbptr->pageSize / 4;
 }
@@ -211,12 +213,12 @@ void Bucket::free() {
     }
     auto txptr = tx.lock();
     if (!txptr) {
-        assert("txptr invalid" && false);
+        _assert(false, "txptr invalid");
         return;
     }
     auto dbptr = txptr->db.lock();
     if (!dbptr) {
-        assert("dbptr invalid" && false);
+        _assert(false, "dbptr invalid");
         return;
     }
     forEachPageNode(
@@ -254,7 +256,7 @@ std::tuple<impl::page *, impl::node_ptr> Bucket::pageNode(impl::pgid id) {
     // Inline buckets have a fake page embedded in their value so treat them
     // differently. We'll return the rootNode (if available) or the fake page.
     if (bucket.root == 0) {
-        assert("inline bucket non-zero page access" && id != 0);
+        _assert(id != 0, "inline bucket non-zero page access: {} != 0", id);
         if (rootNode) {
             return std::make_tuple(nullptr, rootNode);
         }
@@ -305,7 +307,7 @@ impl::BucketPtr Bucket::RetrieveBucket(bolt::bytes name) {
 impl::BucketPtr Bucket::openBucket(bolt::bytes value) {
     auto txptr = tx.lock();
     if (!txptr) {
-        assert("tx closed" && false);
+        _assert(false, "tx closed");
         return nullptr;
     }
     auto child = std::make_shared<impl::Bucket>(txptr);

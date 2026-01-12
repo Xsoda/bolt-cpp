@@ -1,7 +1,7 @@
 #ifndef __CURSOR_HPP__
 #define __CURSOR_HPP__
 
-#include "utils.hpp"
+#include "impl/utils.hpp"
 #include <memory>
 #include <tuple>
 
@@ -15,7 +15,8 @@ struct elemRef {
     std::weak_ptr<impl::node> node;
     size_t index;
 
-    elemRef(impl::page *page, impl::node_ptr node) : page(page), node(node){};
+    elemRef(impl::page *page, impl::node_ptr node)
+        : page(page), node(node), index(0){};
     elemRef(impl::page *page, impl::node_ptr node, size_t index)
         : page(page), node(node), index(index){};
     bool isLeaf() const;

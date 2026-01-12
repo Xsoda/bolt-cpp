@@ -1,11 +1,11 @@
-#include "file.hpp"
+#include "impl/file.hpp"
+#include "impl/utils.hpp"
 #include <chrono>
 #include <thread>
 #include <iostream>
 
 #ifdef WIN32
 #include <windows.h>
-#include <cassert>
 namespace bolt::impl {
 
 int Getpagesize() {
@@ -232,7 +232,7 @@ std::tuple<std::uintptr_t, bolt::ErrorCode> FileImpl::Mmap(std::uint64_t size) {
     sa.bInheritHandle = true;
     DWORD sizehi = (DWORD)(size >> 32);
     DWORD sizelo = (DWORD)(size & 0xFFFFFFFF);
-    assert(ptr == NULL);
+    _assert(ptr == NULL, "mmap ptr is nullptr");
     HANDLE fm =
         CreateFileMapping(file, &sa, PAGE_READONLY, sizehi, sizelo, NULL);
     if (fm == NULL) {

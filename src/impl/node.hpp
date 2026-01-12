@@ -1,9 +1,9 @@
 #ifndef __NODE_HPP__
 #define __NODE_HPP__
 
-#include "utils.hpp"
-#include "bucket.hpp"
-#include "page.hpp"
+#include "impl/utils.hpp"
+#include "impl/bucket.hpp"
+#include "impl/page.hpp"
 #include <initializer_list>
 #include <memory>
 

@@ -1,9 +1,9 @@
 #ifndef __TX_HPP__
 #define __TX_HPP__
 
-#include "bucket.hpp"
-#include "meta.hpp"
-#include "utils.hpp"
+#include "impl/bucket.hpp"
+#include "impl/meta.hpp"
+#include "impl/utils.hpp"
 #include <functional>
 #include <memory>
 #include <future>
@@ -57,6 +57,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     explicit Tx(impl::DBPtr db, bool writable);
     // ID returns the transaction id.
     impl::txid ID() const;
+    void init();
 
     // DB returns a reference to the database that created the transaction.
     std::shared_ptr<impl::DB> DB() const;

@@ -1,12 +1,11 @@
-#include "tx.hpp"
-#include "page.hpp"
-#include "bucket.hpp"
-#include "db.hpp"
-#include "meta.hpp"
-#include "freelist.hpp"
-#include "utils.hpp"
+#include "impl/tx.hpp"
+#include "impl/page.hpp"
+#include "impl/bucket.hpp"
+#include "impl/db.hpp"
+#include "impl/meta.hpp"
+#include "impl/freelist.hpp"
+#include "impl/utils.hpp"
 #include <algorithm>
-#include <cassert>
 #include <chrono>
 #include <mutex>
 #include <fmt/format.h>
@@ -53,7 +52,12 @@ Tx::Tx() {}
 
 Tx::Tx(std::shared_ptr<impl::DB> db, bool writable)
     : db(db), writable(writable) {
-    db->meta()->copy(&meta);
+}
+
+void Tx::init() {
+    auto dbptr = db.lock();
+    dbptr->meta()->copy(&meta);
+    root = std::make_shared<impl::Bucket>(shared_from_this());
     root->bucket = meta.root;
     if (writable) {
         meta.txid += 1;
@@ -68,7 +72,7 @@ std::int64_t Tx::Size() const {
     if (auto dbptr = db.lock()) {
         return meta.pgid * dbptr->pageSize;
     }
-    assert("Tx already closed" && false);
+    _assert(false, "Tx already closed");
     return 0;
 }
 
@@ -84,7 +88,7 @@ impl::page *Tx::page(impl::pgid id) {
     if (auto dbptr = db.lock()) {
         return dbptr->page(id);
     }
-    assert("Tx already closed" && false);
+    _assert(false, "Tx already closed");
     return nullptr;
 }
 
@@ -179,7 +183,7 @@ bolt::ErrorCode Tx::write() {
 }
 
 bolt::ErrorCode Tx::Commit() {
-    assert("managed tx commit not allowed" && !managed);
+    _assert(!managed, "managed tx commit not allowed");
     auto dbptr = db.lock();
     if (!dbptr) {
         return bolt::ErrorCode::ErrorTxClosed;
@@ -240,7 +244,7 @@ bolt::ErrorCode Tx::Commit() {
     if (dbptr->StrictMode) {
         auto result = Check();
         auto errors = result.get();
-        assert("check fail" && errors.empty());
+        _assert(errors.empty(), "check fail");
     }
 
     err = writeMeta();
@@ -257,7 +261,7 @@ bolt::ErrorCode Tx::Commit() {
 }
 
 bolt::ErrorCode Tx::Rollback() {
-    assert("managed tx rollback not allowed" && !managed);
+    _assert(!managed, "managed tx rollback not allowed");
     auto dbptr = db.lock();
     if (!dbptr) {
         return bolt::ErrorCode::ErrorTxClosed;
@@ -323,7 +327,6 @@ std::future<std::vector<std::string>> Tx::Check() {
       std::map<impl::pgid, bool> freed;
       std::vector<impl::pgid> all;
       std::vector<std::string> errors;
-      char buf[1024];
       auto dbptr = db.lock();
       if (!dbptr) {
         errors.push_back("tx already closed");
@@ -378,7 +381,6 @@ void Tx::checkBucket(impl::BucketPtr bucket,
 
     // Check every page used by this bucket.
     txptr->forEachPage(bucket->bucket.root, 0, [&](impl::page *p, int depth) {
-        char buf[1024];
         if (p->id > txptr->meta.pgid) {
             errors.push_back(fmt::format("page {}: out of bounds: {}", p->id, txptr->meta.pgid));
         }
@@ -404,6 +406,10 @@ void Tx::checkBucket(impl::BucketPtr bucket,
 
     // Check each bucket within this bucket.
     bucket->ForEach([&](bolt::bytes key, bolt::bytes val) -> bolt::ErrorCode {
+        auto child = bucket->RetrieveBucket(key);
+        if (child) {
+            checkBucket(child, reachable, freed, errors);
+        }
         return bolt::ErrorCode::Success;
     });
 }

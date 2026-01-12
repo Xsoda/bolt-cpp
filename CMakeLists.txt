@@ -65,6 +65,7 @@ target_sources(${PROJECT_NAME}
   test/freelist_test.cpp
   test/node_test.cpp
   test/db_test.cpp
+  test/cursor_test.cpp
   test/test.hpp
   test/random.hpp
   test/random.cpp

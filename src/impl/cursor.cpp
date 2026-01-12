@@ -1,8 +1,8 @@
-#include "cursor.hpp"
-#include "node.hpp"
-#include "page.hpp"
+#include "impl/cursor.hpp"
+#include "impl/node.hpp"
+#include "impl/page.hpp"
+#include "impl/bucket.hpp"
 #include <algorithm>
-#include <cassert>
 
 namespace bolt::impl {
 
@@ -22,7 +22,7 @@ size_t elemRef::count() const {
 
 impl::node_ptr Cursor::node() const {
     size_t len = stack.size();
-    assert(len > 0);
+    _assert(len > 0, "accessing a node with a zero-length cursor stack");
     auto &ref = stack.back();
     if (auto n = ref.node.lock()) {
         if (ref.isLeaf()) {
@@ -30,7 +30,7 @@ impl::node_ptr Cursor::node() const {
         }
     }
     auto &f = stack.front();
-    assert("bucket already expired" && !bucket.expired());
+    _assert(!bucket.expired(), "bucket already expired");
     auto b = bucket.lock();
     auto n = stack.front().node.lock();
     if (!n) {
@@ -38,20 +38,24 @@ impl::node_ptr Cursor::node() const {
     }
     for (size_t i = 0; i < len - 1; i++) {
         auto ref = stack.at(i);
-        assert(!n->isLeaf);
+        _assert(!n->isLeaf, "expected branch node");
         n = n->childAt(ref.index);
     }
-    assert(n->isLeaf);
+    _assert(n->isLeaf, "expected leaf node");
     return n->shared_from_this();
+}
+
+impl::BucketPtr Cursor::Bucket() {
+    return bucket.lock();
 }
 
 // First moves the cursor to the first item in the bucket and returns its key
 // and value. If the bucket is empty then a nil key and value are returned. The
 // returned key and value are only valid for the life of the transaction.
 std::tuple<bolt::bytes, bolt::bytes> Cursor::First() {
-    assert(!bucket.expired());
+    _assert(!bucket.expired(), "bucket expired");
     auto bptr = bucket.lock();
-    assert("tx closed" && !bptr->tx.expired());
+    _assert(!bptr->tx.expired(), "tx closed");
     stack.clear();
 
     auto [p, n] = bptr->pageNode(bptr->bucket.root);
@@ -76,9 +80,9 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::First() {
 // returned. The returned key and value are only valid for the life of the
 // transaction.
 std::tuple<bolt::bytes, bolt::bytes> Cursor::Next() {
-    assert(!bucket.expired());
+    _assert(!bucket.expired(), "bucket already expired");
     auto bptr = bucket.lock();
-    assert("tx closed" && !bptr->tx.expired());
+    _assert(!bptr->tx.expired(), "tx closed");
 
     auto [k, v, flags] = next();
     if ((flags & impl::bucketLeafFlag) != 0) {
@@ -103,9 +107,9 @@ std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::keyValue() {
 
 std::tuple<bolt::bytes, bolt::bytes, std::uint32_t>
 Cursor::seek(bolt::bytes k) {
-    assert("Bucket already expired in Cursor" && bucket.expired());
+    _assert(!bucket.expired(), "Bucket already expired in Cursor");
     auto b = bucket.lock();
-    assert("tx closed" && b->tx.expired());
+    _assert(!b->tx.expired(), "tx closed");
     stack.clear();
     search(k, b->bucket.root);
     auto ref = stack.back();
@@ -205,11 +209,13 @@ std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::next() {
     }
 }
 
+// search recursively performs a binary search against a given page/node until
+// it finds a given key.
 void Cursor::search(bolt::bytes key, impl::pgid pgid) {
     auto b = bucket.lock();
     auto [p, n] = b->pageNode(pgid);
     if (p != nullptr && (p->flags & (impl::branchPageFlag | impl::leafPageFlag)) == 0) {
-        assert("invalid page type" && false);
+        _assert(false, "invalid page type: {}: {}", p->id, p->flags);
     }
     elemRef e{p, n};
     stack.push_back(e);

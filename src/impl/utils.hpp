@@ -1,14 +1,17 @@
 #pragma once
 
+#include "fmt/base.h"
 #ifndef __UTILS_HPP__
 #define __UTILS_HPP__
 
 #include <cstdint>
 #include <memory>
 #include <chrono>
-
+#include <source_location>
 #include "bolt/common.hpp"
 #include "bolt/error.hpp"
+#include "fmt/core.h"
+#include <cassert>
 
 namespace bolt::impl {
     using namespace std::chrono_literals;
@@ -42,6 +45,21 @@ namespace bolt::impl {
 
     using pgid = std::uint64_t;
     using txid = std::uint64_t;
-}
+
+    template <typename... T>
+    void __assert(bool condition, const std::source_location &location,
+                  fmt::format_string<T...> fmt, T&&...args) {
+        if (!condition) {
+            fmt::println(stderr, "Assert Failed at {}:{} {}", location.file_name(), location.line(), location.function_name());
+            fmt::println(stderr, fmt, args...);
+            assert(false);
+        }
+    };
+} // namespace bolt::impl
+
+#define _assert(condition, format, ...)                                        \
+    bolt::impl::__assert(condition, std::source_location::current(), format, \
+                         ##__VA_ARGS__)
+
 
 #endif  // !__UTILS_HPP__
