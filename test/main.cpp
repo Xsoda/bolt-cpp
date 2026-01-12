@@ -20,6 +20,7 @@ TestResult TestDB_OpenPathRequired();
 TestResult TestDB_OpenInvalid();
 TestResult TestDB_OpenErrVersionMismatch();
 TestResult TestDB_OpenErrChecksum();
+TestResult TestDB_OpenSize();
 
 static const std::vector<Test> tests = {
     {"Test Page Type", TestPageType},
@@ -41,6 +42,7 @@ static const std::vector<Test> tests = {
     {"Test DB Open ErrorDatabaseInvalid", TestDB_OpenInvalid},
     {"Test DB Open ErrorVersionMismatch", TestDB_OpenErrVersionMismatch},
     {"Test DB Open ErrorChecksum", TestDB_OpenErrChecksum},
+    {"Test DB Open Size", TestDB_OpenSize},
 };
 
 int main(int argc, char **argv) {

@@ -549,5 +549,6 @@ impl::Info DB::Info() const {
     impl::Info info;
     info.Data = dataref;
     info.PageSize = pageSize;
+    return info;
 };
 }

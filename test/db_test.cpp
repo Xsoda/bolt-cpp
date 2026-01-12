@@ -9,8 +9,9 @@
 #include <string>
 #include <iostream>
 #include <cassert>
+extern std::span<std::byte> to_bytes(std::string &str);
 
-std::string tempfile() {
+  std::string tempfile() {
     auto tmpdir = std::filesystem::temp_directory_path();
     std::string filename = "bolt-";
     filename.append(RandomCharset(5));
@@ -180,5 +181,29 @@ TestResult TestDB_OpenSize() {
     auto path = db->Path();
 
     auto pagesize = db->Info().PageSize;
+    auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+      std::string name = "data";
+      auto [b, err] = tx->CreateBucketIfNotExists(to_bytes(name));
+      if (err != bolt::ErrorCode::Success) {
+        return err;
+      }
+      for (int i = 0; i < 10000; i++) {
+        std::string key = fmt::format("{:04d}", i);
+        std::vector<std::byte> value{1000, std::byte(0)};
+        err = b->Put(to_bytes(key), value);
+        if (err != bolt::ErrorCode::Success) {
+          return err;
+        }
+      }
+      return bolt::ErrorCode::Success;
+    });
+    if (err != bolt::ErrorCode::Success) {
+        return TestResult(false, "database Update fail");
+    }
+    err = db->Close();
+    if (err != bolt::ErrorCode::Success) {
+        return TestResult(false, "database close fail");
+    }
+    fmt::println("database {} closed", path);
     return true;
 }
