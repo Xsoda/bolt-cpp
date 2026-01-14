@@ -22,6 +22,7 @@ TestResult TestDB_OpenErrVersionMismatch();
 TestResult TestDB_OpenErrChecksum();
 // TestResult TestDB_OpenSize();
 TestResult TestCursor_Bucket();
+TestResult TestCursor_Seek();
 
 static const std::vector<Test> tests = {
     {"Test Page Type", TestPageType},
@@ -45,6 +46,7 @@ static const std::vector<Test> tests = {
     {"Test DB Open ErrorChecksum", TestDB_OpenErrChecksum},
     // {"Test DB Open Size", TestDB_OpenSize},
     {"Test Cursor Bucket", TestCursor_Bucket},
+    {"Test Cursor Seek", TestCursor_Seek},
 };
 
 int main(int argc, char **argv) {

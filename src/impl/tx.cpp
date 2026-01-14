@@ -58,7 +58,8 @@ void Tx::init() {
     auto dbptr = db.lock();
     dbptr->meta()->copy(&meta);
     root = std::make_shared<impl::Bucket>(shared_from_this());
-    root->bucket = meta.root;
+    root->root = meta.root.root;
+    root->sequence = meta.root.sequence;
     if (writable) {
         meta.txid += 1;
     }
@@ -209,7 +210,7 @@ bolt::ErrorCode Tx::Commit() {
     }
     stats.SpillTime += since(startTime);
 
-    meta.root.root = root->bucket.root;
+    meta.root.root = root->root;
 
     auto opgid = meta.pgid;
     dbptr->freelist->free(meta.txid, dbptr->page(meta.freelist));
@@ -371,7 +372,7 @@ void Tx::checkBucket(impl::BucketPtr bucket,
                      std::map<impl::pgid, bool> &freed,
                      std::vector<std::string> &errors) {
     // Ignore inline buckets.
-    if (bucket->bucket.root == 0) {
+    if (bucket->root == 0) {
         return;
     }
     auto txptr = bucket->tx.lock();
@@ -380,7 +381,7 @@ void Tx::checkBucket(impl::BucketPtr bucket,
     }
 
     // Check every page used by this bucket.
-    txptr->forEachPage(bucket->bucket.root, 0, [&](impl::page *p, int depth) {
+    txptr->forEachPage(bucket->root, 0, [&](impl::page *p, int depth) {
         if (p->id > txptr->meta.pgid) {
             errors.push_back(fmt::format("page {}: out of bounds: {}", p->id, txptr->meta.pgid));
         }
@@ -451,4 +452,9 @@ bolt::ErrorCode Tx::ForEach(
             return fn(k, root->RetrieveBucket(v));
         });
 }
+
+impl::BucketPtr Tx::Bucket(bolt::bytes name) {
+    return root->RetrieveBucket(name);
+}
+
 }

@@ -6,13 +6,8 @@
 #include "bolt/error.hpp"
 #include "test.hpp"
 #include "impl/utils.hpp"
+#include "util.hpp"
 #include <memory>
-
-template <typename A, typename B>
-bool Compare(A a, B b) {
-    return std::is_eq(std::lexicographical_compare_three_way(a.begin(), a.end(),
-                                        b.begin(), b.end()));
-}
 
 std::span<std::byte> to_bytes(std::string &str) {
     return std::span<std::byte>(reinterpret_cast<std::byte*>(str.data()), str.size());

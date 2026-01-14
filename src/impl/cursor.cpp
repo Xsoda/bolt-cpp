@@ -1,8 +1,11 @@
+#include "impl/tx.hpp"
 #include "impl/cursor.hpp"
 #include "impl/node.hpp"
 #include "impl/page.hpp"
 #include "impl/bucket.hpp"
+#include "impl/utils.hpp"
 #include <algorithm>
+#include <iterator>
 
 namespace bolt::impl {
 
@@ -58,7 +61,7 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::First() {
     _assert(!bptr->tx.expired(), "tx closed");
     stack.clear();
 
-    auto [p, n] = bptr->pageNode(bptr->bucket.root);
+    auto [p, n] = bptr->pageNode(bptr->root);
     stack.push_back(elemRef(p, n, 0));
     first();
 
@@ -70,6 +73,29 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::First() {
 
     auto [k, v, flags] = keyValue();
     if ((flags & impl::bucketLeafFlag) != 0) {
+        return std::make_tuple(k, bolt::bytes());
+    }
+    return std::make_tuple(k, v);
+}
+
+// Last moves the cursor to the last item in the bucket and returns its key and
+// value. If the bucket is empty then a nil key and value are returned. The
+// returned key and value are only valid for the life of the transaction.
+std::tuple<bolt::bytes, bolt::bytes> Cursor::Last() {
+    auto bptr = bucket.lock();
+    _assert(!bucket.expired(), "bucket ptr invalid");
+    auto txptr = bptr->tx.lock();
+    _assert(!bptr->tx.expired(), "tx closed");
+    stack.clear();
+
+    auto [p, n] = bptr->pageNode(bptr->root);
+    stack.push_back(elemRef(p, n, 0));
+    auto ref = stack.back();
+    ref.index = ref.count() - 1;
+
+    last();
+    auto [k, v, flags] = keyValue();
+    if ((flags & bolt::impl::bucketLeafFlag) != 0) {
         return std::make_tuple(k, bolt::bytes());
     }
     return std::make_tuple(k, v);
@@ -89,6 +115,86 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::Next() {
         return std::make_tuple(k, bolt::bytes());
     }
     return std::make_tuple(k, v);
+}
+
+// Prev moves the cursor to the previous item in the bucket and returns its key
+// and value. If the cursor is at the beginning of the bucket then a nil key and
+// value are returned. The returned key and value are only valid for the life of
+// the transaction.
+std::tuple<bolt::bytes, bolt::bytes> Cursor::Prev() {
+    _assert(!bucket.expired(), "bucket already expired");
+    auto bptr = bucket.lock();
+    _assert(!bptr->tx.expired(), "tx closed");
+
+    // Attempt to move back one element until we're successful.
+    // Move up the stack as we hit the beginning of each page in our stack.
+    for (auto elem = stack.rbegin();
+         elem != stack.rend();) {
+        if (elem->index > 0) {
+            elem->index--;
+            break;
+        }
+        auto it = stack.erase(elem.base() - 1, stack.end());
+        elem = std::reverse_iterator(it);
+    }
+
+    // If we've hit the end then return nil.
+    if (stack.size() == 0) {
+        return std::make_tuple(bolt::bytes(), bolt::bytes());
+    }
+
+    // Move down the stack to find the last element of the last leaf under this
+    // branch.
+    last();
+    auto [k, v, flags] = keyValue();
+    if ((flags & bolt::impl::bucketLeafFlag) != 0) {
+        return std::make_tuple(k, bolt::bytes());
+    }
+    return std::make_tuple(k, v);
+}
+
+// Seek moves the cursor to a given key and returns it.
+// If the key does not exist then the next key is used. If no keys
+// follow, a nil key is returned.
+// The returned key and value are only valid for the life of the transaction.
+std::tuple<bolt::bytes, bolt::bytes> Cursor::Seek(bolt::bytes seek) {
+    auto [k, v, flags] = this->seek(seek);
+
+    // If we ended up after the last element of a page then move to the next
+    // one.
+    auto ref = stack.back();
+    if (ref.index >= ref.count()) {
+        std::tie(k, v, flags) = next();
+    }
+
+    if (k.empty()) {
+        return std::make_tuple(k, k);
+    } else if ((flags & bolt::impl::bucketLeafFlag) != 0) {
+        return std::make_tuple(k, bolt::bytes());
+    }
+    return std::make_tuple(k, v);
+}
+
+bolt::ErrorCode Cursor::Delete() {
+    auto bptr = bucket.lock();
+    _assert(!bucket.expired(), "bucket invalid");
+    auto txptr = bptr->tx.lock();
+    _assert(!bptr->tx.expired(), "tx invalid");
+    if (txptr->db.expired()) {
+        return bolt::ErrorCode::ErrorTxClosed;
+    } else if (!bptr->Writable()) {
+        return bolt::ErrorCode::ErrorTxNotWritable;
+    }
+
+    auto [k, v, flags] = keyValue();
+    // Return an error if current value is a bucket.
+    if ((flags & bolt::impl::bucketLeafFlag) != 0) {
+        return bolt::ErrorCode::ErrorIncompatiableValue;
+    }
+
+    node()->del(k);
+
+    return bolt::ErrorCode::Success;
 }
 
 std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::keyValue() {
@@ -111,7 +217,7 @@ Cursor::seek(bolt::bytes k) {
     auto b = bucket.lock();
     _assert(!b->tx.expired(), "tx closed");
     stack.clear();
-    search(k, b->bucket.root);
+    search(k, b->root);
     auto ref = stack.back();
     if (ref.index >= ref.count()) {
         return std::make_tuple(bolt::bytes(), bolt::bytes(), 0);

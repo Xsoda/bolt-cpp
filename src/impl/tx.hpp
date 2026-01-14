@@ -5,8 +5,8 @@
 #include "impl/meta.hpp"
 #include "impl/utils.hpp"
 #include <functional>
-#include <memory>
 #include <future>
+#include <memory>
 
 namespace bolt::impl {
 
@@ -98,7 +98,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     bolt::ErrorCode
     ForEach(std::function<bolt::ErrorCode(bolt::bytes name, impl::BucketPtr b)>
                 &&fn);
-
+    impl::BucketPtr Bucket(bolt::bytes name);
 };
 
 }

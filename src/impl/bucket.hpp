@@ -35,8 +35,8 @@ struct BucketStats {
     int InlineBucketInuse;
 };
 
-struct Bucket : public std::enable_shared_from_this<impl::Bucket> {
-    impl::bucket bucket;
+struct Bucket : public bucket,
+                public std::enable_shared_from_this<impl::Bucket> {
     std::weak_ptr<impl::Tx> tx;
     std::map<std::string, impl::BucketPtr> buckets;
     impl::page *page;

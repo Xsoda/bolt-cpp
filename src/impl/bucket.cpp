@@ -2,7 +2,6 @@
 #include "bolt/common.hpp"
 #include "impl/utils.hpp"
 #include "impl/page.hpp"
-#include "impl/tx.hpp"
 #include "impl/db.hpp"
 #include "impl/node.hpp"
 #include "impl/cursor.hpp"
@@ -13,8 +12,8 @@ namespace bolt::impl {
 
 Bucket::Bucket(impl::TxPtr tx) : tx(tx) {
     page = nullptr;
-    bucket.root = 0;
-    bucket.sequence = 0;
+    root = 0;
+    sequence = 0;
     FillPercent = bolt::DefaultFillPercent;
 }
 
@@ -23,7 +22,7 @@ impl::TxPtr Bucket::Tx() const {
 }
 
 impl::pgid Bucket::Root() const {
-    return bucket.root;
+    return root;
 }
 
 bool Bucket::Writable() const {
@@ -152,7 +151,8 @@ bolt::ErrorCode Bucket::spill() {
             // Update the child bucket header in this bucket.
             value.assign(sizeof(struct bucket), std::byte(0));
             struct bucket *b = reinterpret_cast<struct bucket *>(value.data());
-            *b = child->bucket;
+            b->root = child->root;
+            b->sequence = child->sequence;
         }
 
         // Skip writing the bucket if there are no materialized nodes.
@@ -188,7 +188,7 @@ bolt::ErrorCode Bucket::spill() {
     if (rootNode->pgid >= txptr->meta.pgid) {
         _assert(false, "pgid ({}) above high water mark ({})", rootNode->pgid, txptr->meta.pgid);
     }
-    bucket.root = rootNode->pgid;
+    root = rootNode->pgid;
     return bolt::ErrorCode::Success;
 }
 
@@ -208,7 +208,7 @@ int Bucket::maxInlineBucketSize() const {
 
 // free recursively frees all pages in the bucket.
 void Bucket::free() {
-    if (bucket.root == 0) {
+    if (root == 0) {
         return;
     }
     auto txptr = tx.lock();
@@ -229,7 +229,7 @@ void Bucket::free() {
                 n->free();
             }
         });
-    bucket.root = 0;
+    root = 0;
 }
 
 // write allocates and writes a bucket to a byte slice.
@@ -241,7 +241,8 @@ std::vector<std::byte> Bucket::write() {
 
     // Write a bucket header.
     auto b = reinterpret_cast<bolt::impl::bucket *>(value.data());
-    *b = bucket;
+    b->root = root;
+    b->sequence = sequence;
 
     // Convert byte slice to a fake page and write the root node
     auto p = reinterpret_cast<bolt::impl::page *>(value.data() +
@@ -255,8 +256,8 @@ std::vector<std::byte> Bucket::write() {
 std::tuple<impl::page *, impl::node_ptr> Bucket::pageNode(impl::pgid id) {
     // Inline buckets have a fake page embedded in their value so treat them
     // differently. We'll return the rootNode (if available) or the fake page.
-    if (bucket.root == 0) {
-        _assert(id != 0, "inline bucket non-zero page access: {} != 0", id);
+    if (root == 0) {
+        _assert(id == 0, "inline bucket non-zero page access: {} != 0", id);
         if (rootNode) {
             return std::make_tuple(nullptr, rootNode);
         }
@@ -312,10 +313,11 @@ impl::BucketPtr Bucket::openBucket(bolt::bytes value) {
     }
     auto child = std::make_shared<impl::Bucket>(txptr);
     auto b = reinterpret_cast<bolt::impl::bucket *>(value.data());
-    child->bucket = *b;
+    child->root = b->root;
+    child->sequence = b->sequence;
 
     // Save a reference to the inline page if the bucket is inline.
-    if (child->bucket.root == 0) {
+    if (child->root == 0) {
         child->page = reinterpret_cast<bolt::impl::page*>(value.data() + bolt::impl::bucketHeaderSize);
     }
     return child;
@@ -376,7 +378,7 @@ void Bucket::forEachPageNode(
         fn(page, nullptr, 0);
         return;
     }
-    return _forEachPageNode(bucket.root, 0, std::move(fn));
+    return _forEachPageNode(root, 0, std::move(fn));
 }
 
 void Bucket::_forEachPageNode(
@@ -557,7 +559,7 @@ bolt::ErrorCode Bucket::Delete(bolt::bytes key) {
 }
 
 // Sequence returns the current integer for the bucket without incrementing it.
-std::uint64_t Bucket::Sequence() { return bucket.sequence; }
+std::uint64_t Bucket::Sequence() { return sequence; }
 
 bolt::ErrorCode Bucket::SetSequence(std::uint64_t v) {
     if (tx.expired()) {
@@ -569,11 +571,11 @@ bolt::ErrorCode Bucket::SetSequence(std::uint64_t v) {
     // Materialize the root node if it hasn't been already so that the
     // bucket will be saved during commit.
     if (rootNode == nullptr) {
-        std::ignore = node(bucket.root, nullptr);
+        std::ignore = node(root, nullptr);
     }
 
     // Increment and return the sequence.
-    bucket.sequence = v;
+    sequence = v;
     return bolt::ErrorCode::Success;
 }
 
@@ -588,12 +590,12 @@ std::tuple<std::uint64_t, bolt::ErrorCode> Bucket::NextSequence() {
     // Materialize the root node if it hasn't been already so that the
     // bucket will be saved during commit.
     if (rootNode == nullptr) {
-        std::ignore = node(bucket.root, nullptr);
+        std::ignore = node(root, nullptr);
     }
 
     // Increment and return the sequence.
-    bucket.sequence++;
-    return std::make_tuple(bucket.sequence, bolt::ErrorCode::Success);
+    sequence++;
+    return std::make_tuple(sequence, bolt::ErrorCode::Success);
 }
 
 }

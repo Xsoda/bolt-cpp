@@ -33,7 +33,7 @@ bolt::impl::DBPtr MustOpenDB() {
     return db;
 }
 
-void MustClose(bolt::impl::DBPtr &&db) {
+void MustCloseDB(bolt::impl::DBPtr &&db) {
     auto err = db->Close();
     if (err != bolt::ErrorCode::Success) {
         assert("close database fail" && false);
@@ -99,7 +99,7 @@ TestResult TestDB_OpenInvalid() {
 TestResult TestDB_OpenErrVersionMismatch() {
     auto db = MustOpenDB();
     auto path = db->Path();
-    MustClose(std::move(db));
+    MustCloseDB(std::move(db));
 
     bolt::impl::File file;
     std::uint64_t size;
@@ -139,7 +139,7 @@ TestResult TestDB_OpenErrVersionMismatch() {
 TestResult TestDB_OpenErrChecksum() {
     auto db = MustOpenDB();
     auto path = db->Path();
-    MustClose(std::move(db));
+    MustCloseDB(std::move(db));
 
     bolt::impl::File file;
     std::uint64_t size;
