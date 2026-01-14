@@ -215,6 +215,14 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     return bolt::ErrorCode::Success;
 }
 
+// Update executes a function within the context of a read-write managed
+// transaction. If no error is returned from the function then the transaction
+// is committed. If an error is returned then the entire transaction is rolled
+// back. Any error that is returned from the function or returned from the
+// commit is returned from the Update() method.
+//
+// Attempting to manually commit or rollback within the function will cause a
+// panic.
 bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     auto [tx, err] = Begin(true);
     if (err != bolt::ErrorCode::Success) {

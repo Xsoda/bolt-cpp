@@ -13,18 +13,30 @@ namespace bolt::impl {
 node::node(impl::BucketPtr bucket, std::initializer_list<impl::node_ptr> children) {
     this->bucket = bucket;
     this->children = children;
+    isLeaf = false;
+    unbalanced = false;
+    spilled = false;
 }
 
 node::node(impl::BucketPtr bucket, bool isLeaf, impl::node_ptr parent) {
     this->bucket = bucket;
     this->parent = parent;
     this->isLeaf = isLeaf;
+    unbalanced = false;
+    spilled = false;
 }
 
-node::node(impl::BucketPtr bucket) { this->bucket = bucket; }
+node::node(impl::BucketPtr bucket) {
+    this->bucket = bucket;
+    isLeaf = false;
+    unbalanced = false;
+    spilled = false;
+}
 
 node::node(bool isLeaf) {
     this->isLeaf = isLeaf;
+    unbalanced = false;
+    spilled = false;
 }
 
 impl::node_ptr node::root() {
@@ -261,13 +273,18 @@ void node::write(impl::page *p) {
     }
 }
 
+// splitTwo breaks up a node into two smaller nodes, if appropriate.
+// This should only be called from the split() function.
 std::tuple<impl::node_ptr, impl::node_ptr> node::splitTwo(size_t pageSize) {
+    // Ignore the split if the page doesn't have at least enough nodes for
+    // two pages or if the nodes can fit in a single page.
     if (inodes.size() <= impl::minKeysPerPage * 2
         || sizeLessThan(pageSize)) {
         return std::make_tuple(shared_from_this(), nullptr);
     }
     auto bptr = bucket.lock();
     auto tptr = bptr->tx.lock();
+    // Determine the threshold before starting a new node.
     auto fillPercent = bptr->FillPercent;
     if (fillPercent < minFillPercent) {
         fillPercent = minFillPercent;
@@ -276,17 +293,26 @@ std::tuple<impl::node_ptr, impl::node_ptr> node::splitTwo(size_t pageSize) {
     }
     size_t threshold = (size_t)(pageSize * fillPercent);
     size_t splitIdx;
+
+    // Determine split position and sizes of the two pages.
     std::tie(splitIdx, std::ignore) = splitIndex(threshold);
+
+    // Split node into two separate nodes.
+    // If there's no parent then we'll need to create one.
     auto pptr = parent.lock();
     if (!pptr) {
         pptr = std::make_shared<node>(
             bptr, std::initializer_list<impl::node_ptr>({shared_from_this()}));
     }
     parent = pptr;
+
+    // Create a new node and add it to the parent.
     auto next = std::make_shared<node>(bptr, isLeaf, pptr);
     pptr->children.push_back(next);
 
-    std::copy(std::next(inodes.begin(), splitIdx), inodes.end(), std::back_inserter(next->inodes));
+    // Split inodes across two nodes.
+    std::copy(std::next(inodes.begin(), splitIdx), inodes.end(),
+              std::back_inserter(next->inodes));
     inodes.erase(std::next(inodes.begin(), splitIdx), inodes.end());
 
     // NOTE: only for manage parent shared_pointer: TestNode_split()

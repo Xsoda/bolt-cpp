@@ -104,7 +104,7 @@ TestResult TestNode_write_LeafPage() {
     bolt::impl::DBPtr db = std::make_shared<bolt::impl::DB>();
     bolt::impl::TxPtr tx = std::make_shared<bolt::impl::Tx>(db, meta);
     bolt::impl::BucketPtr bucket = std::make_shared<bolt::impl::Bucket>(tx);
-    auto n = std::make_shared<bolt::impl::node>(bucket);
+    auto n = std::make_shared<bolt::impl::node>(bucket, true, nullptr);
     std::string susy = "susy";
     std::string que = "que";
     std::string ricki = "ricki";

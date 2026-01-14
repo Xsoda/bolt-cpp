@@ -181,6 +181,11 @@ bolt::ErrorCode Bucket::spill() {
     if (rootNode == nullptr) {
         return bolt::ErrorCode::Success;
     }
+
+    // Spill nodes.
+    if (auto err = rootNode->spill(); err != bolt::ErrorCode::Success) {
+        return err;
+    }
     rootNode = rootNode->root();
 
     // Update the root node for this bucket.
