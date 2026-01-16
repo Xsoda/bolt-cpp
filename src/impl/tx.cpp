@@ -306,7 +306,7 @@ void Tx::close() {
         dbptr->removeTx(shared_from_this());
     }
 
-    dbptr.reset();
+    db.reset();
     pages.clear();
 }
 
@@ -416,7 +416,7 @@ void Tx::checkBucket(impl::BucketPtr bucket,
 }
 
 void Tx::forEachPage(impl::pgid pgid, int depth,
-                     std::function<void(impl::page *, int)> fn) {
+                     std::function<void(impl::page *, int)> &&fn) {
     auto p = page(pgid);
 
     // Execute function.
@@ -426,7 +426,7 @@ void Tx::forEachPage(impl::pgid pgid, int depth,
     if (p->flags & impl::branchPageFlag) {
         for (std::uint16_t i = 0; i < p->count; i++) {
             auto elem = p->branchPageElement(i);
-            forEachPage(elem->pgid, depth + 1, fn);
+            forEachPage(elem->pgid, depth + 1, std::forward<decltype(fn)>(fn));
         }
     }
 }
@@ -456,5 +456,7 @@ bolt::ErrorCode Tx::ForEach(
 impl::BucketPtr Tx::Bucket(bolt::bytes name) {
     return root->RetrieveBucket(name);
 }
+
+impl::CursorPtr Tx::Cursor() { return root->Cursor(); }
 
 }

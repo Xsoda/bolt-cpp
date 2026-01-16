@@ -61,6 +61,10 @@ DB::DB() {
     opened = false;
 }
 
+DB::~DB() {
+    Close();
+}
+
 bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
     this->path = path;
     NoGrowSync = false;

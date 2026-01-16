@@ -91,6 +91,7 @@ struct DB : public std::enable_shared_from_this<DB> {
     bool readOnly;
 
     explicit DB();
+    ~DB();
     bolt::ErrorCode init();
     std::string Path() const;
     bolt::ErrorCode Open(std::string path, bool readOnly=false);

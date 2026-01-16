@@ -603,4 +603,15 @@ std::tuple<std::uint64_t, bolt::ErrorCode> Bucket::NextSequence() {
     return std::make_tuple(sequence, bolt::ErrorCode::Success);
 }
 
+// forEachPage iterates over every page in a bucket, including inline pages.
+void Bucket::forEachPage(std::function<void(impl::page *, int)> &&fn) {
+    // If we have an inline page then just use that.
+    if (page == nullptr) {
+        fn(page, 0);
+        return;
+    }
+    // Otherwise traverse the page hierarchy.
+    auto txptr = tx.lock();
+    txptr->forEachPage(root, 0, std::move(fn));
+}
 }

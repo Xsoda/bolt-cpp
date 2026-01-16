@@ -64,7 +64,7 @@ struct Bucket : public bucket,
     bolt::ErrorCode
     ForEach(std::function<bolt::ErrorCode(bolt::bytes key, bolt::bytes val)> &&fn);
     impl::BucketStats Stats();
-    void forEachPage(std::function<void(impl::page *, int)> fn);
+    void forEachPage(std::function<void(impl::page *, int)> &&fn);
     void forEachPageNode(std::function<void(impl::page *, impl::node_ptr , int)> &&fn);
     void
     _forEachPageNode(impl::pgid pgid, int depth,
