@@ -170,30 +170,128 @@ TestResult TestTx_Bucket() {
     return true;
 }
 
-TestResult TestTx_Get_NotFound() { return true; }
-
-TestResult TestTx_CreateBucket() { return true; }
-
-TestResult TestTx_CreateBucketIfNotExists() { return true; }
-
-TestResult TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired() {
+TestResult TestTx_Get_NotFound() {
+    auto db = MustOpenDB();
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string widgets = "widgets";
+        std::string foo = "foo";
+        std::string bar = "bar";
+        std::string no_such_key = "no_such_key";
+        auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+        if (err != bolt::ErrorCode::Success) {
+            return err;
+        }
+        if (auto err = b->Put(to_bytes(foo), to_bytes(bar));
+            err != bolt::ErrorCode::Success) {
+            return err;
+        }
+        if (auto v = b->Get(to_bytes(no_such_key)); !v.empty()) {
+            fmt::println("expected empty value");
+            return bolt::ErrorCode::ErrorUnexpected;
+        }
+        return bolt::ErrorCode::Success;
+    });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "Update fail");
+    }
+    MustCloseDB(std::move(db));
     return true;
 }
 
-TestResult TestTx_CreateBucket_ErrorBucketExists() { return true; }
+TestResult TestTx_CreateBucket() {
+    auto db = MustOpenDB();
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          std::string widgets = "widgets";
+          auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+          if (err != bolt::ErrorCode::Success) {
+              return err;
+          } else if (b == nullptr) {
+              fmt::println("expected bucket");
+              return bolt::ErrorCode::ErrorUnexpected;
+          }
+        return bolt::ErrorCode::Success;
+    });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "Update fail");
+    }
 
-TestResult TestTx_DeleteBucket() { return true; }
+    if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string widgets = "widgets";
+        if (tx->Bucket(to_bytes(widgets)) == nullptr) {
+            fmt::println("expected bucket in View");
+            return bolt::ErrorCode::ErrorUnexpected;
+        }
+        return bolt::ErrorCode::Success;
+    });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "expected bucket");
+    }
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestTx_DeleteBucket_ErrorTxClosed() { return true; }
+TestResult TestTx_CreateBucketIfNotExists() {
+    auto db = MustOpenDB();
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestTx_DeleteBucket_ReadOnly() { return true; }
+TestResult TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired() {
+    auto db = MustOpenDB();
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestTx_DeleteBucket_NotFound() { return true; }
+TestResult TestTx_CreateBucket_ErrorBucketExists() {
+    auto db = MustOpenDB();
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestTx_ForEach_NoError() { return true; }
+TestResult TestTx_DeleteBucket() {
+    auto db = MustOpenDB();
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestTx_ForEach_WithError() { return true; }
+TestResult TestTx_DeleteBucket_ErrorTxClosed() {
+    auto db = MustOpenDB();
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestTx_OnCommit() { return true; }
+TestResult TestTx_DeleteBucket_ReadOnly() {
+    auto db = MustOpenDB();
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestTx_OnCommit_Rollback() { return true; }
+TestResult TestTx_DeleteBucket_NotFound() {
+    auto db = MustOpenDB();
+    MustCloseDB(std::move(db));
+    return true;
+}
+
+TestResult TestTx_ForEach_NoError() {
+    auto db = MustOpenDB();
+    MustCloseDB(std::move(db));
+    return true;
+}
+
+TestResult TestTx_ForEach_WithError() {
+    auto db = MustOpenDB();
+    MustCloseDB(std::move(db));
+    return true;
+}
+
+TestResult TestTx_OnCommit() {
+    auto db = MustOpenDB();
+    MustCloseDB(std::move(db));
+    return true;
+}
+
+TestResult TestTx_OnCommit_Rollback() {
+    auto db = MustOpenDB();
+    MustCloseDB(std::move(db));
+    return true;
+}
