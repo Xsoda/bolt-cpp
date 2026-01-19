@@ -43,6 +43,7 @@ TestResult TestTx_ForEach_NoError();
 TestResult TestTx_ForEach_WithError();
 TestResult TestTx_OnCommit();
 TestResult TestTx_OnCommit_Rollback();
+TestResult TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired();
 
 static const std::vector<Test> tests = {
     {"Test Page Type", TestPageType},
@@ -73,7 +74,8 @@ static const std::vector<Test> tests = {
     {"Test Tx Cursor", TestTx_Cursor},
     {"Test Tx CreateBucket ErrorTxNotWritable",
      TestTx_CreateBucket_ErrorTxNotWritable},
-    {"Test Tx CreateBucket ErrorTxClosed", TestTx_CreateBucket_ErrorTxClosed},
+    {"Test Tx CreateBucket ErrorTxClosed",
+     TestTx_CreateBucket_ErrorTxClosed},
     {"Test Tx Bucket", TestTx_Bucket},
     {"Test Tx Get NotFound", TestTx_Get_NotFound},
     {"Test Tx CreateBucket", TestTx_CreateBucket},
@@ -82,8 +84,11 @@ static const std::vector<Test> tests = {
      TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired},
     {"Test Tx CreateBucket ErrorBucketExists",
      TestTx_CreateBucket_ErrorBucketExists},
+    {"Test Tx CreateBucket ErrorBucketNameRequired",
+     TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired},
     {"Test Tx DeleteBucket", TestTx_DeleteBucket},
-    {"Test Tx DeleteBucket ErrorTxClosed", TestTx_DeleteBucket_ErrorTxClosed},
+    {"Test Tx DeleteBucket ErrorTxClosed",
+     TestTx_DeleteBucket_ErrorTxClosed},
     {"Test Tx DeleteBucket ReadOnly", TestTx_DeleteBucket_ReadOnly},
     {"Test Tx DeleteBucket NotFound", TestTx_DeleteBucket_NotFound},
     {"Test Tx ForEach NoError", TestTx_ForEach_NoError},

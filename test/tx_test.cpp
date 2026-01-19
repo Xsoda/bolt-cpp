@@ -232,18 +232,98 @@ TestResult TestTx_CreateBucket() {
 
 TestResult TestTx_CreateBucketIfNotExists() {
     auto db = MustOpenDB();
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          std::string widgets = "widgets";
+          auto [b, err] = tx->CreateBucketIfNotExists(to_bytes(widgets));
+          if (err != bolt::ErrorCode::Success) {
+            return err;
+          } else if (b == nullptr) {
+            fmt::println("expected bucket");
+            return bolt::ErrorCode::ErrorUnexpected;
+          }
+          return bolt::ErrorCode::Success;
+        });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "Update fail");
+    }
+
+    if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          std::string widgets = "widgets";
+          if (tx->Bucket(to_bytes(widgets)) == nullptr) {
+            fmt::println("expected bucket in View");
+            return bolt::ErrorCode::ErrorUnexpected;
+          }
+          return bolt::ErrorCode::Success;
+        });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "expected bucket");
+    }
     MustCloseDB(std::move(db));
     return true;
 }
 
 TestResult TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired() {
     auto db = MustOpenDB();
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string name = "";
+        if (auto [b, err] = tx->CreateBucketIfNotExists(to_bytes(name));
+            err != bolt::ErrorCode::ErrorBucketNameRequired) {
+            return bolt::ErrorCode::ErrorUnexpected;
+        }
+        if (auto [b, err] = tx->CreateBucketIfNotExists(bolt::bytes{});
+            err != bolt::ErrorCode::ErrorBucketNameRequired) {
+            return bolt::ErrorCode::ErrorUnexpected;
+        }
+        return bolt::ErrorCode::Success;
+    });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "Update fail");
+    }
     MustCloseDB(std::move(db));
     return true;
 }
 
 TestResult TestTx_CreateBucket_ErrorBucketExists() {
     auto db = MustOpenDB();
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string widgets = "widgets";
+        if (auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+            err != bolt::ErrorCode::Success) {
+            return bolt::ErrorCode::ErrorUnexpected;
+        }
+        return bolt::ErrorCode::Success;
+    });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "Update fail");
+    }
+
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          std::string widgets = "widgets";
+          if (auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+              err != bolt::ErrorCode::ErrorBucketExists) {
+              return bolt::ErrorCode::ErrorUnexpected;
+          }
+          return bolt::ErrorCode::Success;
+    });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "Unexpected error");
+    }
+    MustCloseDB(std::move(db));
+    return true;
+}
+
+TestResult TestTx_CreateBucket_ErrorBucketNameRequired() {
+    auto db = MustOpenDB();
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          if (auto [b, err] = tx->CreateBucket(bolt::bytes{});
+              err != bolt::ErrorCode::ErrorBucketNameRequired) {
+              return bolt::ErrorCode::ErrorUnexpected;
+        }
+        return bolt::ErrorCode::Success;
+    });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "Update fail");
+    }
     MustCloseDB(std::move(db));
     return true;
 }
