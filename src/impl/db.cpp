@@ -69,6 +69,11 @@ bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
     this->path = path;
     NoGrowSync = false;
     MmapFlags = 0;
+#ifndef NDEBUG
+    StrictMode = true;
+#else
+    StrictMode = false;
+#endif
     MaxBatchSize = bolt::DefaultMaxBatchSize;
     MaxBatchDelay = bolt::DefaultMaxBatchDelay;
     AllocSize = bolt::DefaultAllocSize;
