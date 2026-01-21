@@ -57,6 +57,7 @@ Tx::Tx(std::shared_ptr<impl::DB> db, bool writable)
 void Tx::init() {
     auto dbptr = db.lock();
     dbptr->meta()->copy(&meta);
+    managed = false;
     root = std::make_shared<impl::Bucket>(shared_from_this());
     root->root = meta.root.root;
     root->sequence = meta.root.sequence;
