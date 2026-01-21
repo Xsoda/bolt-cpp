@@ -16,7 +16,7 @@ bool elemRef::isLeaf() const {
     return (this->page->flags & impl::leafPageFlag) != 0;
 }
 
-size_t elemRef::count() const {
+int elemRef::count() const {
     if (auto n = node.lock()) {
         return n->inodes.size();
     }
