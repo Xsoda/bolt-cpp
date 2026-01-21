@@ -434,7 +434,7 @@ bolt::ErrorCode Bucket::DeleteBucket(bolt::bytes key) {
     if (!txptr || txptr->db.expired()) {
         return bolt::ErrorCode::ErrorTxClosed;
     } else if (!Writable()) {
-        return bolt::ErrorCode::ErrorTxClosed;
+        return bolt::ErrorCode::ErrorTxNotWritable;
     }
 
     // Move cursor to correct position.

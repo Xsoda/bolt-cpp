@@ -114,6 +114,8 @@ struct node : public std::enable_shared_from_this<node> {
 
     // free adds the node's underlying page to the freelist.
     void free();
+
+    void dump();
 };
 
 }

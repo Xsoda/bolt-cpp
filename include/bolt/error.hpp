@@ -1,7 +1,11 @@
 #pragma once
 
+
 #ifndef __ERROR_HPP__
 #define __ERROR_HPP__
+
+#include "fmt/base.h"
+#include "fmt/format.h"
 
 namespace bolt {
 
@@ -29,7 +33,8 @@ namespace bolt {
   XX(FileSizeTooSmall, "file size too small")                                  \
   XX(MmapTooLarge, "mmap too large")                                           \
   XX(DatabaseEOF, "database eof")                                              \
-  XX(Unexpected, "unexpected")
+  XX(Unexpected, "unexpected")                                                 \
+  XX(Expected, "expected error")
 
 typedef enum {
   Success = 0,
@@ -42,6 +47,29 @@ typedef enum {
 } ErrorCode;
 
 
-}
+} // namespace bolt
+
+FMT_BEGIN_NAMESPACE
+template <> struct formatter<bolt::ErrorCode>: nested_formatter<const char *> {
+  auto format(bolt::ErrorCode error_code, format_context &ctx) const
+      -> decltype(ctx.out()) {
+    return write_padded(ctx, [this, error_code](auto out) -> decltype(out) {
+        switch (error_code) {
+#define XX(name, desc)                                                         \
+            case bolt::ErrorCode::Error##name:                          \
+                return fmt::format_to(out, "({}) - {}", #name, desc);
+        ERROR_MAP(XX)
+#undef XX
+        case bolt::ErrorCode::Success:
+            return fmt::format_to(out, "({}) - {}", "Success", "operation success");
+        case bolt::ErrorCode::MaxErrorCode:
+            return fmt::format_to(out, "{}", "impossible error code");
+        }
+        return fmt::format_to(out, "impossible");
+    });
+  };
+};
+
+FMT_END_NAMESPACE
 
 #endif  // !__ERROR_HPP__

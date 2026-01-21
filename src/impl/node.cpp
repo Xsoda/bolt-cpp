@@ -2,11 +2,16 @@
 #include "impl/db.hpp"
 #include "impl/tx.hpp"
 #include "impl/freelist.hpp"
+#include "impl/utils.hpp"
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
 #include <iterator>
 #include <iostream>
+#ifndef NDEBUG
+#include <ranges>
+#include "fmt/format.h"
+#endif
 
 namespace bolt::impl {
 
@@ -619,5 +624,35 @@ std::vector<impl::node_ptr> node::split(size_t pageSize) {
         node = b;
     }
     return nodes;
+}
+
+// dump writes the contents of the node to STDOUT for debugging purposes.
+void node::dump() {
+#ifndef NDEBUG
+    std::string type = "branch";
+    if (isLeaf) {
+        type = "leaf";
+    }
+    auto trunc = [](bolt::bytes val, size_t len) -> std::string {
+      auto vec =
+          std::views::all(val) | std::views::take(len) |
+          std::views::transform([](std::byte b) -> char { return (char)b; });
+      return std::string(vec.begin(), vec.end());
+    };
+    fmt::println("[NODE {} {{type={} count={}}}]", pgid, type, inodes.size());
+    for (auto &item : inodes) {
+        if (isLeaf) {
+            if ((item.flags & bolt::impl::bucketLeafFlag) != 0) {
+                auto bucket = reinterpret_cast<impl::bucket *>(&item.value[0]);
+                fmt::println("+L {} -> (bucket root={})", trunc(item.key, 8), bucket->root);
+            } else {
+                fmt::println("+L {} -> {}", trunc(item.key, 8), trunc(item.value,8));
+            }
+        } else {
+            fmt::println("+B {} -> pgid={}", trunc(item.key, 8), item.pgid);
+        }
+    }
+    fmt::println("");
+#endif
 }
 }
