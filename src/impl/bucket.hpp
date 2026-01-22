@@ -68,7 +68,7 @@ struct Bucket : public bucket,
     void forEachPageNode(std::function<void(impl::page *, impl::node_ptr , int)> &&fn);
     void
     _forEachPageNode(impl::pgid pgid, int depth,
-                     std::function<void(impl::page *, impl::node_ptr, int)> &&fn);
+                     std::function<void(impl::page *, impl::node_ptr, int)> &fn);
     impl::node_ptr node(impl::pgid pgid, impl::node_ptr parent);
     void rebalance();
     bool inlineable() const;

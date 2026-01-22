@@ -164,7 +164,7 @@ TestResult TestTx_Bucket() {
         return bolt::Success;
     });
         err != bolt::Success) {
-        return bolt::ErrorUnexpected;
+        return TestResult("update fail: {}", err);
     }
     MustCloseDB(std::move(db));
     return true;

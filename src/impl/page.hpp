@@ -33,8 +33,8 @@ struct page {
     std::uintptr_t ptr;
 
     page() = default;
-    page(impl::pgid id): id(id), flags(0), count(0), overflow(0) {};
-    page(impl::pgid id, std::uint32_t overflow): id(id), overflow(overflow), flags(0), count(0) {};
+    page(impl::pgid id): id(id), flags(0), count(0), overflow(0), ptr(NULL) {};
+    page(impl::pgid id, std::uint32_t overflow): id(id), overflow(overflow), flags(0), count(0), ptr(NULL) {};
     std::string type() const;
     impl::meta *meta();
     impl::leafPageElement *leafPageElement(std::uint16_t index);

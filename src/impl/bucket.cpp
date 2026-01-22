@@ -383,12 +383,12 @@ void Bucket::forEachPageNode(
         fn(page, nullptr, 0);
         return;
     }
-    return _forEachPageNode(root, 0, std::move(fn));
+    return _forEachPageNode(root, 0, fn);
 }
 
 void Bucket::_forEachPageNode(
     impl::pgid pgid, int depth,
-    std::function<void(impl::page *, impl::node_ptr, int)> &&fn) {
+    std::function<void(impl::page *, impl::node_ptr, int)> &fn) {
     auto [p, n] = pageNode(pgid);
 
     // Execute function.
@@ -399,13 +399,13 @@ void Bucket::_forEachPageNode(
         if ((p->flags & bolt::impl::branchPageFlag) != 0) {
             for (size_t i = 0; i < p->count; i++) {
                 auto elem = p->branchPageElement(std::uint16_t(i));
-                _forEachPageNode(elem->pgid, depth+1, std::forward<decltype(fn)>(fn));
+                _forEachPageNode(elem->pgid, depth+1, fn);
             }
         }
     } else {
         if (!n->isLeaf) {
             for (auto &inode : n->inodes) {
-                _forEachPageNode(inode.pgid, depth+1, std::forward<decltype(fn)>(fn));
+                _forEachPageNode(inode.pgid, depth+1, fn);
             }
         }
     }

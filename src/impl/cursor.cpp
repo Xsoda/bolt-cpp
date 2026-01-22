@@ -18,7 +18,7 @@ bool elemRef::isLeaf() const {
 
 int elemRef::count() const {
     if (auto n = node.lock()) {
-        return n->inodes.size();
+        return static_cast<int>(n->inodes.size());
     }
     return this->page->count;
 }
@@ -375,7 +375,7 @@ void Cursor::searchNode(bolt::bytes key, impl::node_ptr n) {
     }
     // stack[stack.size() - 1].index = index;
     auto &e = stack.back();
-    e.index = index;
+    e.index = static_cast<int>(index);
 
     // Recursively search to the next page.
     search(key, n->inodes[index].pgid);
@@ -400,7 +400,7 @@ void Cursor::searchPage(bolt::bytes key, impl::page *p) {
         index--;
     }
     auto e = stack.end();
-    e->index = index;
+    e->index = static_cast<int>(index);
     // stack[stack.size() - 1].index = index;
     search(key, inodes[index].pgid);
 }
@@ -421,7 +421,7 @@ void Cursor::nsearch(bolt::bytes key) {
               return !std::is_lt(ret);
             });
         auto index = std::distance(nptr->inodes.begin(), it);
-        e.index = index;
+        e.index = static_cast<int>(index);
         return;
     }
 
@@ -435,7 +435,7 @@ void Cursor::nsearch(bolt::bytes key) {
                              return !std::is_lt(ret);
                            });
     auto index = std::distance(inodes.begin(), it);
-    e.index = index;
+    e.index = static_cast<int>(index);
 }
 
 } // namespace bolt
