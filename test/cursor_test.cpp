@@ -5,12 +5,15 @@
 #include "random.hpp"
 #include "test.hpp"
 #include "util.hpp"
+#include <algorithm>
 #include <cassert>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <concepts>
+#include <bit>
 
 extern std::span<std::byte> to_bytes(std::string &str);
 extern std::string to_string(std::span<std::byte> s);
@@ -125,6 +128,85 @@ TestResult TestCursor_Seek() {
     });
     if (err != bolt::Success) {
         return TestResult(false, "view database fail");
+    }
+    MustCloseDB(std::move(db));
+    return true;
+}
+
+template <std::integral T> constexpr T byteswap(T value) noexcept {
+    static_assert(std::has_unique_object_representations_v<T>,
+                  "T may not have padding bits");
+    auto value_representation =
+        std::bit_cast<std::array<std::byte, sizeof(T)>>(value);
+    std::ranges::reverse(value_representation);
+    return std::bit_cast<T>(value_representation);
+}
+TestResult TestCursor_Delete() {
+    auto db = MustOpenDB();
+    const int count = 1000;
+    if (auto err = db->Update([count](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string widgets = "widgets";
+        std::string sub = "sub";
+        auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+        if (err != bolt::Success) {
+            return err;
+        }
+        for (int i = 0; i < count; i++) {
+            std::uint64_t k = i;
+            std::vector<std::byte> value;
+            value.assign(100, std::byte(0));
+            if constexpr (std::endian::native == std::endian::little) {
+                k = byteswap(k);
+            }
+            std::span<std::byte> key = std::span<std::byte>{
+                reinterpret_cast<std::byte *>(&k), sizeof(std::uint64_t)};
+            std::span<std::byte> val = std::span<std::byte>{
+                reinterpret_cast<std::byte *>(value.data()), value.size()};
+            if (auto err = b->Put(key, val); err != bolt::Success) {
+                return err;
+            }
+        }
+        if (std::tie(b, err) = b->CreateBucket(to_bytes(sub));
+            err != bolt::Success) {
+            return err;
+        }
+        return bolt::Success;
+    });
+        err != bolt::Success) {
+        return TestResult(false, "1. unexpected error: {}", err);
+    }
+    if (auto err = db->Update([count](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string widgets = "widgets";
+        std::string sub = "sub";
+        auto c = tx->Bucket(to_bytes(widgets))->Cursor();
+        std::uint64_t m = count / 2;
+        if constexpr (std::endian::native == std::endian::little) {
+          m = byteswap(m);
+        }
+        std::span<std::byte> bound = std::span<std::byte>{
+            reinterpret_cast<std::byte *>(&m), sizeof(std::uint64_t)};
+        auto [k, v] = c->First();
+        while (std::is_lt(std::lexicographical_compare_three_way(
+            k.begin(), k.end(), bound.begin(), bound.end()))) {
+            if (auto err = c->Delete(); err != bolt::Success) {
+                return err;
+            }
+            std::tie(k, v) = c->Next();
+        }
+        c->Seek(to_bytes(sub));
+        if (auto err = c->Delete(); err != bolt::ErrorIncompatiableValue) {
+            return err;
+        }
+        return bolt::Success;
+    });
+        err != bolt::Success) {
+        return TestResult(false, "2. unexpected error: {}", err);
+    }
+    if (auto err = db->View([count](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          return bolt::Success;
+    });
+        err != bolt::Success) {
+        return TestResult(false, "3. unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
     return true;

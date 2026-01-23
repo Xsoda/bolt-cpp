@@ -23,6 +23,7 @@ TestResult TestDB_OpenErrChecksum();
 // TestResult TestDB_OpenSize();
 TestResult TestCursor_Bucket();
 TestResult TestCursor_Seek();
+TestResult TestCursor_Delete();
 TestResult TestTx_Commit_ErrorTxClosed();
 TestResult TestTx_Rollback_ErrorTxClosed();
 TestResult TestTx_Commit_ErrorTxNotWritable();
@@ -68,6 +69,7 @@ static const std::vector<Test> tests = {
     // {"Test DB Open Size", TestDB_OpenSize},
     {"Test Cursor Bucket", TestCursor_Bucket},
     {"Test Cursor Seek", TestCursor_Seek},
+    {"Test Cursor Delete", TestCursor_Delete},
     {"Test Tx Commit ErrorTxClosed", TestTx_Commit_ErrorTxClosed},
     {"Test Tx Rollback ErrorTxClosed", TestTx_Rollback_ErrorTxClosed},
     {"Test Tx Commit ErrorTxNotWritable", TestTx_Commit_ErrorTxNotWritable},

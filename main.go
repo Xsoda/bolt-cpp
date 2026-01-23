@@ -80,7 +80,6 @@ func main() {
 	}); err != nil {
 		fmt.Println(err.Error())
 	}
-	fmt.Println("----------------------")
 	if err := db.View(func(tx *bolt.Tx) error {
 		c := tx.Bucket([]byte("widgets")).Cursor()
 
@@ -90,7 +89,6 @@ func main() {
 		} else if !bytes.Equal(v, []byte("0002")) {
 			fmt.Printf("unexpected value: %v\n", v)
 		}
-		fmt.Println("******************")
 		// Inexact match should go to the next key.
 		if k, v := c.Seek([]byte("bas")); !bytes.Equal(k, []byte("baz")) {
 			fmt.Printf("unexpected key: %v\n", k)
