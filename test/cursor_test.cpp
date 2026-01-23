@@ -134,12 +134,17 @@ TestResult TestCursor_Seek() {
 }
 
 template <std::integral T> constexpr T byteswap(T value) noexcept {
-    static_assert(std::has_unique_object_representations_v<T>,
-                  "T may not have padding bits");
-    auto value_representation =
-        std::bit_cast<std::array<std::byte, sizeof(T)>>(value);
-    std::ranges::reverse(value_representation);
-    return std::bit_cast<T>(value_representation);
+    union {
+        T val;
+        char ptr[];
+    } s;
+    s.val = value;
+    for (int i = 0; i < sizeof(T) / 2; i++) {
+        auto tmp = s.ptr[i];
+        s.ptr[i] = s.ptr[sizeof(T) - i - 1];
+        s.ptr[sizeof(T) - i - 1] = tmp;
+    }
+    return s.val;
 }
 TestResult TestCursor_Delete() {
     auto db = MustOpenDB();
