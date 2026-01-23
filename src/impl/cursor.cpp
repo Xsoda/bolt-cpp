@@ -40,7 +40,7 @@ impl::node_ptr Cursor::node() const {
         n = b->node(f.page->id, nullptr);
     }
     for (size_t i = 0; i < len - 1; i++) {
-        auto ref = stack.at(i);
+        auto &ref = stack.at(i);
         _assert(!n->isLeaf, "expected branch node");
         n = n->childAt(ref.index);
     }
@@ -90,7 +90,7 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::Last() {
 
     auto [p, n] = bptr->pageNode(bptr->root);
     stack.push_back(elemRef(p, n, 0));
-    auto ref = stack.back();
+    auto &ref = stack.back();
     ref.index = ref.count() - 1;
 
     last();
@@ -162,13 +162,12 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::Seek(bolt::bytes seek) {
 
     // If we ended up after the last element of a page then move to the next
     // one.
-    auto ref = stack.back();
-    if (ref.index >= ref.count()) {
+    if (auto &ref = stack.back(); ref.index >= ref.count()) {
         std::tie(k, v, flags) = next();
     }
 
     if (k.empty()) {
-        return std::make_tuple(k, k);
+        return std::make_tuple(bolt::bytes(), bolt::bytes());
     } else if ((flags & bolt::impl::bucketLeafFlag) != 0) {
         return std::make_tuple(k, bolt::bytes());
     }
@@ -198,12 +197,12 @@ bolt::ErrorCode Cursor::Delete() {
 }
 
 std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::keyValue() {
-    auto ref = stack.back();
+    auto &ref = stack.back();
     if (ref.count() == 0 || ref.index >= ref.count()) {
         return std::make_tuple<bolt::bytes, bolt::bytes, std::uint32_t>(bolt::bytes(), bolt::bytes(), 0);
     }
     if (auto n = ref.node.lock()) {
-        auto inode = n->inodes.at(ref.index);
+        auto &inode = n->inodes.at(ref.index);
         return std::make_tuple(inode.key, inode.value, inode.flags);
     }
 
@@ -218,8 +217,7 @@ Cursor::seek(bolt::bytes k) {
     _assert(!b->tx.expired(), "tx closed");
     stack.clear();
     search(k, b->root);
-    auto ref = stack.back();
-    if (ref.index >= ref.count()) {
+    if (auto &ref = stack.back(); ref.index >= ref.count()) {
         return std::make_tuple(bolt::bytes(), bolt::bytes(), 0);
     }
     return keyValue();
@@ -230,7 +228,7 @@ Cursor::seek(bolt::bytes k) {
 void Cursor::first() {
     while (true) {
         // Exit when we hit a leaf page.
-        auto ref = stack.back();
+        auto &ref = stack.back();
         if (ref.isLeaf()) {
             break;
         }
@@ -256,7 +254,7 @@ void Cursor::first() {
 void Cursor::last() {
     while (true) {
         // Exit when we hit a leaf page.
-        auto ref = stack.back();
+        auto &ref = stack.back();
         if (ref.isLeaf()) {
             break;
         }
@@ -307,7 +305,7 @@ std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::next() {
 
         // If this is an empty page then restart and move back up the stack.
         // https://github.com/boltdb/bolt/issues/450
-        auto ref = stack.back();
+        auto &ref = stack.back();
         if (ref.count() == 0) {
             continue;
         }
@@ -325,7 +323,6 @@ void Cursor::search(bolt::bytes key, impl::pgid pgid) {
     }
     elemRef e{p, n};
     stack.push_back(e);
-
     // If we're on a leaf page/node then find the specific node.
     if (e.isLeaf()) {
         nsearch(key);
@@ -373,10 +370,8 @@ void Cursor::searchNode(bolt::bytes key, impl::node_ptr n) {
     if (!exact && index > 0) {
         index--;
     }
-    // stack[stack.size() - 1].index = index;
     auto &e = stack.back();
     e.index = static_cast<int>(index);
-
     // Recursively search to the next page.
     search(key, n->inodes[index].pgid);
 }
@@ -399,14 +394,13 @@ void Cursor::searchPage(bolt::bytes key, impl::page *p) {
     if (!exact && index > 0) {
         index--;
     }
-    auto e = stack.end();
-    e->index = static_cast<int>(index);
-    // stack[stack.size() - 1].index = index;
+    auto &e = stack.back();
+    e.index = static_cast<int>(index);
     search(key, inodes[index].pgid);
 }
 
 void Cursor::nsearch(bolt::bytes key) {
-    auto e = stack.back();
+    auto &e = stack.back();
     auto p = e.page;
     auto n = e.node;
 
@@ -424,7 +418,6 @@ void Cursor::nsearch(bolt::bytes key) {
         e.index = static_cast<int>(index);
         return;
     }
-
     // If we have a page then search its leaf elements.
     auto inodes = p->leafPageElements();
     auto it = std::find_if(inodes.begin(), inodes.end(),

@@ -17,12 +17,10 @@ public:
     std::string err_reason;
 
     template <typename... T>
-    TestResult(fmt::format_string<T...> fmt, T &&...args) {
-        success = false;
+    TestResult(bool success, fmt::format_string<T...> fmt, T &&...args) {
+        this->success = success;
         err_reason = fmt::format(fmt, args...);
     }
-
-    TestResult(std::string err_reason) : success(false), err_reason(err_reason) {}
     TestResult(bool success, std::string err_reason = "") : success(success), err_reason(err_reason) {}
 };
 

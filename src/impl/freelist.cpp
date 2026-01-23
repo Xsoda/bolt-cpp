@@ -23,7 +23,7 @@ size_t freelist::free_count() {
 
 size_t freelist::pending_count() {
     size_t count = 0;
-    for (auto it : pending) {
+    for (auto &it : pending) {
         count += it.second.size();
     }
     return count;
@@ -68,7 +68,7 @@ void mergepgids(std::span<impl::pgid> dest, std::span<impl::pgid> a, std::span<i
 
 void freelist::copyall(std::span<impl::pgid> dest) {
     std::vector<impl::pgid> m;
-    for (auto it : pending) {
+    for (auto &it : pending) {
         std::copy(it.second.begin(), it.second.end(), std::back_inserter(m));
     }
     std::sort(m.begin(), m.end());

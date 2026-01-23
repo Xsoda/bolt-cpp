@@ -61,9 +61,8 @@ size_t node::minKeys() const {
 size_t node::size() const {
     size_t sz = impl::pageHeaderSize;
     size_t elsz = pageElementSize();
-    for (size_t i = 0; i < inodes.size(); i++) {
-        auto &item = inodes[i];
-        sz += elsz + item.key.size() + item.value.size();
+    for (auto &it : inodes) {
+        sz += elsz + it.key.size() + it.value.size();
     }
     return sz;
 }
@@ -455,7 +454,7 @@ void node::rebalance() {
             children = child->children;
 
             // Reparent all child nodes being moved.
-            for (auto it : inodes) {
+            for (auto &it : inodes) {
                 auto item = bptr->nodes.find(it.pgid);
                 if (item != bptr->nodes.end()) {
                     item->second->parent = shared_from_this();
@@ -501,7 +500,7 @@ void node::rebalance() {
     // If both this node and the target node are too small then merge them.
     if (useNextSibling) {
         // Reparent all child nodes being moved.
-        for (auto item : target->inodes) {
+        for (auto &item : target->inodes) {
             auto it = bptr->nodes.find(item.pgid);
             if (it != bptr->nodes.end()) {
                 impl::node_ptr child = it->second;
@@ -525,7 +524,7 @@ void node::rebalance() {
         target->free();
     } else {
         // Reparent all child nodes being moved.
-        for (auto item : inodes) {
+        for (auto &item : inodes) {
             auto it = bptr->nodes.find(item.pgid);
             if (it != bptr->nodes.end()) {
                 impl::node_ptr child = it->second;

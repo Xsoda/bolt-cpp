@@ -346,7 +346,7 @@ std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
 
     // Free any pages associated with closed read-only transactions.
     impl::txid minid = 0xFFFFFFFFFFFFFFFF;
-    for (auto it : txs) {
+    for (auto &it : txs) {
         if (it->meta.txid < minid) {
             minid = it->meta.txid;
         }

@@ -42,13 +42,13 @@ TestResult TestTx_Rollback_ErrorTxClosed() {
     auto db = MustOpenDB();
     auto [tx, err] = db->Begin(true);
     if (err != bolt::Success) {
-        return TestResult(false, "Begin Tx failed");
+        return TestResult(false, "Begin Tx failed: {}", err);
     }
     if (auto err = tx->Rollback(); err != bolt::Success) {
-        return TestResult(false, "Rollback Tx failed");
+        return TestResult(false, "Rollback Tx failed: {}", err);
     }
     if (auto err = tx->Rollback(); err != bolt::ErrorTxClosed) {
-        return TestResult(false, "Rollback Tx unexpected error");
+        return TestResult(false, "Rollback Tx unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
     return true;
@@ -58,10 +58,10 @@ TestResult TestTx_Commit_ErrorTxNotWritable() {
     auto db = MustOpenDB();
     auto [tx, err] = db->Begin(false);
     if (err != bolt::Success) {
-        return TestResult(false, "Begin Tx failed");
+        return TestResult(false, "Begin Tx failed: {}", err);
     }
     if (auto err = tx->Commit(); err != bolt::ErrorTxNotWritable) {
-        return TestResult(false, "Rollback Tx unexpcted error");
+        return TestResult(false, "Rollback Tx unexpcted error: {}", err);
     }
     MustCloseDB(std::move(db));
     return true;
@@ -136,14 +136,14 @@ TestResult TestTx_CreateBucket_ErrorTxClosed() {
     auto db = MustOpenDB();
     auto [tx, err] = db->Begin(true);
     if (err != bolt::Success) {
-        return TestResult(false, "Begin Tx fail");
+        return TestResult(false, "Begin Tx fail: {}", err);
     }
     if (err = tx->Commit(); err != bolt::Success) {
-        return TestResult(false, "Commit Tx fail");
+        return TestResult(false, "Commit Tx fail: {}", err);
     }
     if (std::tie(std::ignore, err) = tx->CreateBucket(to_bytes(foo));
         err != bolt::ErrorTxClosed) {
-        return TestResult(false, "unexpected error");
+        return TestResult(false, "unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
     return true;
@@ -164,7 +164,7 @@ TestResult TestTx_Bucket() {
         return bolt::Success;
     });
         err != bolt::Success) {
-        return TestResult("update fail: {}", err);
+        return TestResult(false, "update fail: {}", err);
     }
     MustCloseDB(std::move(db));
     return true;
@@ -375,7 +375,7 @@ TestResult TestTx_DeleteBucket() {
         return bolt::Success;
     });
         err != bolt::Success) {
-        return TestResult("unexpected error");
+        return TestResult(false, "unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
     return true;
@@ -393,7 +393,7 @@ TestResult TestTx_DeleteBucket_ErrorTxClosed() {
     }
     if (auto err = tx->DeleteBucket(to_bytes(foo));
         err != bolt::ErrorTxClosed) {
-        return TestResult("Unexpected error: {}", err);
+        return TestResult(false, "Unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
     return true;
@@ -411,7 +411,7 @@ TestResult TestTx_DeleteBucket_ReadOnly() {
         return bolt::Success;
     });
         err != bolt::Success) {
-        return TestResult("unexpected error: {}", err);
+        return TestResult(false, "unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
     return true;
@@ -428,7 +428,7 @@ TestResult TestTx_DeleteBucket_NotFound() {
           return bolt::Success;
     });
         err != bolt::Success) {
-        return TestResult("unexpected error: {}", err);
+        return TestResult(false, "unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
     return true;
@@ -459,7 +459,7 @@ TestResult TestTx_ForEach_NoError() {
           return bolt::Success;
     });
         err != bolt::Success) {
-        return TestResult("unexpected error: {}", err);
+        return TestResult(false, "unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
     return true;
@@ -490,7 +490,7 @@ TestResult TestTx_ForEach_WithError() {
           return bolt::Success;
         });
         err != bolt::ErrorUnexpected) {
-        return TestResult("unexpected error: {}", err);
+        return TestResult(false, "unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
     return true;
@@ -510,9 +510,9 @@ TestResult TestTx_OnCommit() {
           return bolt::Success;
         });
         err != bolt::Success) {
-        return TestResult("unexpected error: {}", err);
+        return TestResult(false, "unexpected error: {}", err);
     } else if (x != 3) {
-        return TestResult("unexpecte x: {}", x);
+        return TestResult(false, "unexpecte x: {}", x);
     }
     MustCloseDB(std::move(db));
     return true;
@@ -532,9 +532,9 @@ TestResult TestTx_OnCommit_Rollback() {
         return bolt::ErrorExpected; // rollback this commit
     });
         err != bolt::ErrorExpected) {
-        return TestResult("unexpected error: {}", err);
+        return TestResult(false, "unexpected error: {}", err);
     } else if (x != 0) {
-        return TestResult("unexpecte x: {}", x);
+        return TestResult(false, "unexpecte x: {}", x);
     }
     MustCloseDB(std::move(db));
     return true;

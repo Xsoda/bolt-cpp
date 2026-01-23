@@ -1,4 +1,5 @@
 #include "impl/page.hpp"
+#include <cstddef>
 
 namespace bolt::impl {
 
@@ -15,6 +16,12 @@ std::string page::type() const {
         return "unknown";
     }
 }
+
+page::page(impl::pgid id)
+    : id(id), flags(0), count(0), overflow(0), ptr(0){};
+
+page::page(impl::pgid id, std::uint32_t overflow)
+    : id(id), overflow(overflow), flags(0), count(0), ptr(0){};
 
 impl::meta *page::meta() {
     return reinterpret_cast<impl::meta*>(&this->ptr);
