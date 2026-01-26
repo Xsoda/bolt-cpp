@@ -180,7 +180,7 @@ TestResult TestNode_split() {
     n->put(s_k4, s_k4, s_v, 0, 0);
     n->put(s_k5, s_k5, s_v, 0, 0);
 
-    auto splits = n->split(100);
+    auto [splits, tmp] = n->split(100);
     auto parent = n->parent.lock();
     if (parent->children.size() != 2) {
         return TestResult(false, "expected parent->children size is 2");
@@ -208,7 +208,7 @@ TestResult TestNode_split_MinKeys() {
     auto s_v = to_bytes(v);
     n->put(s_k1, s_k1, s_v, 0, 0);
     n->put(s_k2, s_k2, s_v, 0, 0);
-    auto split = n->split(20);
+    auto [split, tmp] = n->split(20);
     if (!n->parent.expired()) {
         return TestResult(false, "expected nullptr parent");
     }
@@ -239,7 +239,7 @@ TestResult TestNode_split_SinglePage() {
     n->put(s_k4, s_k4, s_v, 0, 0);
     n->put(s_k5, s_k5, s_v, 0, 0);
 
-    auto splits = n->split(4096);
+    auto [splits, tmp] = n->split(4096);
     if (!n->parent.expired()) {
         return TestResult(false, "expected nullptr parent");
     }

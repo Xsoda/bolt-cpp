@@ -136,7 +136,7 @@ TestResult TestCursor_Seek() {
 template <std::integral T> constexpr T byteswap(T value) noexcept {
     union {
         T val;
-        char ptr[];
+        char ptr[sizeof(T)];
     } s;
     s.val = value;
     for (int i = 0; i < sizeof(T) / 2; i++) {

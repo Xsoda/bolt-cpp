@@ -85,11 +85,12 @@ struct node : public std::enable_shared_from_this<node> {
 
     // split breaks up a node into multiple smaller nodes, if appropriate.
     // This should only be called from the spill() function.
-    std::vector<impl::node_ptr> split(size_t pageSize);
+    std::tuple<std::vector<impl::node_ptr>, impl::node_ptr> split(size_t pageSize);
 
     // splitTwo breaks up a node into two smaller nodes, if appropriate.
     // This should only be called from the split() function.
-    std::tuple<impl::node_ptr, impl::node_ptr> splitTwo(size_t pageSize);
+    // extra return parent pointer used hook std::weak_ptr
+    std::tuple<impl::node_ptr, impl::node_ptr, impl::node_ptr> splitTwo(size_t pageSize);
 
     // splitIndex finds the position where a page will fill a given threshold.
     // It returns the index as well as the size of the first page.

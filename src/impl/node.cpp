@@ -15,7 +15,7 @@
 
 namespace bolt::impl {
 
-node::node(impl::BucketPtr bucket, std::initializer_list<impl::node_ptr> children) {
+node::node(impl::BucketPtr bucket, std::initializer_list<impl::node_ptr> children): pgid(0) {
     this->bucket = bucket;
     this->children = children;
     isLeaf = false;
@@ -23,7 +23,8 @@ node::node(impl::BucketPtr bucket, std::initializer_list<impl::node_ptr> childre
     spilled = false;
 }
 
-node::node(impl::BucketPtr bucket, bool isLeaf, impl::node_ptr parent) {
+node::node(impl::BucketPtr bucket, bool isLeaf, impl::node_ptr parent)
+    : pgid(0) {
     this->bucket = bucket;
     this->parent = parent;
     this->isLeaf = isLeaf;
@@ -31,14 +32,14 @@ node::node(impl::BucketPtr bucket, bool isLeaf, impl::node_ptr parent) {
     spilled = false;
 }
 
-node::node(impl::BucketPtr bucket) {
+node::node(impl::BucketPtr bucket) : pgid(0) {
     this->bucket = bucket;
     isLeaf = false;
     unbalanced = false;
     spilled = false;
 }
 
-node::node(bool isLeaf) {
+node::node(bool isLeaf) : pgid(0) {
     this->isLeaf = isLeaf;
     unbalanced = false;
     spilled = false;
@@ -279,12 +280,13 @@ void node::write(impl::page *p) {
 
 // splitTwo breaks up a node into two smaller nodes, if appropriate.
 // This should only be called from the split() function.
-std::tuple<impl::node_ptr, impl::node_ptr> node::splitTwo(size_t pageSize) {
+std::tuple<impl::node_ptr, impl::node_ptr, impl::node_ptr>
+node::splitTwo(size_t pageSize) {
     // Ignore the split if the page doesn't have at least enough nodes for
     // two pages or if the nodes can fit in a single page.
     if (inodes.size() <= impl::minKeysPerPage * 2
         || sizeLessThan(pageSize)) {
-        return std::make_tuple(shared_from_this(), nullptr);
+        return std::make_tuple(shared_from_this(), nullptr, nullptr);
     }
     auto bptr = bucket.lock();
     auto tptr = bptr->tx.lock();
@@ -319,14 +321,8 @@ std::tuple<impl::node_ptr, impl::node_ptr> node::splitTwo(size_t pageSize) {
               std::back_inserter(next->inodes));
     inodes.erase(std::next(inodes.begin(), splitIdx), inodes.end());
 
-    // NOTE: only for manage parent shared_pointer: TestNode_split()
-    // golang version not cantain this code
-    if (!bptr->rootNode) {
-        bptr->rootNode = pptr;
-    }
-
     tptr->stats.Split++;
-    return std::make_tuple(shared_from_this(), next);
+    return std::make_tuple(shared_from_this(), next, pptr);
 }
 
 std::tuple<size_t, size_t> node::splitIndex(size_t threshold) {
@@ -375,7 +371,7 @@ bolt::ErrorCode node::spill() {
     children.clear();
 
     // Split nodes into appropriate sizes. The first node will always be n.
-    auto nodes = split(dbptr->pageSize);
+    auto [nodes, tmp] = split(dbptr->pageSize);
     for (auto it : nodes) {
         // Add node's page to the freelist if it's not new.
         if (it->pgid > 0) {
@@ -403,7 +399,7 @@ bolt::ErrorCode node::spill() {
             if (k.empty()) {
                 k = it->inodes[0].key;
             }
-            pptr->put(key, it->inodes[0].key, bolt::bytes(), it->pgid, 0);
+            pptr->put(k, it->inodes[0].key, bolt::bytes(), it->pgid, 0);
             it->key = it->inodes[0].key;
             _assert(it->key.size() > 0, "spill: zero-length node key");
         }
@@ -606,14 +602,19 @@ void node::free() {
     }
 }
 
-std::vector<impl::node_ptr> node::split(size_t pageSize) {
+std::tuple<std::vector<impl::node_ptr>, impl::node_ptr>
+node::split(size_t pageSize) {
     std::vector<impl::node_ptr> nodes;
     auto node = shared_from_this();
+    impl::node_ptr p;
     while (true) {
         // Split node into two.
-        auto [a, b] = node->splitTwo(pageSize);
+        auto [a, b, tmp] = node->splitTwo(pageSize);
         nodes.push_back(a);
 
+        if (p == nullptr) {
+            p = tmp;
+        }
         // If we can't split then exit the loop.
         if (b == nullptr) {
             break;
@@ -622,7 +623,7 @@ std::vector<impl::node_ptr> node::split(size_t pageSize) {
         // Set node to b so it gets split on the next iteration.
         node = b;
     }
-    return nodes;
+    return std::make_tuple(nodes, p);
 }
 
 // dump writes the contents of the node to STDOUT for debugging purposes.
