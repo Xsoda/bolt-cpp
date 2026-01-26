@@ -1,6 +1,4 @@
 #include "impl/bucket.hpp"
-#include "bolt/common.hpp"
-#include "impl/utils.hpp"
 #include "impl/page.hpp"
 #include "impl/db.hpp"
 #include "impl/node.hpp"
@@ -132,7 +130,7 @@ bool Bucket::inlineable() const {
 }
 
 // spill writes all the nodes for this bucket to dirty pages.
-bolt::ErrorCode Bucket::spill() {
+bolt::ErrorCode Bucket::spill(std::vector<impl::node_ptr> &sp) {
     // Spill all child buckets first.
     for (auto &[name, child] : buckets) {
         // If the child bucket is small enough and it has no child buckets then
@@ -143,7 +141,7 @@ bolt::ErrorCode Bucket::spill() {
             child->free();
             value = child->write();
         } else {
-            auto err = child->spill();
+            auto err = child->spill(sp);
             if (err != bolt::ErrorCode::Success) {
                 return err;
             }
@@ -175,6 +173,9 @@ bolt::ErrorCode Bucket::spill() {
         if ((flags & bolt::impl::bucketLeafFlag) == 0) {
             _assert(false, "unexpceted bucket header falg");
         }
+        if (auto n = c->node()) {
+            fmt::println("put {} to node {}", name, n->pgid);
+        }
         c->node()->put(key, key, value, 0, bolt::impl::bucketLeafFlag);
     }
     // Ignore if there's not a masterialized root node.
@@ -183,7 +184,7 @@ bolt::ErrorCode Bucket::spill() {
     }
 
     // Spill nodes.
-    if (auto err = rootNode->spill(); err != bolt::ErrorCode::Success) {
+    if (auto err = rootNode->spill(sp); err != bolt::ErrorCode::Success) {
         return err;
     }
     rootNode = rootNode->root();
@@ -194,6 +195,7 @@ bolt::ErrorCode Bucket::spill() {
         _assert(false, "pgid ({}) above high water mark ({})", rootNode->pgid, txptr->meta.pgid);
     }
     root = rootNode->pgid;
+    fmt::println("* set bucket root {}", root);
     return bolt::ErrorCode::Success;
 }
 

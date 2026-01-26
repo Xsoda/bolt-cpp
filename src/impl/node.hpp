@@ -85,12 +85,12 @@ struct node : public std::enable_shared_from_this<node> {
 
     // split breaks up a node into multiple smaller nodes, if appropriate.
     // This should only be called from the spill() function.
-    std::tuple<std::vector<impl::node_ptr>, impl::node_ptr> split(size_t pageSize);
+    std::vector<impl::node_ptr> split(size_t pageSize, std::vector<impl::node_ptr> &sp);
 
     // splitTwo breaks up a node into two smaller nodes, if appropriate.
     // This should only be called from the split() function.
     // extra return parent pointer used hook std::weak_ptr
-    std::tuple<impl::node_ptr, impl::node_ptr, impl::node_ptr> splitTwo(size_t pageSize);
+    std::tuple<impl::node_ptr, impl::node_ptr> splitTwo(size_t pageSize, std::vector<impl::node_ptr> &sp);
 
     // splitIndex finds the position where a page will fill a given threshold.
     // It returns the index as well as the size of the first page.
@@ -99,7 +99,7 @@ struct node : public std::enable_shared_from_this<node> {
 
     // spill writes the nodes to dirty pages and splits nodes as it goes.
     // Returns an error if dirty pages cannot be allocated.
-    bolt::ErrorCode spill();
+    bolt::ErrorCode spill(std::vector<impl::node_ptr> &hold);
 
     // rebalance attempts to combine the node with sibling nodes if the node fill
     // size is below a threshold or if there are not enough keys.

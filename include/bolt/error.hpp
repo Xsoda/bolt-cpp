@@ -6,6 +6,8 @@
 
 #include "fmt/base.h"
 #include "fmt/format.h"
+#include <locale>
+#include <span>
 
 namespace bolt {
 
@@ -70,6 +72,22 @@ template <> struct formatter<bolt::ErrorCode>: nested_formatter<const char *> {
   };
 };
 
+template <>
+struct formatter<std::span<std::byte>> : nested_formatter<std::byte> {
+  auto format(std::span<std::byte> bytes, format_context &ctx) const
+      -> decltype(ctx.out()) {
+    return write_padded(ctx, [this, bytes](auto out) -> decltype(out) {
+      for (auto it : bytes) {
+        if (std::isprint((char)it, std::locale::classic())) {
+          out = fmt::format_to(out, "{}", (char)it);
+        } else {
+          out = fmt::format_to(out, "\\x{:02x}", (char)it);
+        }
+      }
+      return out;
+    });
+  };
+};
 FMT_END_NAMESPACE
 
 #endif  // !__ERROR_HPP__

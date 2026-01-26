@@ -280,13 +280,13 @@ void node::write(impl::page *p) {
 
 // splitTwo breaks up a node into two smaller nodes, if appropriate.
 // This should only be called from the split() function.
-std::tuple<impl::node_ptr, impl::node_ptr, impl::node_ptr>
-node::splitTwo(size_t pageSize) {
+std::tuple<impl::node_ptr, impl::node_ptr>
+node::splitTwo(size_t pageSize, std::vector<impl::node_ptr> &hold) {
     // Ignore the split if the page doesn't have at least enough nodes for
     // two pages or if the nodes can fit in a single page.
     if (inodes.size() <= impl::minKeysPerPage * 2
         || sizeLessThan(pageSize)) {
-        return std::make_tuple(shared_from_this(), nullptr, nullptr);
+        return std::make_tuple(shared_from_this(), nullptr);
     }
     auto bptr = bucket.lock();
     auto tptr = bptr->tx.lock();
@@ -309,6 +309,8 @@ node::splitTwo(size_t pageSize) {
     if (!pptr) {
         pptr = std::make_shared<node>(
             bptr, std::initializer_list<impl::node_ptr>({shared_from_this()}));
+
+        hold.push_back(pptr); // hold std::shared_ptr
     }
     parent = pptr;
 
@@ -322,7 +324,7 @@ node::splitTwo(size_t pageSize) {
     inodes.erase(std::next(inodes.begin(), splitIdx), inodes.end());
 
     tptr->stats.Split++;
-    return std::make_tuple(shared_from_this(), next, pptr);
+    return std::make_tuple(shared_from_this(), next);
 }
 
 std::tuple<size_t, size_t> node::splitIndex(size_t threshold) {
@@ -344,14 +346,14 @@ std::tuple<size_t, size_t> node::splitIndex(size_t threshold) {
 
 // spill writes the nodes to dirty pages and splits nodes as it goes.
 // Returns an error if dirty pages cannot be allocated.
-bolt::ErrorCode node::spill() {
+bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &sp) {
     auto bptr = bucket.lock();
     auto tptr = bptr->tx.lock();
     auto dbptr = tptr->db.lock();
     if (spilled) {
         return bolt::ErrorCode::Success;
     }
-
+    fmt::println("1. spill node {}", pgid);
     // Spill child nodes first. Child nodes can meterialize sibling nodes in
     // the case of split-merge so we cannot use a range loop. We have to check
     // the children size on every loop iteration
@@ -361,7 +363,7 @@ bolt::ErrorCode node::spill() {
                   return std::is_lt(ret);
               });
     for (size_t i = 0; i < children.size(); i++) {
-        auto err = children[i]->spill();
+        auto err = children[i]->spill(sp);
         if (err != bolt::ErrorCode::Success) {
             return err;
         }
@@ -371,7 +373,8 @@ bolt::ErrorCode node::spill() {
     children.clear();
 
     // Split nodes into appropriate sizes. The first node will always be n.
-    auto [nodes, tmp] = split(dbptr->pageSize);
+    auto nodes = split(dbptr->pageSize, sp);
+
     for (auto it : nodes) {
         // Add node's page to the freelist if it's not new.
         if (it->pgid > 0) {
@@ -413,9 +416,10 @@ bolt::ErrorCode node::spill() {
     if (auto pptr = parent.lock()) {
         if (pptr->pgid == 0) {
             children.clear();
-            return pptr->spill();
+            return pptr->spill(sp);
         }
     }
+    fmt::println("2. spill node {}", pgid);
     return bolt::ErrorCode::Success;
 }
 
@@ -444,7 +448,8 @@ void node::rebalance() {
         // If root node is a branch and only has one node then collapse it.
         if (isLeaf && inodes.size() == 1) {
             // Move root's child up.
-            impl::node_ptr child = bptr->node(inodes.front().pgid, shared_from_this());
+            impl::node_ptr child =
+                bptr->node(inodes.front().pgid, shared_from_this());
             isLeaf = child->isLeaf;
             inodes = child->inodes;
             children = child->children;
@@ -602,19 +607,14 @@ void node::free() {
     }
 }
 
-std::tuple<std::vector<impl::node_ptr>, impl::node_ptr>
-node::split(size_t pageSize) {
+std::vector<impl::node_ptr> node::split(size_t pageSize, std::vector<impl::node_ptr> &hold) {
     std::vector<impl::node_ptr> nodes;
     auto node = shared_from_this();
-    impl::node_ptr p;
     while (true) {
         // Split node into two.
-        auto [a, b, tmp] = node->splitTwo(pageSize);
+        auto [a, b] = node->splitTwo(pageSize, hold);
         nodes.push_back(a);
 
-        if (p == nullptr) {
-            p = tmp;
-        }
         // If we can't split then exit the loop.
         if (b == nullptr) {
             break;
@@ -623,7 +623,7 @@ node::split(size_t pageSize) {
         // Set node to b so it gets split on the next iteration.
         node = b;
     }
-    return std::make_tuple(nodes, p);
+    return nodes;
 }
 
 // dump writes the contents of the node to STDOUT for debugging purposes.
@@ -633,23 +633,17 @@ void node::dump() {
     if (isLeaf) {
         type = "leaf";
     }
-    auto trunc = [](bolt::bytes val, size_t len) -> std::string {
-      auto vec =
-          std::views::all(val) | std::views::take(len) |
-          std::views::transform([](std::byte b) -> char { return (char)b; });
-      return std::string(vec.begin(), vec.end());
-    };
     fmt::println("[NODE {} {{type={} count={}}}]", pgid, type, inodes.size());
     for (auto &item : inodes) {
         if (isLeaf) {
             if ((item.flags & bolt::impl::bucketLeafFlag) != 0) {
                 auto bucket = reinterpret_cast<impl::bucket *>(&item.value[0]);
-                fmt::println("+L {} -> (bucket root={})", trunc(item.key, 8), bucket->root);
+                fmt::println("+L {} -> (bucket root={})", item.key, bucket->root);
             } else {
-                fmt::println("+L {} -> {}", trunc(item.key, 8), trunc(item.value,8));
+                fmt::println("+L {} -> {}", item.key, item.value);
             }
         } else {
-            fmt::println("+B {} -> pgid={}", trunc(item.key, 8), item.pgid);
+            fmt::println("+B {} -> pgid={}", item.key, item.pgid);
         }
     }
     fmt::println("");

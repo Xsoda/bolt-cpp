@@ -157,6 +157,7 @@ TestResult TestNode_write_LeafPage() {
 }
 
 TestResult TestNode_split() {
+    std::vector<bolt::impl::node_ptr> hold;
     bolt::impl::meta meta(1);
     bolt::impl::DBPtr db = std::make_shared<bolt::impl::DB>();
     bolt::impl::TxPtr tx = std::make_shared<bolt::impl::Tx>(db, meta);
@@ -180,7 +181,7 @@ TestResult TestNode_split() {
     n->put(s_k4, s_k4, s_v, 0, 0);
     n->put(s_k5, s_k5, s_v, 0, 0);
 
-    auto [splits, tmp] = n->split(100);
+    auto splits = n->split(100, hold);
     auto parent = n->parent.lock();
     if (parent->children.size() != 2) {
         return TestResult(false, "expected parent->children size is 2");
@@ -195,6 +196,7 @@ TestResult TestNode_split() {
 }
 
 TestResult TestNode_split_MinKeys() {
+    std::vector<bolt::impl::node_ptr> hold;
     bolt::impl::meta meta(1);
     bolt::impl::DBPtr db = std::make_shared<bolt::impl::DB>();
     bolt::impl::TxPtr tx = std::make_shared<bolt::impl::Tx>(db, meta);
@@ -208,7 +210,7 @@ TestResult TestNode_split_MinKeys() {
     auto s_v = to_bytes(v);
     n->put(s_k1, s_k1, s_v, 0, 0);
     n->put(s_k2, s_k2, s_v, 0, 0);
-    auto [split, tmp] = n->split(20);
+    auto split = n->split(20, hold);
     if (!n->parent.expired()) {
         return TestResult(false, "expected nullptr parent");
     }
@@ -216,6 +218,7 @@ TestResult TestNode_split_MinKeys() {
 }
 
 TestResult TestNode_split_SinglePage() {
+    std::vector<bolt::impl::node_ptr> hold;
     bolt::impl::meta meta(1);
     bolt::impl::DBPtr db = std::make_shared<bolt::impl::DB>();
     bolt::impl::TxPtr tx = std::make_shared<bolt::impl::Tx>(db, meta);
@@ -239,7 +242,7 @@ TestResult TestNode_split_SinglePage() {
     n->put(s_k4, s_k4, s_v, 0, 0);
     n->put(s_k5, s_k5, s_v, 0, 0);
 
-    auto [splits, tmp] = n->split(4096);
+    auto splits = n->split(4096, hold);
     if (!n->parent.expired()) {
         return TestResult(false, "expected nullptr parent");
     }

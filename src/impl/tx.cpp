@@ -188,6 +188,7 @@ bolt::ErrorCode Tx::write() {
 // Returns an error if a disk write error occurs, or if Commit is
 // called on a read-only transaction.
 bolt::ErrorCode Tx::Commit() {
+    std::vector<impl::node_ptr> hold;
     _assert(!managed, "managed tx commit not allowed");
     auto dbptr = db.lock();
     if (!dbptr) {
@@ -206,14 +207,15 @@ bolt::ErrorCode Tx::Commit() {
     if (stats.Rebalance > 0) {
         stats.RebalanceTime += since(startTime);
     }
-
+    fmt::println("before spill bucket root {}", root->root);
     // spill data onto dirty pages.
     startTime = std::chrono::system_clock::now();
-    if (auto err = root->spill(); err != bolt::Success) {
+    if (auto err = root->spill(hold); err != bolt::Success) {
         rollback();
         return err;
     }
     stats.SpillTime += since(startTime);
+    fmt::println("after spill bucket root {}", root->root);
 
     // Free the old root bucket.
     meta.root.root = root->root;
@@ -361,6 +363,7 @@ std::future<std::vector<std::string>> Tx::Check() {
                 errors.push_back(fmt::format("page {}: already freed", item));
             }
             freed[item] = true;
+            fmt::println("page {} freed", item);
         }
         // Track every reachable page.
         std::map<impl::pgid, impl::page *> reachable;
@@ -368,6 +371,7 @@ std::future<std::vector<std::string>> Tx::Check() {
         reachable[1] = page(1);
         for (std::uint32_t i = 0; i <= page(meta.freelist)->overflow; i++) {
             reachable[meta.freelist + i] = page(meta.freelist);
+            fmt::println("page {} reachable", meta.freelist + i);
         }
 
         // Recursively check buckets.
@@ -398,6 +402,7 @@ void Tx::checkBucket(impl::BucketPtr bucket,
     if (!txptr) {
         return;
     }
+    fmt::println("check bucket root {}", bucket->root);
     // Check every page used by this bucket.
     txptr->forEachPage(
         bucket->root, 0, [&](impl::page *p, int depth) {
@@ -412,6 +417,7 @@ void Tx::checkBucket(impl::BucketPtr bucket,
                     errors.push_back(fmt::format("page {}: multiple references", id));
                 }
                 reachable[id] = p;
+                fmt::println("page {} reachable - bucket", id);
             }
 
             // We should only encounter un-freed leaf and branch pages.
