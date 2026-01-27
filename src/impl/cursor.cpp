@@ -175,13 +175,13 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::Seek(bolt::bytes seek) {
 }
 
 bolt::ErrorCode Cursor::Delete() {
-    auto bptr = bucket.lock();
+    auto bktptr = bucket.lock();
     _assert(!bucket.expired(), "bucket invalid");
-    auto txptr = bptr->tx.lock();
-    _assert(!bptr->tx.expired(), "tx invalid");
+    auto txptr = bktptr->tx.lock();
+    _assert(!bktptr->tx.expired(), "tx invalid");
     if (txptr->db.expired()) {
         return bolt::ErrorCode::ErrorTxClosed;
-    } else if (!bptr->Writable()) {
+    } else if (!bktptr->Writable()) {
         return bolt::ErrorCode::ErrorTxNotWritable;
     }
 

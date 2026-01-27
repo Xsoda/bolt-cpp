@@ -14,8 +14,9 @@
 #endif
 
 namespace bolt::impl {
+inode::inode() : flags(0), pgid(0) {}
 
-inode::inode(const inode &other) {
+inode::inode(const inode &other) noexcept {
     this->flags = other.flags;
     this->pgid = other.pgid;
     this->memory = other.memory;
@@ -23,15 +24,22 @@ inode::inode(const inode &other) {
     this->value = bolt::bytes(this->memory.data() + other.key.size(), other.value.size());
 }
 
-inode::inode(inode &&other) {
+inode::inode(inode &&other) noexcept {
     this->flags = other.flags;
     this->pgid = other.pgid;
     std::swap(this->memory, other.memory);
     std::swap(this->key, other.key);
     std::swap(this->value, other.value);
+    if (memory.empty() && key.size() > 0) {
+        memory.reserve(key.size() + value.size());
+        std::copy(key.begin(), key.end(), std::back_inserter(memory));
+        key = bolt::bytes(memory.data(), key.size());
+        std::copy(value.begin(), value.end(), std::back_inserter(memory));
+        value = bolt::bytes(memory.data() + key.size(), value.size());
+    }
 }
 
-inode &inode::operator=(const inode &other) {
+inode &inode::operator=(const inode &other) noexcept {
     this->memory = other.memory;
     this->flags = other.flags;
     this->pgid = other.pgid;
@@ -40,12 +48,19 @@ inode &inode::operator=(const inode &other) {
     return *this;
 }
 
-inode &inode::operator=(inode &&other) {
+inode &inode::operator=(inode &&other) noexcept {
     this->flags = other.flags;
     this->pgid = other.pgid;
     std::swap(this->memory, other.memory);
     std::swap(this->key, other.key);
     std::swap(this->value, other.value);
+    if (memory.empty() && key.size() > 0) {
+        memory.reserve(key.size() + value.size());
+        std::copy(key.begin(), key.end(), std::back_inserter(memory));
+        key = bolt::bytes(memory.data(), key.size());
+        std::copy(value.begin(), value.end(), std::back_inserter(memory));
+        value = bolt::bytes(memory.data() + key.size(), value.size());
+    }
     return *this;
 }
 
@@ -409,7 +424,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
     // Split nodes into appropriate sizes. The first node will always be n.
     auto nodes = split(dbptr->pageSize, hold);
 
-    for (auto it : nodes) {
+    for (auto &it : nodes) {
         // Add node's page to the freelist if it's not new.
         if (it->pgid > 0) {
             dbptr->freelist->free(txptr->meta.txid, txptr->page(it->pgid));
@@ -510,13 +525,14 @@ void node::rebalance() {
     // If node has no keys then just remove it.
     auto pptr = parent.lock();
     if (numChildren() == 0) {
+        impl::node_ptr self = shared_from_this();
         pptr->del(key);
-        pptr->removeChild(shared_from_this());
+        pptr->removeChild(self);
         auto it = bktptr->nodes.find(pgid);
         if (it != bktptr->nodes.end()) {
             bktptr->nodes.erase(it);
         }
-        this->free();
+        self->free();
         pptr->rebalance();
         return;
     }
@@ -572,15 +588,16 @@ void node::rebalance() {
         }
 
         // Copy over inodes to target and remove node.
+        impl::node_ptr self = shared_from_this();
         std::move(inodes.begin(), inodes.end(),
                   std::back_inserter(target->inodes));
         pptr->del(key);
-        pptr->removeChild(shared_from_this());
+        pptr->removeChild(self);
         auto it = bktptr->nodes.find(pgid);
         if (it != bktptr->nodes.end()) {
             bktptr->nodes.erase(it);
         }
-        free();
+        self->free();
     }
 
     // Either this node or the target node was deleted from the parent so
@@ -591,9 +608,12 @@ void node::rebalance() {
 // removes a node from the list of in-memory children.
 // This does not affect the inodes.
 void node::removeChild(impl::node_ptr target) {
-    std::ignore =
+    auto it =
         std::remove_if(children.begin(), children.end(),
                        [&](impl::node_ptr item) { return item == target; });
+    if (it != children.end()) {
+        children.erase(it);
+    }
 }
 
 // dereference causes the node to copy all its inode key/value references to

@@ -1,6 +1,5 @@
 #include "fmt/base.h"
 #include "test.hpp"
-#include "error.h"
 #include <chrono>
 #include <span>
 #include <vector>

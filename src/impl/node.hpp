@@ -18,12 +18,12 @@ struct inode {
     bolt::bytes key;
     bolt::bytes value;
     std::vector<std::byte> memory;
-    inode() = default;
+    inode();
     ~inode() = default;
-    inode(const inode &other);
-    inode(inode &&other);
-    inode &operator=(const inode &other);
-    inode &operator=(inode &&other);
+    inode(const inode &other) noexcept;
+    inode(inode &&other) noexcept;
+    inode &operator=(const inode &other) noexcept;
+    inode &operator=(inode &&other) noexcept;
 };
 
 // node represents an in-memory, deserialized page.

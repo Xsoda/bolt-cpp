@@ -87,12 +87,27 @@ bolt::ErrorCode Bucket::ForEach(
 
 // rebalance attempts to balance all nodes.
 void Bucket::rebalance() {
-    for (auto &[key, val] : nodes) {
-        val->rebalance();
+    auto nit = nodes.begin();
+    decltype(nit) nnext;
+    while (nit != nodes.end()) {
+        nnext = std::next(nit);
+        nit->second->rebalance();
+        nit = nnext;
     }
-    for (auto &[key, child] : buckets) {
-        child->rebalance();
+
+    auto bit = buckets.begin();
+    decltype(bit) bnext;
+    while (bit != buckets.end()) {
+        bnext = std::next(bit);
+        bit->second->rebalance();
+        bit = bnext;
     }
+    // for (auto &[key, val] : nodes) {
+    //     val->rebalance();
+    // }
+    // for (auto &[key, child] : buckets) {
+    //     child->rebalance();
+    // }
 }
 
 // dereference removes all references to the old mmap.
