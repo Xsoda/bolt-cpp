@@ -49,7 +49,6 @@ inode &inode::operator=(inode &&other) {
     return *this;
 }
 
-
 node::node(impl::BucketPtr bucket, std::initializer_list<impl::node_ptr> children): pgid(0) {
     this->bucket = bucket;
     this->children = children;
@@ -354,7 +353,7 @@ node::splitTwo(size_t pageSize, std::vector<impl::node_ptr> &hold) {
     pptr->children.push_back(next);
 
     // Split inodes across two nodes.
-    std::copy(std::next(inodes.begin(), splitIdx), inodes.end(),
+    std::move(std::next(inodes.begin(), splitIdx), inodes.end(),
               std::back_inserter(next->inodes));
     inodes.erase(std::next(inodes.begin(), splitIdx), inodes.end());
 
