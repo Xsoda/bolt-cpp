@@ -190,7 +190,7 @@ bolt::ErrorCode Cursor::Delete() {
     if ((flags & bolt::impl::bucketLeafFlag) != 0) {
         return bolt::ErrorCode::ErrorIncompatiableValue;
     }
-
+    fmt::println("delete {}", k);
     node()->del(k);
 
     return bolt::ErrorCode::Success;

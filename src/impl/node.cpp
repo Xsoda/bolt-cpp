@@ -247,10 +247,13 @@ void node::del(bolt::bytes key) {
               key.begin(), key.end(), item.key.begin(), item.key.end());
           return !std::is_lt(ret);
     });
-    if (it == inodes.end()) {
+    if (it == inodes.end() ||
+        !std::is_eq(std::lexicographical_compare_three_way(
+            it->key.begin(), it->key.end(), key.begin(), key.end()))) {
         return;
     }
     inodes.erase(it);
+    fmt::println("after node {} delete inode size {}", pgid, inodes.size());
     unbalanced = true;
 }
 
