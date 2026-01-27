@@ -148,7 +148,7 @@ template <std::integral T> constexpr T byteswap(T value) noexcept {
 }
 TestResult TestCursor_Delete() {
     auto db = MustOpenDB();
-    const int count = 40;
+    const int count = 1000;
     if (auto err = db->Update([count](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
         std::string widgets = "widgets";
         std::string sub = "sub";

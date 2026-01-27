@@ -15,6 +15,41 @@
 
 namespace bolt::impl {
 
+inode::inode(const inode &other) {
+    this->flags = other.flags;
+    this->pgid = other.pgid;
+    this->memory = other.memory;
+    this->key = bolt::bytes(this->memory.data(), other.key.size());
+    this->value = bolt::bytes(this->memory.data() + other.key.size(), other.value.size());
+}
+
+inode::inode(inode &&other) {
+    this->flags = other.flags;
+    this->pgid = other.pgid;
+    std::swap(this->memory, other.memory);
+    std::swap(this->key, other.key);
+    std::swap(this->value, other.value);
+}
+
+inode &inode::operator=(const inode &other) {
+    this->memory = other.memory;
+    this->flags = other.flags;
+    this->pgid = other.pgid;
+    this->key = bolt::bytes(this->memory.data(), other.key.size());
+    this->value = bolt::bytes(this->memory.data() + other.key.size(), other.value.size());
+    return *this;
+}
+
+inode &inode::operator=(inode &&other) {
+    this->flags = other.flags;
+    this->pgid = other.pgid;
+    std::swap(this->memory, other.memory);
+    std::swap(this->key, other.key);
+    std::swap(this->value, other.value);
+    return *this;
+}
+
+
 node::node(impl::BucketPtr bucket, std::initializer_list<impl::node_ptr> children): pgid(0) {
     this->bucket = bucket;
     this->children = children;

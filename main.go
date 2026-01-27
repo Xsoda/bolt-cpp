@@ -36,7 +36,7 @@ func main() {
 		return
 	}
 	if err := db.Update(func(tx *bolt.Tx) error {
-		const count = 40
+		const count = 1000
 		b, err := tx.CreateBucket([]byte("widgets"))
 		if err != nil {
 			return err
