@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"syscall"
@@ -42,16 +43,16 @@ func main() {
 			return err
 		}
 		for i := 0; i < count; i += 1 {
-			k := RandomCharset(8)
-			v := RandomCharset(100)
-			if err := b.Put([]byte(k), []byte(v)); err != nil {
-				return err
-			}
-			// k := make([]byte, 8)
-			// binary.BigEndian.PutUint64(k, uint64(i))
-			// if err := b.Put(k, make([]byte, 100)); err != nil {
+			// k := RandomCharset(8)
+			// v := RandomCharset(100)
+			// if err := b.Put([]byte(k), []byte(v)); err != nil {
 			// 	return err
 			// }
+			k := make([]byte, 8)
+			binary.BigEndian.PutUint64(k, uint64(i))
+			if err := b.Put(k, make([]byte, 100)); err != nil {
+				return err
+			}
 		}
 		if _, err := b.CreateBucket([]byte("sub")); err != nil {
 			return err

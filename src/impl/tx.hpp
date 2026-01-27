@@ -35,6 +35,7 @@ struct TxStats {
     size_t Write;
     std::chrono::milliseconds WriteTime;
 
+    TxStats();
     TxStats operator-(const TxStats &other);
     TxStats &operator+=(const TxStats &other);
 };

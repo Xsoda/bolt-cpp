@@ -380,10 +380,10 @@ std::tuple<size_t, size_t> node::splitIndex(size_t threshold) {
 
 // spill writes the nodes to dirty pages and splits nodes as it goes.
 // Returns an error if dirty pages cannot be allocated.
-bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &sp) {
-    auto bptr = bucket.lock();
-    auto tptr = bptr->tx.lock();
-    auto dbptr = tptr->db.lock();
+bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
+    auto bktptr = bucket.lock();
+    auto txptr = bktptr->tx.lock();
+    auto dbptr = txptr->db.lock();
     if (spilled) {
         return bolt::ErrorCode::Success;
     }
@@ -397,7 +397,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &sp) {
                   return std::is_lt(ret);
               });
     for (size_t i = 0; i < children.size(); i++) {
-        auto err = children[i]->spill(sp);
+        auto err = children[i]->spill(hold);
         if (err != bolt::ErrorCode::Success) {
             return err;
         }
@@ -407,24 +407,24 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &sp) {
     children.clear();
 
     // Split nodes into appropriate sizes. The first node will always be n.
-    auto nodes = split(dbptr->pageSize, sp);
+    auto nodes = split(dbptr->pageSize, hold);
 
     for (auto it : nodes) {
         // Add node's page to the freelist if it's not new.
         if (it->pgid > 0) {
-            dbptr->freelist->free(tptr->meta.txid, tptr->page(it->pgid));
+            dbptr->freelist->free(txptr->meta.txid, txptr->page(it->pgid));
             it->pgid = 0;
         }
 
         // Allocate contiguous space for the node.
-        auto [p, err] = tptr->allocate((it->size() / dbptr->pageSize) + 1);
+        auto [p, err] = txptr->allocate((it->size() / dbptr->pageSize) + 1);
         if (err != bolt::ErrorCode::Success) {
             return err;
         }
 
         // Write the node.
-        if (p->id >= tptr->meta.pgid) {
-            _assert(false, "pgid ({}) above high water mark ({})", p->id, tptr->meta.pgid);
+        if (p->id >= txptr->meta.pgid) {
+            _assert(false, "pgid ({}) above high water mark ({})", p->id, txptr->meta.pgid);
         }
         it->pgid = p->id;
         it->write(p);
@@ -441,7 +441,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &sp) {
             _assert(it->key.size() > 0, "spill: zero-length node key");
         }
         // Update the statistics.
-        tptr->stats.Spill++;
+        txptr->stats.Spill++;
     }
 
     // If the root node split and created a new root then we need to spill that
@@ -450,7 +450,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &sp) {
     if (auto pptr = parent.lock()) {
         if (pptr->pgid == 0) {
             children.clear();
-            return pptr->spill(sp);
+            return pptr->spill(hold);
         }
     }
     fmt::println("2. spill node {}", pgid);
@@ -463,13 +463,13 @@ void node::rebalance() {
     if (!unbalanced) {
         return;
     }
-    auto bptr = bucket.lock();
-    auto tptr = bptr->tx.lock();
-    auto dbptr = tptr->db.lock();
+    auto bktptr = bucket.lock();
+    auto txptr = bktptr->tx.lock();
+    auto dbptr = txptr->db.lock();
     unbalanced = false;
 
     // Update statistics.
-    tptr->stats.Rebalance++;
+    txptr->stats.Rebalance++;
 
     // Ignore if node is above threshold (25%) and has enough keys.
     int threshold = dbptr->pageSize / 4;
@@ -483,24 +483,24 @@ void node::rebalance() {
         if (isLeaf && inodes.size() == 1) {
             // Move root's child up.
             impl::node_ptr child =
-                bptr->node(inodes.front().pgid, shared_from_this());
+                bktptr->node(inodes.front().pgid, shared_from_this());
             isLeaf = child->isLeaf;
             inodes = child->inodes;
             children = child->children;
 
             // Reparent all child nodes being moved.
             for (auto &it : inodes) {
-                auto item = bptr->nodes.find(it.pgid);
-                if (item != bptr->nodes.end()) {
+                auto item = bktptr->nodes.find(it.pgid);
+                if (item != bktptr->nodes.end()) {
                     item->second->parent = shared_from_this();
                 }
             }
 
             // Remove old child.
             child->parent.reset();
-            auto it = bptr->nodes.find(child->pgid);
-            if (it != bptr->nodes.end()) {
-                bptr->nodes.erase(it);
+            auto it = bktptr->nodes.find(child->pgid);
+            if (it != bktptr->nodes.end()) {
+                bktptr->nodes.erase(it);
             }
             child->free();
         }
@@ -512,9 +512,9 @@ void node::rebalance() {
     if (numChildren() == 0) {
         pptr->del(key);
         pptr->removeChild(shared_from_this());
-        auto it = bptr->nodes.find(pgid);
-        if (it != bptr->nodes.end()) {
-            bptr->nodes.erase(it);
+        auto it = bktptr->nodes.find(pgid);
+        if (it != bktptr->nodes.end()) {
+            bktptr->nodes.erase(it);
         }
         this->free();
         pptr->rebalance();
@@ -536,8 +536,8 @@ void node::rebalance() {
     if (useNextSibling) {
         // Reparent all child nodes being moved.
         for (auto &item : target->inodes) {
-            auto it = bptr->nodes.find(item.pgid);
-            if (it != bptr->nodes.end()) {
+            auto it = bktptr->nodes.find(item.pgid);
+            if (it != bktptr->nodes.end()) {
                 impl::node_ptr child = it->second;
                 auto cp = child->parent.lock();
                 cp->removeChild(child);
@@ -548,20 +548,20 @@ void node::rebalance() {
         }
 
         // Copy over inodes from target and remove target.
-        std::copy(target->inodes.begin(), target->inodes.end(),
+        std::move(target->inodes.begin(), target->inodes.end(),
                   std::back_inserter(inodes));
         pptr->del(target->key);
         pptr->removeChild(target);
-        auto it = bptr->nodes.find(target->pgid);
-        if (it != bptr->nodes.end()) {
-            bptr->nodes.erase(it);
+        auto it = bktptr->nodes.find(target->pgid);
+        if (it != bktptr->nodes.end()) {
+            bktptr->nodes.erase(it);
         }
         target->free();
     } else {
         // Reparent all child nodes being moved.
         for (auto &item : inodes) {
-            auto it = bptr->nodes.find(item.pgid);
-            if (it != bptr->nodes.end()) {
+            auto it = bktptr->nodes.find(item.pgid);
+            if (it != bktptr->nodes.end()) {
                 impl::node_ptr child = it->second;
                 auto cp = child->parent.lock();
                 cp->removeChild(child);
@@ -572,13 +572,13 @@ void node::rebalance() {
         }
 
         // Copy over inodes to target and remove node.
-        std::copy(inodes.begin(), inodes.end(),
+        std::move(inodes.begin(), inodes.end(),
                   std::back_inserter(target->inodes));
         pptr->del(key);
         pptr->removeChild(shared_from_this());
-        auto it = bptr->nodes.find(pgid);
-        if (it != bptr->nodes.end()) {
-            bptr->nodes.erase(it);
+        auto it = bktptr->nodes.find(pgid);
+        if (it != bktptr->nodes.end()) {
+            bktptr->nodes.erase(it);
         }
         free();
     }

@@ -69,6 +69,7 @@ bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
     this->path = path;
     NoGrowSync = false;
     MmapFlags = 0;
+    NoSync = false;
 #ifndef NDEBUG
     StrictMode = true;
 #else

@@ -13,6 +13,21 @@
 
 namespace bolt::impl {
 
+TxStats::TxStats() {
+    PageCount = 0;
+    PageAlloc = 0;
+    CursorCount = 0;
+    NodeCount = 0;
+    NodeDeref = 0;
+    Rebalance = 0;
+    RebalanceTime = 0ms;
+    Split = 0;
+    Spill = 0;
+    SpillTime = 0ms;
+    Write = 0;
+    WriteTime = 0ms;
+}
+
 TxStats TxStats::operator-(const TxStats &other) {
     TxStats diff;
     diff.PageCount = PageCount - other.PageCount;
