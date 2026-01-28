@@ -92,13 +92,15 @@ void Bucket::rebalance() {
     for (auto &[key, val] : nodes) {
         temp_nodes.push_back(val);
     }
-    for (auto& it : temp_nodes) {
+    for (auto &it : temp_nodes) {
+        fmt::println("=== rebalance node {}", it->pgid);
         it->rebalance();
     }
     for (auto &[key, child] : buckets) {
         temp_buckets.push_back(child);
     }
-    for (auto& it : temp_buckets) {
+    for (auto &it : temp_buckets) {
+        fmt::println("=== rebalance bucket {}", it->root);
         it->rebalance();
     }
 }

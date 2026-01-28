@@ -254,16 +254,18 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
     _assert(inode.key.size() > 0, "put: zero-length inode key");
 }
 
-void node::del(bolt::bytes key) {
+void node::del(bolt::bytes k) {
     auto it = std::find_if(
         inodes.begin(), inodes.end(), [&](impl::inode &item) -> bool {
           auto ret = std::lexicographical_compare_three_way(
-              key.begin(), key.end(), item.key.begin(), item.key.end());
+              k.begin(), k.end(), item.key.begin(), item.key.end());
           return !std::is_lt(ret);
     });
     if (it == inodes.end() ||
         !std::is_eq(std::lexicographical_compare_three_way(
-            it->key.begin(), it->key.end(), key.begin(), key.end()))) {
+            it->key.begin(), it->key.end(), k.begin(), k.end()))) {
+        fmt::println("### node {} del [{}, {}] not found", pgid, k, it->key);
+        dump();
         return;
     }
     inodes.erase(it);
@@ -429,7 +431,6 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
                 return std::is_lt(ret);
               });
     for (size_t i = 0; i < children.size(); i++) {
-        fmt::println("node {} children {}", pgid, children.size());
         auto err = children[i]->spill(hold);
         if (err != bolt::ErrorCode::Success) {
             return err;
@@ -494,6 +495,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
 // size is below a threshold or if there are not enough keys.
 void node::rebalance() {
     if (!unbalanced) {
+        fmt::println("*** node {} already rebalanced", pgid);
         return;
     }
     auto bktptr = bucket.lock();
@@ -507,11 +509,14 @@ void node::rebalance() {
     // Ignore if node is above threshold (25%) and has enough keys.
     int threshold = dbptr->pageSize / 4;
     if (size() > threshold && inodes.size() > (size_t)minKeys()) {
+        fmt::println("*** node {} unneed rebalance", pgid);
         return;
     }
-
+    fmt::println("*** rebalance node {}", pgid);
     // Root node has special handling.
     if (parent.expired()) {
+        fmt::println("before root node rebalance");
+        dump();
         // If root node is a branch and only has one node then collapse it.
         if (!isLeaf && inodes.size() == 1) {
             // Move root's child up.
@@ -537,7 +542,7 @@ void node::rebalance() {
             }
             child->free();
         }
-        fmt::println("root node rabalance");
+        fmt::println("after root node rebalance");
         dump();
         return;
     }
@@ -546,6 +551,7 @@ void node::rebalance() {
     auto pptr = parent.lock();
     if (numChildren() == 0) {
         impl::node_ptr self = shared_from_this();
+        fmt::println("# - 0 node {} del {}", pptr->pgid, key);
         pptr->del(key);
         pptr->removeChild(self);
         auto it = bktptr->nodes.find(pgid);
@@ -553,7 +559,11 @@ void node::rebalance() {
             bktptr->nodes.erase(it);
         }
         self->free();
+        fmt::println("current empty, before rebalance parent {}\n", pptr->pgid);
+        pptr->dump();
         pptr->rebalance();
+        fmt::println("current empty, after rebalance parent {}\n", pptr->pgid);
+        pptr->dump();
         return;
     }
 
@@ -572,8 +582,8 @@ void node::rebalance() {
     if (useNextSibling) {
         // Reparent all child nodes being moved.
         for (auto &item : target->inodes) {
-            auto it = bktptr->nodes.find(item.pgid);
-            if (it != bktptr->nodes.end()) {
+            if (auto it = bktptr->nodes.find(item.pgid);
+                it != bktptr->nodes.end()) {
                 impl::node_ptr child = it->second;
                 auto cp = child->parent.lock();
                 cp->removeChild(child);
@@ -586,6 +596,8 @@ void node::rebalance() {
         // Copy over inodes from target and remove target.
         std::move(target->inodes.begin(), target->inodes.end(),
                   std::back_inserter(inodes));
+        fmt::println("# - 1 node {} del {}", pptr->pgid, target->key);
+        pptr->dump();
         pptr->del(target->key);
         pptr->removeChild(target);
         auto it = bktptr->nodes.find(target->pgid);
@@ -611,6 +623,7 @@ void node::rebalance() {
         impl::node_ptr self = shared_from_this();
         std::move(inodes.begin(), inodes.end(),
                   std::back_inserter(target->inodes));
+        fmt::println("# - 2 node {} del {}", pptr->pgid, key);
         pptr->del(key);
         pptr->removeChild(self);
         auto it = bktptr->nodes.find(pgid);

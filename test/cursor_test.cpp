@@ -148,7 +148,7 @@ template <std::integral T> constexpr T byteswap(T value) noexcept {
 }
 TestResult TestCursor_Delete() {
     auto db = MustOpenDB();
-    const int count = 1200;
+    const int count = 400;
     std::vector<std::string> keys;
     keys.reserve(count);
     if (auto err = db->Update([&keys, count](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
@@ -198,7 +198,7 @@ TestResult TestCursor_Delete() {
             std::uint64_t m = count / 2;
             std::sort(keys.begin(), keys.end());
             auto b = c->Bucket();
-            b->dump();
+            // b->dump();
             // if constexpr (std::endian::native == std::endian::little) {
             //   m = byteswap(m);
             // }

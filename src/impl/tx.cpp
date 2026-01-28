@@ -222,7 +222,6 @@ bolt::ErrorCode Tx::Commit() {
     if (stats.Rebalance > 0) {
         stats.RebalanceTime += since(startTime);
     }
-    root->dump();
     fmt::println("before spill bucket root {}", root->root);
     // spill data onto dirty pages.
     startTime = std::chrono::system_clock::now();
