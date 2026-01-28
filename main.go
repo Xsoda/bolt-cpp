@@ -1,9 +1,11 @@
 package main
 
 import (
-	"encoding/binary"
+	"bytes"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"syscall"
 
 	bolt "github.com/boltdb/bolt"
@@ -36,23 +38,25 @@ func main() {
 		fmt.Println(err.Error())
 		return
 	}
+	const count = 40
+	keys := make([]string, 0)
 	if err := db.Update(func(tx *bolt.Tx) error {
-		const count = 1000
 		b, err := tx.CreateBucket([]byte("widgets"))
 		if err != nil {
 			return err
 		}
 		for i := 0; i < count; i += 1 {
-			// k := RandomCharset(8)
-			// v := RandomCharset(100)
-			// if err := b.Put([]byte(k), []byte(v)); err != nil {
-			// 	return err
-			// }
-			k := make([]byte, 8)
-			binary.BigEndian.PutUint64(k, uint64(i))
-			if err := b.Put(k, make([]byte, 100)); err != nil {
+			k := RandomCharset(8)
+			v := RandomCharset(100)
+			keys = append(keys, k)
+			if err := b.Put([]byte(k), []byte(v)); err != nil {
 				return err
 			}
+			// k := make([]byte, 8)
+			// binary.BigEndian.PutUint64(k, uint64(i))
+			// if err := b.Put(k, make([]byte, 100)); err != nil {
+			// 	return err
+			// }
 		}
 		if _, err := b.CreateBucket([]byte("sub")); err != nil {
 			return err
@@ -61,5 +65,33 @@ func main() {
 	}); err != nil {
 		fmt.Println(err.Error())
 	}
+	fmt.Println("------------------------------------------")
+	if err := db.Update(func(tx *bolt.Tx) error {
+		c := tx.Bucket([]byte("widgets")).Cursor()
+		b := c.Bucket()
+		m := count / 2
+		sort.Slice(keys, func(i, j int) bool {
+			return strings.Compare(keys[i], keys[j]) < 0
+		})
+		bound := []byte(keys[m])
+		// bound := make([]byte, 8)
+		// binary.BigEndian.PutUint64(bound, uint64(count/2))
+		b.Dump()
+		for key, _ := c.First(); bytes.Compare(key, bound) < 0; key, _ = c.Next() {
+			if err := c.Delete(); err != nil {
+				fmt.Println(err.Error())
+			}
+		}
+
+		c.Seek([]byte("sub"))
+		if err := c.Delete(); err != bolt.ErrIncompatibleValue {
+			fmt.Printf("unexpected error: %s\n", err.Error())
+		}
+		b.Dump()
+		return nil
+	}); err != nil {
+		fmt.Println(err.Error())
+	}
+
 	db.Close()
 }

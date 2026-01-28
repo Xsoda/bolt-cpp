@@ -79,6 +79,7 @@ struct Bucket : public bucket,
     int maxInlineBucketSize() const;
     std::tuple<impl::page *, impl::node_ptr> pageNode(impl::pgid id);
     std::vector<std::byte> write();
+    void dump();
 };
 
 constexpr int bucketHeaderSize = sizeof(bucket);

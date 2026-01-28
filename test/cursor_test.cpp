@@ -197,6 +197,8 @@ TestResult TestCursor_Delete() {
             auto c = tx->Bucket(to_bytes(widgets))->Cursor();
             std::uint64_t m = count / 2;
             std::sort(keys.begin(), keys.end());
+            auto b = c->Bucket();
+            b->dump();
             // if constexpr (std::endian::native == std::endian::little) {
             //   m = byteswap(m);
             // }
@@ -220,6 +222,7 @@ TestResult TestCursor_Delete() {
                 err != bolt::ErrorIncompatiableValue) {
                 return err;
             }
+            b->dump();
             return bolt::Success;
         });
         err != bolt::Success) {

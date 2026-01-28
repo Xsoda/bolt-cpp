@@ -91,6 +91,7 @@ void Bucket::rebalance() {
     decltype(nit) nnext;
     while (nit != nodes.end()) {
         nnext = std::next(nit);
+        auto n = nit->second;
         nit->second->rebalance();
         nit = nnext;
     }
@@ -99,6 +100,7 @@ void Bucket::rebalance() {
     decltype(bit) bnext;
     while (bit != buckets.end()) {
         bnext = std::next(bit);
+        auto n = bit->second;
         bit->second->rebalance();
         bit = bnext;
     }
@@ -630,5 +632,14 @@ void Bucket::forEachPage(std::function<void(impl::page *, int)> &&fn) {
     // Otherwise traverse the page hierarchy.
     auto txptr = tx.lock();
     txptr->forEachPage(root, 0, std::move(fn));
+}
+
+void Bucket::dump() {
+    fmt::println("[BUCKET root {}]", root);
+    if (rootNode) {
+        rootNode->dump();
+    } else if (page) {
+        fmt::println("- INLINE PAGE {} pgid={}", page->type(), page->id);
+    }
 }
 }

@@ -253,7 +253,6 @@ void node::del(bolt::bytes key) {
         return;
     }
     inodes.erase(it);
-    fmt::println("after node {} delete inode size {}", pgid, inodes.size());
     unbalanced = true;
 }
 
@@ -411,10 +410,12 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
     // the children size on every loop iteration
     std::sort(children.begin(), children.end(),
               [](impl::node_ptr a, impl::node_ptr b) -> bool {
-                  auto ret = std::lexicographical_compare_three_way(a->key.begin(), a->key.end(), b->key.begin(), b->key.end());
-                  return std::is_lt(ret);
+                auto ret = std::lexicographical_compare_three_way(
+                    a->key.begin(), a->key.end(), b->key.begin(), b->key.end());
+                return std::is_lt(ret);
               });
     for (size_t i = 0; i < children.size(); i++) {
+        fmt::println("node {} children {}", pgid, children.size());
         auto err = children[i]->spill(hold);
         if (err != bolt::ErrorCode::Success) {
             return err;
@@ -498,7 +499,7 @@ void node::rebalance() {
     // Root node has special handling.
     if (parent.expired()) {
         // If root node is a branch and only has one node then collapse it.
-        if (isLeaf && inodes.size() == 1) {
+        if (!isLeaf && inodes.size() == 1) {
             // Move root's child up.
             impl::node_ptr child =
                 bktptr->node(inodes.front().pgid, shared_from_this());
@@ -522,6 +523,8 @@ void node::rebalance() {
             }
             child->free();
         }
+        fmt::println("root node rabalance");
+        dump();
         return;
     }
 
@@ -602,7 +605,8 @@ void node::rebalance() {
         }
         self->free();
     }
-
+    fmt::println("normal node rebalance");
+    dump();
     // Either this node or the target node was deleted from the parent so
     // rebalance it.
     pptr->rebalance();
@@ -616,6 +620,8 @@ void node::removeChild(impl::node_ptr target) {
                        [&](impl::node_ptr item) { return item == target; });
     if (it != children.end()) {
         children.erase(it);
+    } else {
+        fmt::println("{} removeChild {} not found", pgid, target->key);
     }
 }
 
@@ -701,6 +707,11 @@ void node::dump() {
             }
         } else {
             fmt::println("+B {} -> pgid={}", item.key, item.pgid);
+            if (auto b = bucket.lock()) {
+                if (auto [p, n] = b->pageNode(item.pgid); n != nullptr) {
+                    n->dump();
+                }
+            }
         }
     }
     fmt::println("");
