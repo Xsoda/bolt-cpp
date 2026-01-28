@@ -22,6 +22,13 @@ inode::inode(const inode &other) noexcept {
     this->memory = other.memory;
     this->key = bolt::bytes(this->memory.data(), other.key.size());
     this->value = bolt::bytes(this->memory.data() + other.key.size(), other.value.size());
+    if (memory.empty() && key.size() > 0) {
+        memory.reserve(key.size() + value.size());
+        std::copy(key.begin(), key.end(), std::back_inserter(memory));
+        key = bolt::bytes(memory.data(), key.size());
+        std::copy(value.begin(), value.end(), std::back_inserter(memory));
+        value = bolt::bytes(memory.data() + key.size(), value.size());
+    }
 }
 
 inode::inode(inode &&other) noexcept {
@@ -45,6 +52,13 @@ inode &inode::operator=(const inode &other) noexcept {
     this->pgid = other.pgid;
     this->key = bolt::bytes(this->memory.data(), other.key.size());
     this->value = bolt::bytes(this->memory.data() + other.key.size(), other.value.size());
+    if (memory.empty() && key.size() > 0) {
+        memory.reserve(key.size() + value.size());
+        std::copy(key.begin(), key.end(), std::back_inserter(memory));
+        key = bolt::bytes(memory.data(), key.size());
+        std::copy(value.begin(), value.end(), std::back_inserter(memory));
+        value = bolt::bytes(memory.data() + key.size(), value.size());
+    }
     return *this;
 }
 
@@ -305,7 +319,7 @@ void node::write(impl::page *p) {
     std::byte *buf = &reinterpret_cast<std::byte *>(
         &p->ptr)[pageElementSize() * inodes.size()];
     for (size_t i = 0; i < inodes.size(); i++) {
-        auto item = inodes[i];
+        auto &item = inodes[i];
         _assert(item.key.size() > 0, "write: zero-length inode key");
         // Write the page element.
         if (isLeaf) {
