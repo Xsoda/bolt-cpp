@@ -87,24 +87,17 @@ bolt::ErrorCode Bucket::ForEach(
 
 // rebalance attempts to balance all nodes.
 void Bucket::rebalance() {
-    std::vector<impl::node_ptr> temp_nodes;
-    std::vector<impl::BucketPtr> temp_buckets;
-    temp_nodes.reserve(nodes.size());
-    temp_buckets.reserve(buckets.size());
-    for (auto &[key, val] : nodes) {
-        temp_nodes.push_back(val);
+    auto nit = nodes.begin();
+    while (nit != nodes.end()) {
+        auto npgid = nit->first;
+        nit->second->rebalance();
+        nit = nodes.upper_bound(npgid);
     }
-    for (auto it : temp_nodes) {
-        fmt::println("node [{}] use count {}", fmt::ptr(it.get()), it.use_count());
-        if (it->pgid != 0) {
-            it->rebalance();
-        }
-    }
-    for (auto &[key, child] : buckets) {
-        temp_buckets.push_back(child);
-    }
-    for (auto &it : temp_buckets) {
-        it->rebalance();
+    auto bit = buckets.begin();
+    while (bit != buckets.end()) {
+        auto bname = bit->first;
+        bit->second->rebalance();
+        bit = buckets.upper_bound(bname);
     }
 }
 

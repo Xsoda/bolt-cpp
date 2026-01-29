@@ -41,7 +41,7 @@ struct Bucket : public bucket,
     std::map<std::string, impl::BucketPtr> buckets;
     impl::page *page;
     impl::node_ptr rootNode;
-    std::unordered_map<impl::pgid, impl::node_ptr> nodes;
+    std::map<impl::pgid, impl::node_ptr> nodes;
     float FillPercent;
 
     explicit Bucket(impl::TxPtr tx);

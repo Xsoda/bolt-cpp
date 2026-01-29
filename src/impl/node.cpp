@@ -165,10 +165,11 @@ impl::node_ptr node::childAt(ptrdiff_t index) {
 ptrdiff_t node::childIndex(impl::node_ptr child) {
     auto it =
         std::find_if(inodes.begin(), inodes.end(), [&](impl::inode &n) -> bool {
-          auto ret = std::lexicographical_compare_three_way(std::begin(child->key), std::end(child->key),
-                                std::begin(n.key), std::end(n.key));
+          auto ret = std::lexicographical_compare_three_way(
+              std::begin(n.key), std::end(n.key), std::begin(child->key),
+              std::end(child->key));
           return !std::is_lt(ret);
-    });
+        });
     return std::distance(inodes.begin(), it);
 }
 
@@ -520,8 +521,6 @@ void node::rebalance() {
     log_debug("*** rebalance node {}", pgid);
     // Root node has special handling.
     if (parent.expired()) {
-        log_debug("before root node rebalance");
-        // dump();
         // If root node is a branch and only has one node then collapse it.
         if (!isLeaf && inodes.size() == 1) {
             // Move root's child up.
@@ -547,8 +546,6 @@ void node::rebalance() {
             }
             child->free();
         }
-        log_debug("after root node rebalance");
-        dump();
         return;
     }
 
@@ -556,7 +553,7 @@ void node::rebalance() {
     auto pptr = parent.lock();
     if (numChildren() == 0) {
         impl::node_ptr self = shared_from_this();
-        log_debug("# - 0 node {} del {}", pptr->pgid, key);
+        log_debug("# - 0 node {} del {} - {}", pptr->pgid, pgid, key);
         pptr->del(key);
         pptr->removeChild(self);
         auto it = bktptr->nodes.find(pgid);
@@ -565,11 +562,7 @@ void node::rebalance() {
         }
         self->free();
         auto ppid = pptr->pgid;
-        log_debug("current empty, before rebalance parent {} {}\n", pptr->pgid, ppid);
-        // pptr->dump();
         pptr->rebalance();
-        log_debug("current empty, after rebalance parent {} {}\n", pptr->pgid, ppid);
-        pptr->dump();
         return;
     }
 
@@ -602,8 +595,7 @@ void node::rebalance() {
         // Copy over inodes from target and remove target.
         std::move(target->inodes.begin(), target->inodes.end(),
                   std::back_inserter(inodes));
-        log_debug("# - 1 node {} del {}", pptr->pgid, target->key);
-        // pptr->dump();
+        log_debug("# - 1 node {} del {} - {}", pptr->pgid, target->pgid, target->key);
         pptr->del(target->key);
         pptr->removeChild(target);
         auto it = bktptr->nodes.find(target->pgid);
@@ -631,7 +623,7 @@ void node::rebalance() {
         impl::node_ptr self = shared_from_this();
         std::move(inodes.begin(), inodes.end(),
                   std::back_inserter(target->inodes));
-        log_debug("# - 2 node {} del {}", pptr->pgid, key);
+        log_debug("# - 2 node {} del {} - {}", pptr->pgid, pgid, key);
         pptr->del(key);
         pptr->removeChild(self);
         auto it = bktptr->nodes.find(pgid);
@@ -645,8 +637,6 @@ void node::rebalance() {
     // Either this node or the target node was deleted from the parent so
     // rebalance it.
     pptr->rebalance();
-    log_debug("normal node rebalance complete");
-    pptr->dump();
 }
 
 // removes a node from the list of in-memory children.

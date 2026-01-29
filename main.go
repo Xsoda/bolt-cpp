@@ -38,7 +38,7 @@ func main() {
 		fmt.Println(err.Error())
 		return
 	}
-	const count = 1500
+	const count = 10000
 	keys := make([]string, 0)
 	if err := db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucket([]byte("widgets"))
