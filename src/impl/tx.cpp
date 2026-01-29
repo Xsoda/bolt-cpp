@@ -222,7 +222,7 @@ bolt::ErrorCode Tx::Commit() {
     if (stats.Rebalance > 0) {
         stats.RebalanceTime += since(startTime);
     }
-    fmt::println("before spill bucket root {}", root->root);
+    log_debug("before spill bucket root {}", root->root);
     // spill data onto dirty pages.
     startTime = std::chrono::system_clock::now();
     if (auto err = root->spill(hold); err != bolt::Success) {
@@ -230,7 +230,7 @@ bolt::ErrorCode Tx::Commit() {
         return err;
     }
     stats.SpillTime += since(startTime);
-    fmt::println("after spill bucket root {}", root->root);
+    log_debug("after spill bucket root {}", root->root);
 
     // Free the old root bucket.
     meta.root.root = root->root;
@@ -274,9 +274,9 @@ bolt::ErrorCode Tx::Commit() {
         auto result = Check();
         auto errors = result.get();
         if (errors.size() > 0) {
-            fmt::println("database path: {}", dbptr->Path());
+            log_debug("database path: {}", dbptr->Path());
             for (auto &errstr : errors) {
-                fmt::println("  - check fail: {}", errstr);
+                log_debug("  - check fail: {}", errstr);
             }
         }
         // _assert(errors.empty(), "check fail");
@@ -378,7 +378,7 @@ std::future<std::vector<std::string>> Tx::Check() {
                 errors.push_back(fmt::format("page {}: already freed", item));
             }
             freed[item] = true;
-            fmt::println("page {} freed", item);
+            log_debug("page {} freed", item);
         }
         // Track every reachable page.
         std::map<impl::pgid, impl::page *> reachable;
@@ -386,7 +386,7 @@ std::future<std::vector<std::string>> Tx::Check() {
         reachable[1] = page(1);
         for (std::uint32_t i = 0; i <= page(meta.freelist)->overflow; i++) {
             reachable[meta.freelist + i] = page(meta.freelist);
-            fmt::println("page {} reachable", meta.freelist + i);
+            log_debug("page {} reachable", meta.freelist + i);
         }
 
         // Recursively check buckets.
@@ -417,7 +417,7 @@ void Tx::checkBucket(impl::BucketPtr bucket,
     if (!txptr) {
         return;
     }
-    fmt::println("check bucket root {}", bucket->root);
+    log_debug("check bucket root {}", bucket->root);
     // Check every page used by this bucket.
     txptr->forEachPage(
         bucket->root, 0, [&](impl::page *p, int depth) {
@@ -432,7 +432,7 @@ void Tx::checkBucket(impl::BucketPtr bucket,
                     errors.push_back(fmt::format("page {}: multiple references", id));
                 }
                 reachable[id] = p;
-                fmt::println("page {} reachable - bucket", id);
+                log_debug("page {} reachable - bucket", id);
             }
 
             // We should only encounter un-freed leaf and branch pages.

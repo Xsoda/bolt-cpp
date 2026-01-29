@@ -89,18 +89,18 @@ bolt::ErrorCode Bucket::ForEach(
 void Bucket::rebalance() {
     std::vector<impl::node_ptr> temp_nodes;
     std::vector<impl::BucketPtr> temp_buckets;
+    temp_nodes.reserve(nodes.size());
+    temp_buckets.reserve(buckets.size());
     for (auto &[key, val] : nodes) {
         temp_nodes.push_back(val);
     }
     for (auto &it : temp_nodes) {
-        fmt::println("=== rebalance node {}", it->pgid);
         it->rebalance();
     }
     for (auto &[key, child] : buckets) {
         temp_buckets.push_back(child);
     }
     for (auto &it : temp_buckets) {
-        fmt::println("=== rebalance bucket {}", it->root);
         it->rebalance();
     }
 }
@@ -183,9 +183,6 @@ bolt::ErrorCode Bucket::spill(std::vector<impl::node_ptr> &sp) {
         if ((flags & bolt::impl::bucketLeafFlag) == 0) {
             _assert(false, "unexpceted bucket header falg");
         }
-        if (auto n = c->node()) {
-            fmt::println("put {} to node {}", name, n->pgid);
-        }
         c->node()->put(key, key, value, 0, bolt::impl::bucketLeafFlag);
     }
     // Ignore if there's not a masterialized root node.
@@ -205,7 +202,7 @@ bolt::ErrorCode Bucket::spill(std::vector<impl::node_ptr> &sp) {
         _assert(false, "pgid ({}) above high water mark ({})", rootNode->pgid, txptr->meta.pgid);
     }
     root = rootNode->pgid;
-    fmt::println("* set bucket root {}", root);
+    log_debug("* set bucket root {}", root);
     return bolt::ErrorCode::Success;
 }
 
@@ -628,11 +625,9 @@ void Bucket::forEachPage(std::function<void(impl::page *, int)> &&fn) {
 }
 
 void Bucket::dump() {
-    fmt::println("[BUCKET root {}]", root);
+    log_debug("[BUCKET root {}]", root);
     if (rootNode) {
         rootNode->dump();
-    } else if (page) {
-        fmt::println("- INLINE PAGE {} pgid={}", page->type(), page->id);
     }
 }
 }

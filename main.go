@@ -38,7 +38,7 @@ func main() {
 		fmt.Println(err.Error())
 		return
 	}
-	const count = 40
+	const count = 1500
 	keys := make([]string, 0)
 	if err := db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucket([]byte("widgets"))
@@ -76,7 +76,7 @@ func main() {
 		bound := []byte(keys[m])
 		// bound := make([]byte, 8)
 		// binary.BigEndian.PutUint64(bound, uint64(count/2))
-		b.Dump()
+		// b.Dump()
 		for key, _ := c.First(); bytes.Compare(key, bound) < 0; key, _ = c.Next() {
 			if err := c.Delete(); err != nil {
 				fmt.Println(err.Error())

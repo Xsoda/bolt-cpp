@@ -254,21 +254,26 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
     _assert(inode.key.size() > 0, "put: zero-length inode key");
 }
 
+// del removes a key from the node.
 void node::del(bolt::bytes k) {
+    // Find index of key.
     auto it = std::find_if(
         inodes.begin(), inodes.end(), [&](impl::inode &item) -> bool {
           auto ret = std::lexicographical_compare_three_way(
-              k.begin(), k.end(), item.key.begin(), item.key.end());
+              item.key.begin(), item.key.end(), k.begin(), k.end());
           return !std::is_lt(ret);
-    });
+        });
+    // Exit if the key isn't found.
     if (it == inodes.end() ||
         !std::is_eq(std::lexicographical_compare_three_way(
             it->key.begin(), it->key.end(), k.begin(), k.end()))) {
-        fmt::println("### node {} del [{}, {}] not found", pgid, k, it->key);
+        log_debug("### node {} del [{}, {}] not found", pgid, k, it->key);
         dump();
         return;
     }
+    // Delete inode from the node.
     inodes.erase(it);
+    // Mark the node as needing rebalancing.
     unbalanced = true;
 }
 
@@ -420,7 +425,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
     if (spilled) {
         return bolt::ErrorCode::Success;
     }
-    fmt::println("1. spill node {}", pgid);
+    log_debug("1. spill node {}", pgid);
     // Spill child nodes first. Child nodes can meterialize sibling nodes in
     // the case of split-merge so we cannot use a range loop. We have to check
     // the children size on every loop iteration
@@ -487,7 +492,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
             return pptr->spill(hold);
         }
     }
-    fmt::println("2. spill node {}", pgid);
+    log_debug("2. spill node {}", pgid);
     return bolt::ErrorCode::Success;
 }
 
@@ -495,7 +500,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
 // size is below a threshold or if there are not enough keys.
 void node::rebalance() {
     if (!unbalanced) {
-        fmt::println("*** node {} already rebalanced", pgid);
+        log_debug("*** node {} already rebalanced", pgid);
         return;
     }
     auto bktptr = bucket.lock();
@@ -509,14 +514,17 @@ void node::rebalance() {
     // Ignore if node is above threshold (25%) and has enough keys.
     int threshold = dbptr->pageSize / 4;
     if (size() > threshold && inodes.size() > (size_t)minKeys()) {
-        fmt::println("*** node {} unneed rebalance", pgid);
+        log_debug("*** node {} unneed rebalance", pgid);
         return;
     }
-    fmt::println("*** rebalance node {}", pgid);
+    log_debug("*** rebalance node {}", pgid);
+    if (pgid == 0) {
+        dump();
+    }
     // Root node has special handling.
     if (parent.expired()) {
-        fmt::println("before root node rebalance");
-        dump();
+        log_debug("before root node rebalance");
+        // dump();
         // If root node is a branch and only has one node then collapse it.
         if (!isLeaf && inodes.size() == 1) {
             // Move root's child up.
@@ -542,7 +550,7 @@ void node::rebalance() {
             }
             child->free();
         }
-        fmt::println("after root node rebalance");
+        log_debug("after root node rebalance");
         dump();
         return;
     }
@@ -551,7 +559,7 @@ void node::rebalance() {
     auto pptr = parent.lock();
     if (numChildren() == 0) {
         impl::node_ptr self = shared_from_this();
-        fmt::println("# - 0 node {} del {}", pptr->pgid, key);
+        log_debug("# - 0 node {} del {}", pptr->pgid, key);
         pptr->del(key);
         pptr->removeChild(self);
         auto it = bktptr->nodes.find(pgid);
@@ -559,10 +567,11 @@ void node::rebalance() {
             bktptr->nodes.erase(it);
         }
         self->free();
-        fmt::println("current empty, before rebalance parent {}\n", pptr->pgid);
-        pptr->dump();
+        auto ppid = pptr->pgid;
+        log_debug("current empty, before rebalance parent {} {}\n", pptr->pgid, ppid);
+        // pptr->dump();
         pptr->rebalance();
-        fmt::println("current empty, after rebalance parent {}\n", pptr->pgid);
+        log_debug("current empty, after rebalance parent {} {}\n", pptr->pgid, ppid);
         pptr->dump();
         return;
     }
@@ -596,8 +605,8 @@ void node::rebalance() {
         // Copy over inodes from target and remove target.
         std::move(target->inodes.begin(), target->inodes.end(),
                   std::back_inserter(inodes));
-        fmt::println("# - 1 node {} del {}", pptr->pgid, target->key);
-        pptr->dump();
+        log_debug("# - 1 node {} del {}", pptr->pgid, target->key);
+        // pptr->dump();
         pptr->del(target->key);
         pptr->removeChild(target);
         auto it = bktptr->nodes.find(target->pgid);
@@ -616,6 +625,8 @@ void node::rebalance() {
 
                 child->parent = target;
                 target->children.push_back(child);
+            } else {
+                log_debug("* bucket node {} not found", item.pgid);
             }
         }
 
@@ -623,20 +634,22 @@ void node::rebalance() {
         impl::node_ptr self = shared_from_this();
         std::move(inodes.begin(), inodes.end(),
                   std::back_inserter(target->inodes));
-        fmt::println("# - 2 node {} del {}", pptr->pgid, key);
+        log_debug("# - 2 node {} del {}", pptr->pgid, key);
         pptr->del(key);
         pptr->removeChild(self);
         auto it = bktptr->nodes.find(pgid);
         if (it != bktptr->nodes.end()) {
             bktptr->nodes.erase(it);
+        } else {
+            log_debug("* bucket remove node {} not found", pgid);
         }
         self->free();
     }
-    fmt::println("normal node rebalance");
-    dump();
     // Either this node or the target node was deleted from the parent so
     // rebalance it.
     pptr->rebalance();
+    log_debug("normal node rebalance complete");
+    pptr->dump();
 }
 
 // removes a node from the list of in-memory children.
@@ -648,7 +661,8 @@ void node::removeChild(impl::node_ptr target) {
     if (it != children.end()) {
         children.erase(it);
     } else {
-        fmt::println("{} removeChild {} not found", pgid, target->key);
+        log_debug("{} removeChild {} not found", pgid, target->key);
+        dump();
     }
 }
 
@@ -723,25 +737,20 @@ void node::dump() {
     if (isLeaf) {
         type = "leaf";
     }
-    fmt::println("[NODE {} {{type={} count={}}}]", pgid, type, inodes.size());
+    log_debug("[NODE {} {{type={} count={}}}]", pgid, type, inodes.size());
     for (auto &item : inodes) {
         if (isLeaf) {
             if ((item.flags & bolt::impl::bucketLeafFlag) != 0) {
                 auto bucket = reinterpret_cast<impl::bucket *>(&item.value[0]);
-                fmt::println("+L {} -> (bucket root={})", item.key, bucket->root);
+                log_debug("+L {} -> (bucket root={})", item.key, bucket->root);
             } else {
-                fmt::println("+L {} -> {}", item.key, item.value);
+                log_debug("+L {} -> {}", item.key, item.value);
             }
         } else {
-            fmt::println("+B {} -> pgid={}", item.key, item.pgid);
-            if (auto b = bucket.lock()) {
-                if (auto [p, n] = b->pageNode(item.pgid); n != nullptr) {
-                    n->dump();
-                }
-            }
+            log_debug("+B {} -> pgid={}", item.key, item.pgid);
         }
     }
-    fmt::println("");
+    log_debug("");
 #endif
 }
 }

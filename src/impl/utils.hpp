@@ -46,20 +46,31 @@ namespace bolt::impl {
     using pgid = std::uint64_t;
     using txid = std::uint64_t;
 
-    template <typename... T>
+    template <typename... Args>
     void __assert(bool condition, const std::source_location &location,
-                  fmt::format_string<T...> fmt, T&&...args) {
+                  fmt::format_string<Args...> fmt, Args &&...args) {
         if (!condition) {
             fmt::println(stderr, "Assert Failed at {}:{} {}", location.file_name(), location.line(), location.function_name());
-            fmt::println(stderr, fmt, args...);
+            fmt::println(stderr, fmt, std::forward<Args>(args)...);
             assert(false);
         }
     };
+
+    template <typename... Args>
+    void __log(const std::source_location &location,
+               fmt::format_string<Args...> fmt, Args &&...args) {
+        fmt::println(fmt, std::forward<Args>(args)...);
+    }
 } // namespace bolt::impl
 
 #define _assert(condition, format, ...)                                        \
     bolt::impl::__assert(condition, std::source_location::current(), format, \
                          ##__VA_ARGS__)
-
+#ifndef NDEBUG
+#define log_debug(format, ...)                                                 \
+    bolt::impl::__log(std::source_location::current(), format, ##__VA_ARGS__)
+#else
+#define log_debug(format, ...)
+#endif
 
 #endif  // !__UTILS_HPP__
