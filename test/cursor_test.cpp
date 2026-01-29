@@ -148,7 +148,7 @@ template <std::integral T> constexpr T byteswap(T value) noexcept {
 }
 TestResult TestCursor_Delete() {
     auto db = MustOpenDB();
-    const int count = 1500;
+    const int count = 10000;
     std::vector<std::string> keys;
     keys.reserve(count);
     if (auto err = db->Update([&keys, count](bolt::impl::TxPtr tx) -> bolt::ErrorCode {

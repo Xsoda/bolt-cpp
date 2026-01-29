@@ -94,8 +94,11 @@ void Bucket::rebalance() {
     for (auto &[key, val] : nodes) {
         temp_nodes.push_back(val);
     }
-    for (auto &it : temp_nodes) {
-        it->rebalance();
+    for (auto it : temp_nodes) {
+        fmt::println("node [{}] use count {}", fmt::ptr(it.get()), it.use_count());
+        if (it->pgid != 0) {
+            it->rebalance();
+        }
     }
     for (auto &[key, child] : buckets) {
         temp_buckets.push_back(child);

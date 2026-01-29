@@ -518,9 +518,6 @@ void node::rebalance() {
         return;
     }
     log_debug("*** rebalance node {}", pgid);
-    if (pgid == 0) {
-        dump();
-    }
     // Root node has special handling.
     if (parent.expired()) {
         log_debug("before root node rebalance");
