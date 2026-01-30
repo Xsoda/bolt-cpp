@@ -385,7 +385,7 @@ void Cursor::searchPage(bolt::bytes key, impl::page *p) {
                              auto ret = std::lexicographical_compare_three_way(
                                  k.begin(), k.end(), key.begin(), key.end());
                              if (std::is_eq(ret)) {
-                               exact = true;
+                                 exact = true;
                              }
                              return !std::is_lt(ret);
                            });
@@ -408,7 +408,7 @@ void Cursor::nsearch(bolt::bytes key) {
         auto nptr = n.lock();
         auto it = std::find_if(
             nptr->inodes.begin(), nptr->inodes.end(),
-            [&](impl::inode item) -> bool {
+            [&](impl::inode &item) -> bool {
               auto ret = std::lexicographical_compare_three_way(
                   item.key.begin(), item.key.end(), key.begin(), key.end());
               return !std::is_lt(ret);

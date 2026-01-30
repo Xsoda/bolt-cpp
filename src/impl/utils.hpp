@@ -1,6 +1,9 @@
 #pragma once
 
+#include "bits/iterator_concepts.h"
+#include "compare"
 #include "fmt/base.h"
+#include <iterator>
 #ifndef __UTILS_HPP__
 #define __UTILS_HPP__
 
@@ -61,6 +64,7 @@ namespace bolt::impl {
                fmt::format_string<Args...> fmt, Args &&...args) {
         fmt::println(fmt, std::forward<Args>(args)...);
     }
+
 } // namespace bolt::impl
 
 #define _assert(condition, format, ...)                                        \

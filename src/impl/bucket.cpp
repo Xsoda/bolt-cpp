@@ -617,7 +617,7 @@ void Bucket::forEachPage(std::function<void(impl::page *, int)> &&fn) {
     }
     // Otherwise traverse the page hierarchy.
     auto txptr = tx.lock();
-    txptr->forEachPage(root, 0, std::move(fn));
+    txptr->forEachPage(root, 0, std::forward<decltype(fn)>(fn));
 }
 
 void Bucket::dump() {
