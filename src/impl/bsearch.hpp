@@ -13,7 +13,7 @@ template <class ForwardIt,
           class Compare>
 std::tuple<ForwardIt, std::strong_ordering> bsearch(ForwardIt first, ForwardIt last,
                                                     const T &value, Compare comp) {
-    ForwardIt it;
+    ForwardIt it = first;
     auto ret = std::strong_ordering::equal;
     typename std::iterator_traits<ForwardIt>::difference_type left, right,
         middle;

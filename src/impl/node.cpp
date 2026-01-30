@@ -9,6 +9,7 @@
 #include <initializer_list>
 #include <iterator>
 #include <iostream>
+#include <span>
 #ifndef NDEBUG
 #include <ranges>
 #include "fmt/format.h"
@@ -132,10 +133,10 @@ size_t node::size() const {
     return sz;
 }
 
-bool node::sizeLessThan(size_t v) const {
+bool node::sizeLessThan(size_t v, size_t off) const {
     size_t sz = impl::pageHeaderSize;
     size_t elsz = pageElementSize();
-    for (size_t i = 0; i < inodes.size(); i++) {
+    for (size_t i = off; i < inodes.size(); i++) {
         auto &item = inodes[i];
         sz += elsz + item.key.size() + item.value.size();
         if (sz >= v) {
@@ -432,10 +433,10 @@ node::splitTwo(size_t pageSize, std::vector<impl::node_ptr> &hold) {
     return std::make_tuple(shared_from_this(), next);
 }
 
-std::tuple<size_t, size_t> node::splitIndex(size_t threshold) {
+std::tuple<size_t, size_t> node::splitIndex(size_t threshold, size_t off) {
     size_t index;
     size_t sz = impl::pageHeaderSize;
-    for (size_t i = 0; i < inodes.size() - impl::minKeysPerPage; i++) {
+    for (size_t i = off; i < inodes.size() - impl::minKeysPerPage; i++) {
         index = i;
         impl::inode &inode = inodes.at(i);
         size_t elsize = pageElementSize() + inode.key.size() + inode.value.size();
@@ -468,6 +469,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
                     a->key.begin(), a->key.end(), b->key.begin(), b->key.end());
                 return std::is_lt(ret);
               });
+    log_debug("node {} sort complete", pgid);
     for (size_t i = 0; i < children.size(); i++) {
         auto err = children[i]->spill(hold);
         if (err != bolt::ErrorCode::Success) {
@@ -746,6 +748,14 @@ std::vector<impl::node_ptr> node::split(size_t pageSize, std::vector<impl::node_
         // Set node to b so it gets split on the next iteration.
         node = b;
     }
+    return nodes;
+}
+
+// [TODO]
+std::vector<impl::node_ptr> node::split_v2(size_t pageSize,
+                                           std::vector<impl::node_ptr> &sp) {
+    std::vector<impl::node_ptr> nodes;
+    std::vector<std::span<impl::inode>> split_result;
     return nodes;
 }
 

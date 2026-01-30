@@ -57,7 +57,7 @@ struct node : public std::enable_shared_from_this<node> {
     // sizeLessThan returns true if the node is less than a given size.
     // This is an optimization to avoid calculating a large node when we only need
     // to know if it fits inside a certain page size.
-    bool sizeLessThan(size_t v) const;
+    bool sizeLessThan(size_t v, size_t off = 0) const;
 
     // pageElementSize returns the size of each page element based on the type of node.
     size_t pageElementSize() const;
@@ -93,6 +93,7 @@ struct node : public std::enable_shared_from_this<node> {
     // This should only be called from the spill() function.
     std::vector<impl::node_ptr> split(size_t pageSize, std::vector<impl::node_ptr> &sp);
 
+    std::vector<impl::node_ptr> split_v2(size_t pageSize, std::vector<impl::node_ptr> &sp);
     // splitTwo breaks up a node into two smaller nodes, if appropriate.
     // This should only be called from the split() function.
     // extra return parent pointer used hook std::weak_ptr
@@ -101,7 +102,7 @@ struct node : public std::enable_shared_from_this<node> {
     // splitIndex finds the position where a page will fill a given threshold.
     // It returns the index as well as the size of the first page.
     // This is only be called from split().
-    std::tuple<size_t, size_t> splitIndex(size_t threshold);
+    std::tuple<size_t, size_t> splitIndex(size_t threshold, size_t off = 0);
 
     // spill writes the nodes to dirty pages and splits nodes as it goes.
     // Returns an error if dirty pages cannot be allocated.
