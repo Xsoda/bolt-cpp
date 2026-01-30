@@ -3,6 +3,7 @@
 #include "impl/tx.hpp"
 #include "impl/freelist.hpp"
 #include "impl/utils.hpp"
+#include "impl/bsearch.hpp"
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
@@ -163,13 +164,22 @@ impl::node_ptr node::childAt(ptrdiff_t index) {
 }
 
 ptrdiff_t node::childIndex(impl::node_ptr child) {
-    auto it =
-        std::find_if(inodes.begin(), inodes.end(), [&](impl::inode &n) -> bool {
-          auto ret = std::lexicographical_compare_three_way(
-              std::begin(n.key), std::end(n.key), std::begin(child->key),
-              std::end(child->key));
-          return !std::is_lt(ret);
-        });
+    // auto it =
+    //     std::find_if(inodes.begin(), inodes.end(), [&](impl::inode &n) ->
+    //     bool {
+    //       auto ret = std::lexicographical_compare_three_way(
+    //           std::begin(n.key), std::end(n.key), std::begin(child->key),
+    //           std::end(child->key));
+    //       return !std::is_lt(ret);
+    //     });
+    auto [it, cmp] =
+        impl::bsearch(std::begin(inodes), std::end(inodes), child,
+                      [](const impl::node_ptr &child,
+                         impl::inode &n) -> std::strong_ordering {
+                        return std::lexicographical_compare_three_way(
+                            std::begin(child->key), std::end(child->key),
+                            std::begin(n.key), std::end(n.key));
+                      });
     return std::distance(inodes.begin(), it);
 }
 
@@ -222,20 +232,30 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
     }
 
     // Find insertion index.
-    auto it = std::find_if(
-        inodes.begin(), inodes.end(), [&](impl::inode& item) -> bool {
-            auto ret = std::lexicographical_compare_three_way(
-                item.key.begin(), item.key.end(), oldKey.begin(), oldKey.end());
-            return !std::is_lt(ret);
-        });
-    auto index = (size_t)std::distance(inodes.begin(), it);
+    // auto it = std::find_if(
+    //     inodes.begin(), inodes.end(), [&](impl::inode& item) -> bool {
+    //         auto ret = std::lexicographical_compare_three_way(
+    //             item.key.begin(), item.key.end(), oldKey.begin(), oldKey.end());
+    //         return !std::is_lt(ret);
+    //     });
+    // auto index = (size_t)std::distance(inodes.begin(), it);
 
     // Add capacity and shift nodes if we don't have an exact match and need to
     // insert.
-    auto exact = inodes.size() > 0 && index < inodes.size() &&
-        std::is_eq(std::lexicographical_compare_three_way(inodes[index].key.begin(),
-                                                          inodes[index].key.end(),
-                                                          oldKey.begin(), oldKey.end()));
+    // auto exact = inodes.size() > 0 && index < inodes.size() &&
+    //     std::is_eq(std::lexicographical_compare_three_way(inodes[index].key.begin(),
+    //                                                       inodes[index].key.end(),
+    //                                                       oldKey.begin(),
+    //                                                       oldKey.end()));
+    auto [it, cmp] = impl::bsearch(
+        std::begin(inodes), std::end(inodes), oldKey,
+        [](const bolt::bytes &key, impl::inode &item) -> std::strong_ordering {
+          return std::lexicographical_compare_three_way(
+              std::begin(key), std::end(key), std::begin(item.key),
+              std::end(item.key));
+        });
+    auto index = std::distance(std::begin(inodes), it);
+    auto exact = inodes.size() > 0 && index < inodes.size() && std::is_eq(cmp);
     if (!exact) {
         inodes.insert(inodes.begin() + index, impl::inode{});
     }
@@ -258,16 +278,28 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
 // del removes a key from the node.
 void node::del(bolt::bytes k) {
     // Find index of key.
-    auto it = std::find_if(
-        inodes.begin(), inodes.end(), [&](impl::inode &item) -> bool {
-          auto ret = std::lexicographical_compare_three_way(
-              item.key.begin(), item.key.end(), k.begin(), k.end());
-          return !std::is_lt(ret);
+    // auto it = std::find_if(
+    //     inodes.begin(), inodes.end(), [&](impl::inode &item) -> bool {
+    //       auto ret = std::lexicographical_compare_three_way(
+    //           item.key.begin(), item.key.end(), k.begin(), k.end());
+    //       return !std::is_lt(ret);
+    //     });
+    // // Exit if the key isn't found.
+    // if (it == inodes.end() ||
+    //     !std::is_eq(std::lexicographical_compare_three_way(
+    //         it->key.begin(), it->key.end(), k.begin(), k.end()))) {
+    //     log_debug("### node {} del [{}, {}] not found", pgid, k, it->key);
+    //     dump();
+    //     return;
+    // }
+    auto [it, cmp] = impl::bsearch(
+        std::begin(inodes), std::end(inodes), k,
+        [](const bolt::bytes &k, impl::inode &item) -> std::strong_ordering {
+          return std::lexicographical_compare_three_way(
+              std::begin(k), std::end(k), std::begin(item.key),
+              std::end(item.key));
         });
-    // Exit if the key isn't found.
-    if (it == inodes.end() ||
-        !std::is_eq(std::lexicographical_compare_three_way(
-            it->key.begin(), it->key.end(), k.begin(), k.end()))) {
+    if (it == inodes.end() || !std::is_eq(cmp)) {
         log_debug("### node {} del [{}, {}] not found", pgid, k, it->key);
         dump();
         return;
@@ -431,7 +463,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
     // the case of split-merge so we cannot use a range loop. We have to check
     // the children size on every loop iteration
     std::sort(children.begin(), children.end(),
-              [](impl::node_ptr a, impl::node_ptr b) -> bool {
+              [](impl::node_ptr &a, impl::node_ptr &b) -> bool {
                 auto ret = std::lexicographical_compare_three_way(
                     a->key.begin(), a->key.end(), b->key.begin(), b->key.end());
                 return std::is_lt(ret);
@@ -553,7 +585,7 @@ void node::rebalance() {
     auto pptr = parent.lock();
     if (numChildren() == 0) {
         impl::node_ptr self = shared_from_this();
-        log_debug("# - 0 node {} del {} - {}", pptr->pgid, pgid, key);
+        // log_debug("# - 0 node {} del {} - {}", pptr->pgid, pgid, key);
         pptr->del(key);
         pptr->removeChild(self);
         auto it = bktptr->nodes.find(pgid);
@@ -595,7 +627,7 @@ void node::rebalance() {
         // Copy over inodes from target and remove target.
         std::move(target->inodes.begin(), target->inodes.end(),
                   std::back_inserter(inodes));
-        log_debug("# - 1 node {} del {} - {}", pptr->pgid, target->pgid, target->key);
+        // log_debug("# - 1 node {} del {} - {}", pptr->pgid, target->pgid, target->key);
         pptr->del(target->key);
         pptr->removeChild(target);
         auto it = bktptr->nodes.find(target->pgid);
@@ -623,7 +655,7 @@ void node::rebalance() {
         impl::node_ptr self = shared_from_this();
         std::move(inodes.begin(), inodes.end(),
                   std::back_inserter(target->inodes));
-        log_debug("# - 2 node {} del {} - {}", pptr->pgid, pgid, key);
+        // log_debug("# - 2 node {} del {} - {}", pptr->pgid, pgid, key);
         pptr->del(key);
         pptr->removeChild(self);
         auto it = bktptr->nodes.find(pgid);

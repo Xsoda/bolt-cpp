@@ -1,5 +1,7 @@
 #include "fmt/base.h"
 #include "test.hpp"
+#include "impl/bsearch.hpp"
+#include <algorithm>
 #include <chrono>
 #include <span>
 #include <vector>
