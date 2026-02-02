@@ -117,10 +117,10 @@ bolt::ErrorCode Tx::writeMeta() {
     std::vector<std::byte> buf;
     buf.assign(dbptr->pageSize, std::byte(0x00));
 
-    impl::page *p = dbptr->pageInBuffer(bolt::bytes(buf.begin(), buf.end()), 0);
+   impl::page *p = dbptr->pageInBuffer(bolt::bytes{buf}, 0);
     meta.write(p);
-    auto [_, err] = dbptr->file.WriteAt(bolt::bytes(buf.begin(), buf.end()),
-                                (std::int64_t)p->id * dbptr->pageSize);
+    auto [_, err] = dbptr->file.WriteAt(bolt::bytes{buf},
+                                        (std::int64_t)p->id * dbptr->pageSize);
     if (err != bolt::Success) {
         return err;
     }
@@ -378,7 +378,7 @@ std::future<std::vector<std::string>> Tx::Check() {
                 errors.push_back(fmt::format("page {}: already freed", item));
             }
             freed[item] = true;
-            log_debug("page {} freed", item);
+            // log_debug("page {} freed", item);
         }
         // Track every reachable page.
         std::map<impl::pgid, impl::page *> reachable;
@@ -386,7 +386,7 @@ std::future<std::vector<std::string>> Tx::Check() {
         reachable[1] = page(1);
         for (std::uint32_t i = 0; i <= page(meta.freelist)->overflow; i++) {
             reachable[meta.freelist + i] = page(meta.freelist);
-            log_debug("page {} reachable", meta.freelist + i);
+            // log_debug("page {} reachable", meta.freelist + i);
         }
 
         // Recursively check buckets.
@@ -432,7 +432,7 @@ void Tx::checkBucket(impl::BucketPtr bucket,
                     errors.push_back(fmt::format("page {}: multiple references", id));
                 }
                 reachable[id] = p;
-                log_debug("page {} reachable - bucket", id);
+                // log_debug("page {} reachable - bucket", id);
             }
 
             // We should only encounter un-freed leaf and branch pages.

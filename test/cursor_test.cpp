@@ -148,7 +148,7 @@ template <std::integral T> constexpr T byteswap(T value) noexcept {
 }
 TestResult TestCursor_Delete() {
     auto db = MustOpenDB();
-    const int count = 100000;
+    const int count = 20000;
     std::vector<std::string> keys;
     keys.reserve(count);
     if (auto err = db->Update([&keys, count](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
@@ -159,26 +159,26 @@ TestResult TestCursor_Delete() {
             return err;
         }
         for (int i = 0; i < count; i++) {
-            std::uint64_t k = i;
-            std::vector<std::byte> value;
-            value.assign(100, std::byte(0));
-            if constexpr (std::endian::native == std::endian::little) {
-                k = byteswap(k);
-            }
-            std::span<std::byte> key = std::span<std::byte>{
-                reinterpret_cast<std::byte *>(&k), sizeof(std::uint64_t)};
-            std::span<std::byte> val = std::span<std::byte>{
-                reinterpret_cast<std::byte *>(value.data()), value.size()};
-            if (auto err = b->Put(key, val); err != bolt::Success) {
-                return err;
-            }
-            // auto k = RandomCharset(8);
-            // auto v = RandomCharset(100);
-            // keys.push_back(k);
-            // if (auto err = b->Put(to_bytes(k), to_bytes(v));
-            //     err != bolt::Success) {
+            // std::uint64_t k = i;
+            // std::vector<std::byte> value;
+            // value.assign(100, std::byte(0));
+            // if constexpr (std::endian::native == std::endian::little) {
+            //     k = byteswap(k);
+            // }
+            // std::span<std::byte> key = std::span<std::byte>{
+            //     reinterpret_cast<std::byte *>(&k), sizeof(std::uint64_t)};
+            // std::span<std::byte> val = std::span<std::byte>{
+            //     reinterpret_cast<std::byte *>(value.data()), value.size()};
+            // if (auto err = b->Put(key, val); err != bolt::Success) {
             //     return err;
             // }
+            auto k = RandomCharset(8);
+            auto v = RandomCharset(100);
+            keys.push_back(k);
+            if (auto err = b->Put(to_bytes(k), to_bytes(v));
+                err != bolt::Success) {
+                return err;
+            }
         }
         if (std::tie(b, err) = b->CreateBucket(to_bytes(sub));
             err != bolt::Success) {
@@ -196,18 +196,19 @@ TestResult TestCursor_Delete() {
             std::string sub = "sub";
             auto c = tx->Bucket(to_bytes(widgets))->Cursor();
             std::uint64_t m = count / 2;
-            // std::sort(keys.begin(), keys.end());
+            std::sort(keys.begin(), keys.end());
             auto b = c->Bucket();
-            if constexpr (std::endian::native == std::endian::little) {
-              m = byteswap(m);
-            }
-            std::span<std::byte> bound = std::span<std::byte>{
-                reinterpret_cast<std::byte *>(&m),
-                sizeof(std::uint64_t)};
+            // if constexpr (std::endian::native == std::endian::little) {
+            //   m = byteswap(m);
+            // }
             // std::span<std::byte> bound = std::span<std::byte>{
-            //     reinterpret_cast<std::byte *>(keys[m].data()),
-            //     keys[m].size()};
+            //     reinterpret_cast<std::byte *>(&m),
+            //     sizeof(std::uint64_t)};
+            std::span<std::byte> bound = std::span<std::byte>{
+                reinterpret_cast<std::byte *>(keys[m].data()),
+                keys[m].size()};
             auto [k, v] = c->First();
+            fmt::println("middle {}", bound);
             while (std::is_lt(std::lexicographical_compare_three_way(
                                                                      k.begin(), k.end(), bound.begin(), bound.end()))) {
                 if (auto err = c->Delete(); err != bolt::Success) {
@@ -233,6 +234,7 @@ TestResult TestCursor_Delete() {
         err != bolt::Success) {
         return TestResult(false, "3. unexpected error: {}", err);
     }
+    fmt::println("last {}", RandomCharset(5));
     MustCloseDB(std::move(db));
     return true;
 }

@@ -73,7 +73,7 @@ struct Bucket : public bucket,
     void rebalance();
     bool inlineable() const;
     int maxInlineBucketSize();
-    bolt::ErrorCode spill(std::vector<impl::node_ptr> &sp);
+    bolt::ErrorCode spill(std::vector<impl::node_ptr> &hold);
     void free();
     void dereference();
     int maxInlineBucketSize() const;

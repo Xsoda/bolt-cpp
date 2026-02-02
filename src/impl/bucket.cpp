@@ -136,7 +136,7 @@ bool Bucket::inlineable() const {
 }
 
 // spill writes all the nodes for this bucket to dirty pages.
-bolt::ErrorCode Bucket::spill(std::vector<impl::node_ptr> &sp) {
+bolt::ErrorCode Bucket::spill(std::vector<impl::node_ptr> &hold) {
     // Spill all child buckets first.
     for (auto &[name, child] : buckets) {
         // If the child bucket is small enough and it has no child buckets then
@@ -147,7 +147,7 @@ bolt::ErrorCode Bucket::spill(std::vector<impl::node_ptr> &sp) {
             child->free();
             value = child->write();
         } else {
-            auto err = child->spill(sp);
+            auto err = child->spill(hold);
             if (err != bolt::ErrorCode::Success) {
                 return err;
             }
@@ -187,7 +187,7 @@ bolt::ErrorCode Bucket::spill(std::vector<impl::node_ptr> &sp) {
     }
 
     // Spill nodes.
-    if (auto err = rootNode->spill(sp); err != bolt::ErrorCode::Success) {
+    if (auto err = rootNode->spill(hold); err != bolt::ErrorCode::Success) {
         return err;
     }
     rootNode = rootNode->root();
