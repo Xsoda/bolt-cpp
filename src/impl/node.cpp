@@ -481,7 +481,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
     children.clear();
 
     // Split nodes into appropriate sizes. The first node will always be n.
-    auto nodes = split(dbptr->pageSize, hold);
+    auto nodes = split_v2(dbptr->pageSize, hold);
 
     for (auto &it : nodes) {
         // Add node's page to the freelist if it's not new.
@@ -766,11 +766,10 @@ std::vector<impl::node_ptr> node::split_v2(size_t pageSize,
         fillPercent = maxFillPercent;
     }
     size_t threshold = (size_t)(pageSize * fillPercent);
-    size_t splitIdx, offset;
-    offset = 0;
+    size_t splitIdx, offset = 0;
 
     while (offset < inodes.size()) {
-        if (inodes.size() <= impl::minKeysPerPage * 2 ||
+        if (inodes.size() - offset <= impl::minKeysPerPage * 2 ||
             sizeLessThan(pageSize, offset)) {
 
             split_result.push_back(std::span<impl::inode>(
@@ -779,8 +778,8 @@ std::vector<impl::node_ptr> node::split_v2(size_t pageSize,
         }
         std::tie(splitIdx, std::ignore) = splitIndex(threshold, offset);
         split_result.push_back(
-            std::span<impl::inode>(inodes.begin() + offset, splitIdx));
-        offset += splitIdx;
+            std::span<impl::inode>(inodes.begin() + offset, splitIdx - offset));
+        offset = splitIdx;
     }
 
     auto pptr = parent.lock();
