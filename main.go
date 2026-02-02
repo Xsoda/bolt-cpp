@@ -2,9 +2,10 @@ package main
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"syscall"
 
 	bolt "github.com/boltdb/bolt"
@@ -38,24 +39,24 @@ func main() {
 		return
 	}
 	const count = 100000
-	// keys := make([]string, 0)
+	keys := make([]string, 0)
 	if err := db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucket([]byte("widgets"))
 		if err != nil {
 			return err
 		}
 		for i := 0; i < count; i += 1 {
-			// k := RandomCharset(8)
-			// v := RandomCharset(100)
-			// keys = append(keys, k)
-			// if err := b.Put([]byte(k), []byte(v)); err != nil {
-			// 	return err
-			// }
-			k := make([]byte, 8)
-			binary.BigEndian.PutUint64(k, uint64(i))
-			if err := b.Put(k, make([]byte, 100)); err != nil {
+			k := RandomCharset(8)
+			v := RandomCharset(100)
+			keys = append(keys, k)
+			if err := b.Put([]byte(k), []byte(v)); err != nil {
 				return err
 			}
+			// k := make([]byte, 8)
+			// binary.BigEndian.PutUint64(k, uint64(i))
+			// if err := b.Put(k, make([]byte, 100)); err != nil {
+			// 	return err
+			// }
 		}
 		if _, err := b.CreateBucket([]byte("sub")); err != nil {
 			return err
@@ -68,21 +69,24 @@ func main() {
 	if err := db.Update(func(tx *bolt.Tx) error {
 		c := tx.Bucket([]byte("widgets")).Cursor()
 		b := c.Bucket()
-		// m := count / 2
-		// sort.Slice(keys, func(i, j int) bool {
-		// 	return strings.Compare(keys[i], keys[j]) < 0
-		// })
-		// bound := []byte(keys[m])
-		bound := make([]byte, 8)
-		binary.BigEndian.PutUint64(bound, uint64(count/2))
+		m := count / 2
+		sort.Slice(keys, func(i, j int) bool {
+			return strings.Compare(keys[i], keys[j]) < 0
+		})
+		bound := []byte(keys[m])
+		// bound := make([]byte, 8)
+		// binary.BigEndian.PutUint64(bound, uint64(count/2))
 		// b.Dump()
+		fmt.Printf("middle: %s\n", string(bound))
 		for key, _ := c.First(); bytes.Compare(key, bound) < 0; key, _ = c.Next() {
+			fmt.Printf("delete %s\n", string(key))
 			if err := c.Delete(); err != nil {
 				fmt.Println(err.Error())
 			}
 		}
 
-		c.Seek([]byte("sub"))
+		k, v := c.Seek([]byte("sub"))
+		fmt.Printf("key: %s, value: %s\n", string(k), string(v))
 		if err := c.Delete(); err != bolt.ErrIncompatibleValue {
 			fmt.Printf("unexpected error: %s\n", err.Error())
 		}
@@ -91,6 +95,6 @@ func main() {
 	}); err != nil {
 		fmt.Println(err.Error())
 	}
-
+	fmt.Printf("last %s\n", RandomCharset(5))
 	db.Close()
 }

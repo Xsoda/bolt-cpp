@@ -148,7 +148,7 @@ template <std::integral T> constexpr T byteswap(T value) noexcept {
 }
 TestResult TestCursor_Delete() {
     auto db = MustOpenDB();
-    const int count = 20000;
+    const int count = 100000;
     std::vector<std::string> keys;
     keys.reserve(count);
     if (auto err = db->Update([&keys, count](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
@@ -208,9 +208,9 @@ TestResult TestCursor_Delete() {
                 reinterpret_cast<std::byte *>(keys[m].data()),
                 keys[m].size()};
             auto [k, v] = c->First();
-            fmt::println("middle {}", bound);
+
             while (std::is_lt(std::lexicographical_compare_three_way(
-                                                                     k.begin(), k.end(), bound.begin(), bound.end()))) {
+                k.begin(), k.end(), bound.begin(), bound.end()))) {
                 if (auto err = c->Delete(); err != bolt::Success) {
                     return err;
                 }

@@ -376,7 +376,7 @@ void Cursor::searchNode(bolt::bytes key, impl::node_ptr n) {
         [](const bolt::bytes &key, impl::inode &item) -> std::strong_ordering {
           return std::lexicographical_compare_three_way(
               std::begin(key), std::end(key), std::begin(item.key),
-              std::begin(item.key));
+              std::end(item.key));
         });
     auto index = std::distance(std::begin(n->inodes), it);
     if (!std::is_eq(cmp) && index > 0) {
