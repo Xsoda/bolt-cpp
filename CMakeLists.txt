@@ -56,6 +56,7 @@ target_sources(${PROJECT_NAME}
   src/impl/file.hpp
   src/impl/cursor.cpp
   src/impl/cursor.hpp
+  src/impl/bsearch.hpp
 )
 
 target_sources(${PROJECT_NAME}

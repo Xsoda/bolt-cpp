@@ -699,18 +699,15 @@ void node::dereference() {
         _assert(pgid == 0 || key.size() > 0, "dereference: zero-length node key on existing node");
     }
     for (auto &it : inodes) {
-        std::vector<std::byte> key, value;
-        key.assign(it.key.begin(), it.key.end());
-        value.assign(it.value.begin(), it.value.end());
-        _assert(key.size() > 0, "dereference: zero-length inode key");
+        _assert(it.key.size() > 0, "dereference: zero-length inode key");
         it.memory.clear();
-        it.memory.reserve(key.size() + value.size());
+        it.memory.reserve(it.key.size() + it.value.size());
 
-        std::copy(key.begin(), key.end(), std::back_inserter(it.memory));
+        std::copy(it.key.begin(), it.key.end(), std::back_inserter(it.memory));
         it.key = bolt::bytes(it.memory.begin(), it.memory.end());
 
-        std::copy(value.begin(), value.end(), std::back_inserter(it.memory));
-        it.value = bolt::bytes(it.memory.begin() + key.size(), it.memory.end());
+        std::copy(it.value.begin(), it.value.end(), std::back_inserter(it.memory));
+        it.value = bolt::bytes(it.memory.begin() + it.key.size(), it.memory.end());
     }
 
     // Recursively dereference children.
@@ -751,7 +748,6 @@ std::vector<impl::node_ptr> node::split(size_t pageSize, std::vector<impl::node_
     return nodes;
 }
 
-// [TODO]
 std::vector<impl::node_ptr> node::split_v2(size_t pageSize,
                                            std::vector<impl::node_ptr> &hold) {
     std::vector<impl::node_ptr> nodes;
@@ -772,18 +768,18 @@ std::vector<impl::node_ptr> node::split_v2(size_t pageSize,
         if (inodes.size() - offset <= impl::minKeysPerPage * 2 ||
             sizeLessThan(pageSize, offset)) {
 
-            split_result.push_back(std::span<impl::inode>(
+            split_result.emplace_back(std::span<impl::inode>(
                 inodes.begin() + offset, inodes.size() - offset));
             break;
         }
         std::tie(splitIdx, std::ignore) = splitIndex(threshold, offset);
-        split_result.push_back(
+        split_result.emplace_back(
             std::span<impl::inode>(inodes.begin() + offset, splitIdx - offset));
         offset = splitIdx;
     }
 
     if (split_result.size() == 1) {
-        nodes.push_back(shared_from_this());
+        nodes.emplace_back(shared_from_this());
         return nodes;
     }
 
@@ -799,7 +795,7 @@ std::vector<impl::node_ptr> node::split_v2(size_t pageSize,
         nodes[i] = std::make_shared<impl::node>(bktptr, isLeaf, pptr);
         std::move(split_result[i].begin(), split_result[i].end(),
                   std::back_inserter(nodes[i]->inodes));
-        pptr->children.push_back(nodes[i]);
+        pptr->children.emplace_back(nodes[i]);
         txptr->stats.Split++;
     }
     inodes.erase(std::next(inodes.begin(), split_result[0].size()), inodes.end());
