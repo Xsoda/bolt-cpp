@@ -36,5 +36,79 @@ std::tuple<ForwardIt, std::strong_ordering> bsearch(ForwardIt first, ForwardIt l
     }
     return std::make_tuple(it, ret);
 }
+
+template <class ForwardIt,
+          class T = typename std::iterator_traits<ForwardIt>::value_type,
+          class Compare>
+std::tuple<ForwardIt, std::strong_ordering>
+bsearch2(ForwardIt first, ForwardIt last, const T &value, Compare comp) {
+    ForwardIt it = first;
+    auto ret = std::strong_ordering::less;
+    typename std::iterator_traits<ForwardIt>::difference_type count, step;
+    count = std::distance(first, last);
+
+    while (count > 0) {
+        it = first;
+        step = count / 2;
+        ret = comp(value, *it);
+        if (std::is_lt(ret)) {
+            count = step;
+        } else if (std::is_gt(ret)) {
+            first = ++it;
+            count -= step + 1;
+        } else {
+            break;
+        }
+    }
+    return std::make_tuple(first, ret);
+}
+
+template <class ForwardIt,
+          class T = typename std::iterator_traits<ForwardIt>::value_type,
+          class Compare>
+ForwardIt upper_bound(ForwardIt first, ForwardIt last, const T &value,
+                      Compare comp) {
+    ForwardIt it;
+    typename std::iterator_traits<ForwardIt>::difference_type count, step;
+    count = std::distance(first, last);
+
+    while (count > 0) {
+        it = first;
+        step = count / 2;
+        std::advance(it, step);
+
+        if (!comp(value, *it)) {
+            first = ++it;
+            count -= step + 1;
+        } else
+            count = step;
+    }
+
+    return first;
+}
+
+template <class ForwardIt,
+          class T = typename std::iterator_traits<ForwardIt>::value_type,
+          class Compare>
+ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T &value,
+                      Compare comp) {
+    ForwardIt it;
+    typename std::iterator_traits<ForwardIt>::difference_type count, step;
+    count = std::distance(first, last);
+
+    while (count > 0) {
+        it = first;
+        step = count / 2;
+        std::advance(it, step);
+
+        if (comp(*it, value)) {
+            first = ++it;
+            count -= step + 1;
+        } else
+            count = step;
+    }
+
+    return first;
+}
 }
 #endif  // !__BSEARCH_HPP__
