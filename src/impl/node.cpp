@@ -782,6 +782,11 @@ std::vector<impl::node_ptr> node::split_v2(size_t pageSize,
         offset = splitIdx;
     }
 
+    if (split_result.size() == 1) {
+        nodes.push_back(shared_from_this());
+        return nodes;
+    }
+
     auto pptr = parent.lock();
     if (!pptr) {
         pptr = std::make_shared<impl::node>(bktptr, std::initializer_list<impl::node_ptr>({shared_from_this()}));
