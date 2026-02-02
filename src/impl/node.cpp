@@ -214,16 +214,16 @@ impl::node_ptr node::prevSibling() {
 
 void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
     impl::pgid pgid, std::uint32_t flags) {
-    auto bptr = bucket.lock();
-    if (!bptr) {
+    auto bktptr = bucket.lock();
+    if (!bktptr) {
         _assert(false, "bucket invalid");
     }
-    auto tptr = bptr->tx.lock();
-    if (!tptr) {
+    auto txptr = bktptr->tx.lock();
+    if (!txptr) {
         _assert(false, "tx invalid");
     }
-    if (pgid >= tptr->meta.pgid) {
-        _assert(false, "pgid ({}) above high water mark ({})", pgid, tptr->meta.pgid);
+    if (pgid >= txptr->meta.pgid) {
+        _assert(false, "pgid ({}) above high water mark ({})", pgid, txptr->meta.pgid);
     }
     else if (oldKey.size() <= 0) {
         _assert(false, "put: zero-length old key");
@@ -714,17 +714,17 @@ void node::dereference() {
     for (auto it : children) {
         it->dereference();
     }
-    auto bptr = bucket.lock();
-    auto tptr = bptr->tx.lock();
-    tptr->stats.NodeDeref++;
+    auto bktptr = bucket.lock();
+    auto txptr = bktptr->tx.lock();
+    txptr->stats.NodeDeref++;
 }
 
 void node::free() {
     if (pgid != 0) {
-        auto bptr = bucket.lock();
-        auto tptr = bptr->tx.lock();
-        auto dbptr = tptr->db.lock();
-        dbptr->freelist->free(tptr->meta.txid, tptr->page(pgid));
+        auto bktptr = bucket.lock();
+        auto txptr = bktptr->tx.lock();
+        auto dbptr = txptr->db.lock();
+        dbptr->freelist->free(txptr->meta.txid, txptr->page(pgid));
         pgid = 0;
     }
 }
