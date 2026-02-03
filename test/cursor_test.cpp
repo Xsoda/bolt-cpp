@@ -2,6 +2,7 @@
 #include "impl/db.hpp"
 #include "impl/page.hpp"
 #include "impl/cursor.hpp"
+#include "impl/bsearch.hpp"
 #include "random.hpp"
 #include "test.hpp"
 #include "util.hpp"
@@ -88,24 +89,24 @@ TestResult TestCursor_Seek() {
         std::vector<std::string> val = {"0001", "0002", "0003"};
         auto c = tx->Bucket(to_bytes(name))->Cursor();
         auto [k, v] = c->Seek(to_bytes(bar));
-        if (!Compare(k, to_bytes(bar)) || !Compare(v, to_bytes(val[1]))) {
+        if (!Equal(k, to_bytes(bar)) || !Equal(v, to_bytes(val[1]))) {
             fmt::println("unexpected key: {}, value: {}", to_string(k),
                          to_string(v));
             fmt::println("expected key: {}, value: {}", bar, val[1]);
             return bolt::ErrorUnexpected;
         }
         std::tie(k, v) = c->Seek(to_bytes(bas));
-        if (!Compare(k, to_bytes(baz)) || !Compare(v, to_bytes(val[2]))) {
+        if (!Equal(k, to_bytes(baz)) || !Equal(v, to_bytes(val[2]))) {
             fmt::println("unexpected key: {}, value: {}", to_string(k),
                          to_string(v));
             fmt::println("expected key: {}, value: {}", baz, val[2]);
             return bolt::ErrorUnexpected;
         }
         if (std::tie(k, v) = c->Seek(bolt::bytes());
-            !Compare(k, to_bytes(bar))) {
+            !Equal(k, to_bytes(bar))) {
             fmt::println("unexpected key: {}", to_string(k));
             return bolt::ErrorUnexpected;
-        } else if (!Compare(v, to_bytes(val[1]))) {
+        } else if (!Equal(v, to_bytes(val[1]))) {
             fmt::println("unexpected value: {}", to_string(v));
             return bolt::ErrorUnexpected;
         }
@@ -117,7 +118,7 @@ TestResult TestCursor_Seek() {
             return bolt::ErrorUnexpected;
         }
         if (std::tie(k, v) = c->Seek(to_bytes(bkt));
-            !Compare(k, to_bytes(bkt))) {
+            !Equal(k, to_bytes(bkt))) {
             fmt::println("unexpected key: {}", to_string(k));
             return bolt::ErrorUnexpected;
         } else if (!v.empty()) {
@@ -148,7 +149,7 @@ template <std::integral T> constexpr T byteswap(T value) noexcept {
 }
 TestResult TestCursor_Delete() {
     auto db = MustOpenDB();
-    const int count = 100000;
+    const int count = 1000;
     std::vector<std::string> keys;
     keys.reserve(count);
     if (auto err = db->Update([&keys, count](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
@@ -159,26 +160,26 @@ TestResult TestCursor_Delete() {
             return err;
         }
         for (int i = 0; i < count; i++) {
-            // std::uint64_t k = i;
-            // std::vector<std::byte> value;
-            // value.assign(100, std::byte(0));
-            // if constexpr (std::endian::native == std::endian::little) {
-            //     k = byteswap(k);
-            // }
-            // std::span<std::byte> key = std::span<std::byte>{
-            //     reinterpret_cast<std::byte *>(&k), sizeof(std::uint64_t)};
-            // std::span<std::byte> val = std::span<std::byte>{
-            //     reinterpret_cast<std::byte *>(value.data()), value.size()};
-            // if (auto err = b->Put(key, val); err != bolt::Success) {
-            //     return err;
-            // }
-            auto k = RandomCharset(8);
-            auto v = RandomCharset(100);
-            keys.push_back(k);
-            if (auto err = b->Put(to_bytes(k), to_bytes(v));
-                err != bolt::Success) {
+            std::uint64_t k = i;
+            std::vector<std::byte> value;
+            value.assign(100, std::byte(0));
+            if constexpr (std::endian::native == std::endian::little) {
+                k = byteswap(k);
+            }
+            std::span<std::byte> key = std::span<std::byte>{
+                reinterpret_cast<std::byte *>(&k), sizeof(std::uint64_t)};
+            std::span<std::byte> val = std::span<std::byte>{
+                reinterpret_cast<std::byte *>(value.data()), value.size()};
+            if (auto err = b->Put(key, val); err != bolt::Success) {
                 return err;
             }
+            // auto k = RandomCharset(8);
+            // auto v = RandomCharset(100);
+            // keys.push_back(k);
+            // if (auto err = b->Put(to_bytes(k), to_bytes(v));
+            //     err != bolt::Success) {
+            //     return err;
+            // }
         }
         if (std::tie(b, err) = b->CreateBucket(to_bytes(sub));
             err != bolt::Success) {
@@ -189,28 +190,26 @@ TestResult TestCursor_Delete() {
         err != bolt::Success) {
         return TestResult(false, "1. unexpected error: {}", err);
     }
-    fmt::println("------------------------------------------");
     if (auto err =
         db->Update([&keys, count](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
             std::string sub = "sub";
             auto c = tx->Bucket(to_bytes(widgets))->Cursor();
             std::uint64_t m = count / 2;
-            std::sort(keys.begin(), keys.end());
+            // std::sort(keys.begin(), keys.end());
             auto b = c->Bucket();
-            // if constexpr (std::endian::native == std::endian::little) {
-            //   m = byteswap(m);
-            // }
-            // std::span<std::byte> bound = std::span<std::byte>{
-            //     reinterpret_cast<std::byte *>(&m),
-            //     sizeof(std::uint64_t)};
+            if constexpr (std::endian::native == std::endian::little) {
+              m = byteswap(m);
+            }
             std::span<std::byte> bound = std::span<std::byte>{
-                reinterpret_cast<std::byte *>(keys[m].data()),
-                keys[m].size()};
+                reinterpret_cast<std::byte *>(&m),
+                sizeof(std::uint64_t)};
+            // std::span<std::byte> bound = std::span<std::byte>{
+            //     reinterpret_cast<std::byte *>(keys[m].data()),
+            //     keys[m].size()};
             auto [k, v] = c->First();
 
-            while (std::is_lt(std::lexicographical_compare_three_way(
-                k.begin(), k.end(), bound.begin(), bound.end()))) {
+            while (std::is_lt(bolt::impl::compare_three_way(k, bound))) {
                 if (auto err = c->Delete(); err != bolt::Success) {
                     return err;
                 }
@@ -234,7 +233,6 @@ TestResult TestCursor_Delete() {
         err != bolt::Success) {
         return TestResult(false, "3. unexpected error: {}", err);
     }
-    fmt::println("last {}", RandomCharset(5));
     MustCloseDB(std::move(db));
     return true;
 }

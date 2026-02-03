@@ -82,7 +82,7 @@ TestResult TestTx_Cursor() {
           }
 
           auto c = tx->Cursor();
-          if (auto [k, v] = c->First(); !Compare(k, to_bytes(widgets))) {
+          if (auto [k, v] = c->First(); !Equal(k, to_bytes(widgets))) {
               fmt::println("unexpected key: {}", to_string(k));
               return bolt::ErrorUnexpected;
           } else if (!v.empty()) {
@@ -90,7 +90,7 @@ TestResult TestTx_Cursor() {
               return bolt::ErrorUnexpected;
           }
 
-          if (auto [k, v] = c->Next(); !Compare(k, to_bytes(woojits))) {
+          if (auto [k, v] = c->Next(); !Equal(k, to_bytes(woojits))) {
               fmt::println("unexpected key: {}", to_string(k));
               return bolt::ErrorUnexpected;
           } else if (!v.empty()) {

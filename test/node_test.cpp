@@ -40,17 +40,17 @@ TestResult TestNode_put() {
     std::span<std::byte> k, v;
     k = n->inodes[0].key;
     v = n->inodes[0].value;
-    if (!Compare(k, bar) || !Compare(v, v1)) {
+    if (!Equal(k, bar) || !Equal(v, v1)) {
         return TestResult(false, "expected inodes[0] is <bar, 1>");
     }
     k = n->inodes[1].key;
     v = n->inodes[1].value;
-    if (!Compare(k, baz) || !Compare(v, v2)) {
+    if (!Equal(k, baz) || !Equal(v, v2)) {
         return TestResult(false, "expected inodes[1] is <baz, 2>");
     }
     k = n->inodes[2].key;
     v = n->inodes[2].value;
-    if (!Compare(k, foo) || !Compare(v, v3)) {
+    if (!Equal(k, foo) || !Equal(v, v3)) {
         return TestResult(false, "expected inodes[2] is <foo, 3>");
     }
     if (n->inodes[2].flags != std::uint32_t(bolt::impl::leafPageFlag)) {
@@ -138,19 +138,19 @@ TestResult TestNode_write_LeafPage() {
     std::span<std::byte> k, v;
     k = n2->inodes[0].key;
     v = n2->inodes[0].value;
-    if (!Compare(k, s_john) || !Compare(v, s_johnson)) {
+    if (!Equal(k, s_john) || !Equal(v, s_johnson)) {
         return TestResult(false, "expected inodes[0] is <john, johnson>");
     }
 
     k = n2->inodes[1].key;
     v = n2->inodes[1].value;
-    if (!Compare(k, s_ricki) || !Compare(v, s_lake)) {
+    if (!Equal(k, s_ricki) || !Equal(v, s_lake)) {
         return TestResult(false, "expected inodes[1] is <ricki, lake>");
     }
 
     k = n2->inodes[2].key;
     v = n2->inodes[2].value;
-    if (!Compare(k, s_susy) || !Compare(v, s_que)) {
+    if (!Equal(k, s_susy) || !Equal(v, s_que)) {
         return TestResult(false, "expected inodes[2] is <susy, que>");
     }
     return true;

@@ -2,6 +2,7 @@
 #include "impl/page.hpp"
 #include "impl/freelist.hpp"
 #include "impl/utils.hpp"
+#include "util.hpp"
 #include <span>
 
 TestResult TestPageType() {
@@ -39,6 +40,9 @@ TestResult TestMergePgid() {
         {1, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 25, 27, 30});
     if (ret.size() != c.size()) {
         return TestResult(false, "merge result length not equal");
+    }
+    if (!Equal(ret, c)) {
+        return TestResult(false, "merge value mismatch");
     }
     for (int i = 0; i < ret.size(); i++) {
         if (ret[i] != c[i]) {

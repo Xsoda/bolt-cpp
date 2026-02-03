@@ -3,6 +3,7 @@
 #include "impl/utils.hpp"
 #include "bolt/error.hpp"
 #include "test.hpp"
+#include "util.hpp"
 #include <cstring>
 
 TestResult TestFreelist_free() {
@@ -17,10 +18,8 @@ TestResult TestFreelist_free() {
         return TestResult(false, "freelist pending count");
     }
     auto vec = std::vector<bolt::impl::pgid>({12});
-    for (int i = 0; i < vec.size(); i++) {
-        if (it->second[i] != vec[i]) {
-            return TestResult(false, "freelist pending page");
-        }
+    if (!Equal(it->second, vec)) {
+        return TestResult(false, "freelist pending page");
     }
     return true;
 }
@@ -37,10 +36,8 @@ TestResult TestFreelist_free_overflow() {
         return TestResult(false, "freelist pending count");
     }
     auto vec = std::vector<bolt::impl::pgid>({12, 13, 14, 15});
-    for (int i = 0; i < vec.size(); i++) {
-        if (it->second[i] != vec[i]) {
-            return TestResult(false, "freelist pending page");
-        }
+    if (!Equal(it->second, vec)) {
+        return TestResult(false, "freelist pending page");
     }
     return true;
 }
@@ -59,10 +56,8 @@ TestResult TestFreelist_release() {
     if (freelist.ids.size() != vec.size()) {
         return TestResult(false, "freelist ids count not equal");
     }
-    for (int i = 0; i < vec.size(); i++) {
-        if (freelist.ids[i] != vec[i]) {
-            return TestResult(false, "freelist ids item mismatch");
-        }
+    if (!Equal(freelist.ids, vec)) {
+        return TestResult(false, "freelist ids item mismatch");
     }
 
     freelist.release(102);
@@ -70,10 +65,8 @@ TestResult TestFreelist_release() {
     if (freelist.ids.size() != vec.size()) {
         return TestResult(false, "freelist ids count not equal");
     }
-    for (int i = 0; i < vec.size(); i++) {
-        if (freelist.ids[i] != vec[i]) {
-            return TestResult(false, "freelist ids item mismatch");
-        }
+    if (!Equal(freelist.ids, vec)) {
+        return TestResult(false, "freelist ids item mismatch");
     }
     return true;
 }
@@ -109,10 +102,8 @@ TestResult TestFreelist_allocate() {
     if (freelist.ids.size() != vec.size()) {
         return TestResult(false, "freelist ids count not equal");
     }
-    for (int i = 0; i < vec.size(); i++) {
-        if (freelist.ids[i] != vec[i]) {
-            return TestResult(false, "freelist ids item mismatch");
-        }
+    if (!Equal(freelist.ids, vec)) {
+        return TestResult(false, "freelist ids item mismatch");
     }
     return true;
 }
@@ -133,10 +124,8 @@ TestResult TestFreelist_read() {
     if (freelist.ids.size() != vec.size()) {
         return TestResult(false, "freelist ids count not equal");
     }
-    for (int i = 0; i < vec.size(); i++) {
-        if (freelist.ids[i] != vec[i]) {
-            return TestResult(false, "freelist ids item mismatch");
-        }
+    if (!Equal(freelist.ids, vec)) {
+        return TestResult(false, "freelist ids item mismatch");
     }
     return true;
 }
@@ -160,10 +149,8 @@ TestResult TestFreelist_write() {
     if (freelist.ids.size() != vec.size()) {
         return TestResult(false, "freelist ids count not equal");
     }
-    for (int i = 0; i < vec.size(); i++) {
-        if (freelist.ids[i] != vec[i]) {
-            return TestResult(false, "freelist ids item mismatch");
-        }
+    if (!Equal(freelist.ids, vec)) {
+        return TestResult(false, "freelist ids item mismatch");
     }
     return true;
 }

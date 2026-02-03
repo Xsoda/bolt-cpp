@@ -1,6 +1,6 @@
 #include <algorithm>
+#include "impl/bsearch.hpp"
 
-template <typename A, typename B> bool Compare(A a, B b) {
-    return std::is_eq(std::lexicographical_compare_three_way(a.begin(), a.end(),
-                                                           b.begin(), b.end()));
+template <class A, class B> constexpr bool Equal(A a, B b) {
+    return std::is_eq(bolt::impl::compare_three_way(a, b));
 }

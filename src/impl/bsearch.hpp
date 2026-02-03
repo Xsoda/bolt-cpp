@@ -1,11 +1,9 @@
 #pragma once
 #include <algorithm>
-#include <compare>
+#include <iterator>
+
 #ifndef __BSEARCH_HPP__
 #define __BSEARCH_HPP__
-
-#include <iterator>
-#include <tuple>
 
 namespace bolt::impl {
 
