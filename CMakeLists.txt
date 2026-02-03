@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_program(CCACHE_PROGRAM ccache)
+
 if(CCACHE_PROGRAM)
   set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
   set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
@@ -14,6 +15,8 @@ endif()
 
 add_subdirectory(deps/fmt)
 add_executable(${PROJECT_NAME})
+target_include_directories(${PROJECT_NAME} PUBLIC SYSTEM .)
+target_compile_options(${PROJECT_NAME} PRIVATE ${PEDANTIC_COMPILE_FLAGS})
 target_link_libraries(${PROJECT_NAME} fmt::fmt)
 
 if(MSVC)

@@ -69,7 +69,7 @@ impl::node_ptr Bucket::node(impl::pgid pgid, impl::node_ptr parent) {
 // the error is returned to the caller. The provided function must not modify
 // the bucket; this will result in undefined behavior.
 bolt::ErrorCode Bucket::ForEach(
-    std::function<bolt::ErrorCode(bolt::bytes key, bolt::bytes val)> &&fn) {
+    std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &&fn) {
     auto txptr = tx.lock();
     if (!txptr) {
         return bolt::ErrorCode::ErrorTxClosed;
@@ -454,7 +454,7 @@ bolt::ErrorCode Bucket::DeleteBucket(bolt::const_bytes key) {
     // Recursively delete all child buckets.
     auto child = RetrieveBucket(key);
     auto err =
-        child->ForEach([&](bolt::bytes ck, bolt::bytes cv) -> bolt::ErrorCode {
+        child->ForEach([&](bolt::const_bytes ck, bolt::const_bytes cv) -> bolt::ErrorCode {
           if (cv.empty()) {
             auto err = child->DeleteBucket(ck);
             if (err != bolt::ErrorCode::Success) {

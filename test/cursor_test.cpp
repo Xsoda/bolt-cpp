@@ -17,7 +17,7 @@
 #include <bit>
 
 extern std::span<std::byte> to_bytes(std::string &str);
-extern std::string to_string(std::span<std::byte> s);
+extern std::string to_string(std::span<const std::byte> s);
 extern bolt::impl::DBPtr MustOpenDB();
 extern void MustCloseDB(bolt::impl::DBPtr &&db);
 

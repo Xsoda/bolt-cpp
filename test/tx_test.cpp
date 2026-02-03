@@ -15,10 +15,7 @@
 extern std::span<std::byte> to_bytes(std::string &str);
 extern bolt::impl::DBPtr MustOpenDB();
 extern void MustCloseDB(bolt::impl::DBPtr &&db);
-
-std::string to_string(std::span<std::byte> &b) {
-    return std::string(reinterpret_cast<char*>(b.data()), b.size());
-}
+extern std::string to_string(std::span<const std::byte> s);
 
 TestResult TestTx_Commit_ErrorTxClosed() {
     std::string foo = "foo";
@@ -449,8 +446,8 @@ TestResult TestTx_ForEach_NoError() {
               return err;
           }
           if (auto err =
-              tx->ForEach([](bolt::bytes name,
-                                 bolt::impl::BucketPtr b) -> bolt::ErrorCode {
+              tx->ForEach([](bolt::const_bytes name,
+                             bolt::impl::BucketPtr b) -> bolt::ErrorCode {
                   return bolt::Success;
               });
               err != bolt::Success) {
@@ -480,7 +477,7 @@ TestResult TestTx_ForEach_WithError() {
             return err;
           }
           if (auto err =
-                  tx->ForEach([](bolt::bytes name,
+                  tx->ForEach([](bolt::const_bytes name,
                                  bolt::impl::BucketPtr b) -> bolt::ErrorCode {
                       return bolt::ErrorUnexpected;
                   });

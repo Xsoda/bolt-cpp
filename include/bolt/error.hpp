@@ -48,11 +48,10 @@ typedef enum {
   MaxErrorCode,
 } ErrorCode;
 
-
 } // namespace bolt
 
 FMT_BEGIN_NAMESPACE
-template <> struct formatter<bolt::ErrorCode>: nested_formatter<const char *> {
+template <> struct formatter<bolt::ErrorCode>: nested_formatter<fmt::string_view> {
   auto format(bolt::ErrorCode error_code, format_context &ctx) const
       -> decltype(ctx.out()) {
     return write_padded(ctx, [this, error_code](auto out) -> decltype(out) {
@@ -73,8 +72,8 @@ template <> struct formatter<bolt::ErrorCode>: nested_formatter<const char *> {
 };
 
 template <>
-struct formatter<std::span<std::byte>> : nested_formatter<std::byte> {
-  auto format(std::span<std::byte> bytes, format_context &ctx) const
+struct formatter<std::span<const std::byte>> : nested_formatter<fmt::string_view> {
+  auto format(const std::span<const std::byte> bytes, format_context &ctx) const
       -> decltype(ctx.out()) {
     return write_padded(ctx, [this, bytes](auto out) -> decltype(out) {
       for (auto it : bytes) {

@@ -57,7 +57,7 @@ impl::BucketPtr Cursor::Bucket() {
 // First moves the cursor to the first item in the bucket and returns its key
 // and value. If the bucket is empty then a nil key and value are returned. The
 // returned key and value are only valid for the life of the transaction.
-std::tuple<bolt::bytes, bolt::bytes> Cursor::First() {
+std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::First() {
     _assert(!bucket.expired(), "bucket expired");
     auto bptr = bucket.lock();
     _assert(!bptr->tx.expired(), "tx closed");
@@ -83,7 +83,7 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::First() {
 // Last moves the cursor to the last item in the bucket and returns its key and
 // value. If the bucket is empty then a nil key and value are returned. The
 // returned key and value are only valid for the life of the transaction.
-std::tuple<bolt::bytes, bolt::bytes> Cursor::Last() {
+std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Last() {
     auto bptr = bucket.lock();
     _assert(!bucket.expired(), "bucket ptr invalid");
     auto txptr = bptr->tx.lock();
@@ -107,7 +107,7 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::Last() {
 // value. If the cursor is at the end of the bucket then a nil key and value are
 // returned. The returned key and value are only valid for the life of the
 // transaction.
-std::tuple<bolt::bytes, bolt::bytes> Cursor::Next() {
+std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Next() {
     _assert(!bucket.expired(), "bucket already expired");
     auto bptr = bucket.lock();
     _assert(!bptr->tx.expired(), "tx closed");
@@ -123,7 +123,7 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::Next() {
 // and value. If the cursor is at the beginning of the bucket then a nil key and
 // value are returned. The returned key and value are only valid for the life of
 // the transaction.
-std::tuple<bolt::bytes, bolt::bytes> Cursor::Prev() {
+std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Prev() {
     _assert(!bucket.expired(), "bucket already expired");
     auto bptr = bucket.lock();
     _assert(!bptr->tx.expired(), "tx closed");
@@ -159,7 +159,7 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::Prev() {
 // If the key does not exist then the next key is used. If no keys
 // follow, a nil key is returned.
 // The returned key and value are only valid for the life of the transaction.
-std::tuple<bolt::bytes, bolt::bytes> Cursor::Seek(bolt::const_bytes seek) {
+std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Seek(bolt::const_bytes seek) {
     auto [k, v, flags] = this->seek(seek);
 
     // If we ended up after the last element of a page then move to the next

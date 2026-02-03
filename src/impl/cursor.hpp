@@ -29,11 +29,11 @@ struct Cursor : public std::enable_shared_from_this<Cursor> {
 
     explicit Cursor(impl::BucketPtr bucket): bucket(bucket) {};
     impl::BucketPtr Bucket();
-    std::tuple<bolt::bytes, bolt::bytes> First();
-    std::tuple<bolt::bytes, bolt::bytes> Last();
-    std::tuple<bolt::bytes, bolt::bytes> Next();
-    std::tuple<bolt::bytes, bolt::bytes> Prev();
-    std::tuple<bolt::bytes, bolt::bytes> Seek(bolt::const_bytes seek);
+    std::tuple<bolt::const_bytes, bolt::const_bytes> First();
+    std::tuple<bolt::const_bytes, bolt::const_bytes> Last();
+    std::tuple<bolt::const_bytes, bolt::const_bytes> Next();
+    std::tuple<bolt::const_bytes, bolt::const_bytes> Prev();
+    std::tuple<bolt::const_bytes, bolt::const_bytes> Seek(bolt::const_bytes seek);
     bolt::ErrorCode Delete();
 
     std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> seek(bolt::const_bytes k);

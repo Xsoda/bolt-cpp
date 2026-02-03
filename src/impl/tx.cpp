@@ -446,7 +446,7 @@ void Tx::checkBucket(impl::BucketPtr bucket,
         });
 
     // Check each bucket within this bucket.
-    bucket->ForEach([&](bolt::bytes key, bolt::bytes val) -> bolt::ErrorCode {
+    bucket->ForEach([&](bolt::const_bytes key, bolt::const_bytes val) -> bolt::ErrorCode {
         auto child = bucket->RetrieveBucket(key);
         if (child) {
             checkBucket(child, reachable, freed, errors);
@@ -472,28 +472,28 @@ void Tx::forEachPage(impl::pgid pgid, int depth,
 }
 
 std::tuple<impl::BucketPtr, bolt::ErrorCode>
-Tx::CreateBucket(bolt::bytes name) {
+Tx::CreateBucket(bolt::const_bytes name) {
     return root->CreateBucket(name);
 }
 
 std::tuple<impl::BucketPtr, bolt::ErrorCode>
-Tx::CreateBucketIfNotExists(bolt::bytes name) {
+Tx::CreateBucketIfNotExists(bolt::const_bytes name) {
     return root->CreateBucketIfNotExists(name);
 }
 
-bolt::ErrorCode Tx::DeleteBucket(bolt::bytes name) {
+bolt::ErrorCode Tx::DeleteBucket(bolt::const_bytes name) {
     return root->DeleteBucket(name);
 }
 
 bolt::ErrorCode Tx::ForEach(
-    std::function<bolt::ErrorCode(bolt::bytes name, impl::BucketPtr b)> &&fn) {
+    std::function<bolt::ErrorCode(bolt::const_bytes name, impl::BucketPtr b)> &&fn) {
     return root->ForEach(
-        [this, fn = std::move(fn)](bolt::bytes k, bolt::bytes v) -> bolt::ErrorCode {
+        [this, fn = std::move(fn)](bolt::const_bytes k, bolt::const_bytes v) -> bolt::ErrorCode {
             return fn(k, root->RetrieveBucket(v));
         });
 }
 
-impl::BucketPtr Tx::Bucket(bolt::bytes name) {
+impl::BucketPtr Tx::Bucket(bolt::const_bytes name) {
     return root->RetrieveBucket(name);
 }
 

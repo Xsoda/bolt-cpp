@@ -92,14 +92,14 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     void forEachPage(impl::pgid pgid, int depth,
                      std::function<void(impl::page *, int)> &&fn);
 
-    std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucket(bolt::bytes name);
+    std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucket(bolt::const_bytes name);
     std::tuple<impl::BucketPtr, bolt::ErrorCode>
-    CreateBucketIfNotExists(bolt::bytes name);
-    bolt::ErrorCode DeleteBucket(bolt::bytes name);
+    CreateBucketIfNotExists(bolt::const_bytes name);
+    bolt::ErrorCode DeleteBucket(bolt::const_bytes name);
     bolt::ErrorCode
-    ForEach(std::function<bolt::ErrorCode(bolt::bytes name, impl::BucketPtr b)>
+    ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name, impl::BucketPtr b)>
                 &&fn);
-    impl::BucketPtr Bucket(bolt::bytes name);
+    impl::BucketPtr Bucket(bolt::const_bytes name);
     impl::CursorPtr Cursor();
 };
 
