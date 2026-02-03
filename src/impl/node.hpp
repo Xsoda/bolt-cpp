@@ -78,10 +78,10 @@ struct node : public std::enable_shared_from_this<node> {
     impl::node_ptr prevSibling();
 
     // put inserts a key/value.
-    void put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value, impl::pgid pgid, std::uint32_t flags);
+    void put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_bytes value, impl::pgid pgid, std::uint32_t flags);
 
     // del removes a key from the node.
-    void del(bolt::bytes key);
+    void del(bolt::const_bytes key);
 
     // read initializes the node from a page.
     void read(impl::page *p);

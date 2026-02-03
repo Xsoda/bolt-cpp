@@ -159,7 +159,7 @@ std::tuple<bolt::bytes, bolt::bytes> Cursor::Prev() {
 // If the key does not exist then the next key is used. If no keys
 // follow, a nil key is returned.
 // The returned key and value are only valid for the life of the transaction.
-std::tuple<bolt::bytes, bolt::bytes> Cursor::Seek(bolt::bytes seek) {
+std::tuple<bolt::bytes, bolt::bytes> Cursor::Seek(bolt::const_bytes seek) {
     auto [k, v, flags] = this->seek(seek);
 
     // If we ended up after the last element of a page then move to the next
@@ -212,7 +212,7 @@ std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::keyValue() {
 }
 
 std::tuple<bolt::bytes, bolt::bytes, std::uint32_t>
-Cursor::seek(bolt::bytes k) {
+Cursor::seek(bolt::const_bytes k) {
     _assert(!bucket.expired(), "Bucket already expired in Cursor");
     auto b = bucket.lock();
     _assert(!b->tx.expired(), "tx closed");
@@ -316,7 +316,7 @@ std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::next() {
 
 // search recursively performs a binary search against a given page/node until
 // it finds a given key.
-void Cursor::search(bolt::bytes key, impl::pgid pgid) {
+void Cursor::search(bolt::const_bytes key, impl::pgid pgid) {
     auto b = bucket.lock();
     auto [p, n] = b->pageNode(pgid);
     if (p != nullptr && (p->flags & (impl::branchPageFlag | impl::leafPageFlag)) == 0) {
@@ -356,7 +356,7 @@ func (c *Cursor) searchNode(key []byte, n *node) {
         c.search(key, n.inodes[index].pgid)
 }
 */
-void Cursor::searchNode(bolt::bytes key, impl::node_ptr n) {
+void Cursor::searchNode(bolt::const_bytes key, impl::node_ptr n) {
     bool exact = false;
     // auto it = std::find_if(
     //     n->inodes.begin(), n->inodes.end(), [&](impl::inode &item) -> bool {
@@ -373,7 +373,7 @@ void Cursor::searchNode(bolt::bytes key, impl::node_ptr n) {
     // }
     auto it = impl::upper_bound(
         std::begin(n->inodes), std::end(n->inodes), key,
-        [&](const bolt::bytes &key, impl::inode &item) -> bool {
+        [&](const bolt::const_bytes &key, impl::inode &item) -> bool {
           auto cmp = impl::compare_three_way(key, item.key);
           if (std::is_eq(cmp)) {
               exact = true;
@@ -390,7 +390,7 @@ void Cursor::searchNode(bolt::bytes key, impl::node_ptr n) {
     search(key, n->inodes[index].pgid);
 }
 
-void Cursor::searchPage(bolt::bytes key, impl::page *p) {
+void Cursor::searchPage(bolt::const_bytes key, impl::page *p) {
     // Binary search for the correct range.
     auto inodes = p->branchPageElements();
     bool exact = false;
@@ -411,7 +411,7 @@ void Cursor::searchPage(bolt::bytes key, impl::page *p) {
     // }
     auto it = impl::upper_bound(
         std::begin(inodes), std::end(inodes), key,
-        [&](const bolt::bytes &key,
+        [&](const bolt::const_bytes &key,
            impl::branchPageElement &item) -> bool {
             auto k = item.key();
             auto cmp = impl::compare_three_way(key, k);
@@ -429,7 +429,7 @@ void Cursor::searchPage(bolt::bytes key, impl::page *p) {
     search(key, inodes[index].pgid);
 }
 
-void Cursor::nsearch(bolt::bytes key) {
+void Cursor::nsearch(bolt::const_bytes key) {
     auto &e = stack.back();
     auto p = e.page;
     auto n = e.node;
@@ -448,7 +448,7 @@ void Cursor::nsearch(bolt::bytes key) {
         // e.index = static_cast<int>(index);
         auto it = impl::upper_bound(
             std::begin(nptr->inodes), std::end(nptr->inodes), key,
-            [](const bolt::bytes &key, impl::inode &item) -> bool {
+            [](const bolt::const_bytes &key, impl::inode &item) -> bool {
                 auto cmp = impl::compare_three_way(key, item.key);
                 return !std::is_gt(cmp);
             });
@@ -470,7 +470,7 @@ void Cursor::nsearch(bolt::bytes key) {
     // e.index = static_cast<int>(index);
     auto it = impl::upper_bound(
         std::begin(inodes), std::end(inodes), key,
-        [](const bolt::bytes &key, impl::leafPageElement &item) -> bool {
+        [](const bolt::const_bytes &key, impl::leafPageElement &item) -> bool {
             auto k = item.key();
             auto cmp = impl::compare_three_way(key, k);
             return !std::is_gt(cmp);

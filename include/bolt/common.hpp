@@ -33,6 +33,7 @@
 namespace bolt {
     using namespace std::chrono_literals;
     using bytes = std::span<std::byte>;
+    using const_bytes = std::span<const std::byte>;
 
     // Default values if not set in a DB instance.
     constexpr int DefaultMaxBatchSize = 100;

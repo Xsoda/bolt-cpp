@@ -58,7 +58,7 @@ ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T &value,
 }
 
 template <class ContainerA, class ContainerB>
-auto compare_three_way(ContainerA a, ContainerB b) {
+constexpr auto compare_three_way(ContainerA a, ContainerB b) {
     return std::lexicographical_compare_three_way(std::begin(a), std::end(a),
                                                   std::begin(b), std::end(b));
 }

@@ -289,8 +289,8 @@ std::tuple<impl::page *, impl::node_ptr> Bucket::pageNode(impl::pgid id) {
 // Bucket retrieves a nested bucket by name.
 // Returns nil if the bucket does not exist.
 // The bucket instance is only valid for the lifetime of the transaction.
-impl::BucketPtr Bucket::RetrieveBucket(bolt::bytes name) {
-    std::string key{reinterpret_cast<char*>(name.data()), name.size()};
+impl::BucketPtr Bucket::RetrieveBucket(bolt::const_bytes name) {
+    std::string key{reinterpret_cast<const char*>(name.data()), name.size()};
     auto it = buckets.find(key);
     if (it != buckets.end()) {
         return it->second;
@@ -337,7 +337,7 @@ impl::BucketPtr Bucket::openBucket(bolt::bytes value) {
 // blank, or if the bucket name is too long. The bucket instance is only valid
 // for the lifetime of the transaction.
 std::tuple<impl::BucketPtr, bolt::ErrorCode>
-Bucket::CreateBucket(bolt::bytes key) {
+Bucket::CreateBucket(bolt::const_bytes key) {
     if (tx.expired()) {
         return std::make_tuple(nullptr, bolt::ErrorCode::ErrorTxClosed);
     }
@@ -419,7 +419,7 @@ void Bucket::_forEachPageNode(
 // if the bucket name is too long. The bucket instance is only valid for the
 // lifetime of the transaction.
 std::tuple<impl::BucketPtr, bolt::ErrorCode>
-Bucket::CreateBucketIfNotExists(bolt::bytes key) {
+Bucket::CreateBucketIfNotExists(bolt::const_bytes key) {
     auto [child, err] = CreateBucket(key);
     if (err == bolt::ErrorCode::ErrorBucketExists) {
         return std::make_tuple(RetrieveBucket(key), bolt::ErrorCode::Success);
@@ -432,7 +432,7 @@ Bucket::CreateBucketIfNotExists(bolt::bytes key) {
 // DeleteBucket deletes a bucket at the given key.
 // Returns an error if the bucket does not exists, or if the key represents a
 // non-bucket value.
-bolt::ErrorCode Bucket::DeleteBucket(bolt::bytes key) {
+bolt::ErrorCode Bucket::DeleteBucket(bolt::const_bytes key) {
     auto txptr = tx.lock();
     if (!txptr || txptr->db.expired()) {
         return bolt::ErrorCode::ErrorTxClosed;
@@ -469,7 +469,7 @@ bolt::ErrorCode Bucket::DeleteBucket(bolt::bytes key) {
 
     // Remove cached copy.
     auto it = buckets.find(
-        std::string(reinterpret_cast<char *>(key.data()), key.size()));
+        std::string(reinterpret_cast<const char *>(key.data()), key.size()));
     if (it != buckets.end()) {
         buckets.erase(it);
     }
@@ -488,7 +488,7 @@ bolt::ErrorCode Bucket::DeleteBucket(bolt::bytes key) {
 // Get retrieves the value for a key in the bucket.
 // Returns a nil value if the key does not exist or if the key is a nested
 // bucket. The returned value is only valid for the life of the transaction.
-bolt::bytes Bucket::Get(bolt::bytes key) {
+bolt::bytes Bucket::Get(bolt::const_bytes key) {
     auto c = Cursor();
     auto [k, v, flags] = c->seek(key);
 
@@ -510,7 +510,7 @@ bolt::bytes Bucket::Get(bolt::bytes key) {
 // Supplied value must remain valid for the life of the transaction.
 // Returns an error if the bucket was created from a read-only transaction, if
 // the key is blank, if the key is too large, or if the value is too large.
-bolt::ErrorCode Bucket::Put(bolt::bytes key, bolt::bytes value) {
+bolt::ErrorCode Bucket::Put(bolt::const_bytes key, bolt::const_bytes value) {
     if (tx.expired()) {
         return bolt::ErrorCode::ErrorTxClosed;
     }
@@ -542,7 +542,7 @@ bolt::ErrorCode Bucket::Put(bolt::bytes key, bolt::bytes value) {
     return bolt::ErrorCode::Success;
 }
 
-bolt::ErrorCode Bucket::Delete(bolt::bytes key) {
+bolt::ErrorCode Bucket::Delete(bolt::const_bytes key) {
     if (tx.expired()) {
         return bolt::ErrorCode::ErrorTxClosed;
     } else if (!Writable()) {

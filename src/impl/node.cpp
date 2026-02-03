@@ -210,7 +210,7 @@ impl::node_ptr node::prevSibling() {
     return pptr->childAt(index - 1);
 }
 
-void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
+void node::put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_bytes value,
     impl::pgid pgid, std::uint32_t flags) {
     auto bktptr = bucket.lock();
     if (!bktptr) {
@@ -248,7 +248,7 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
     //                                                       oldKey.end()));
     auto it = impl::upper_bound(
         std::begin(inodes), std::end(inodes), oldKey,
-        [](const bolt::bytes &key, impl::inode &item) -> bool {
+        [](const bolt::const_bytes &key, impl::inode &item) -> bool {
             auto cmp = impl::compare_three_way(key, item.key);
             return !std::is_gt(cmp);
         });
@@ -275,7 +275,7 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
 }
 
 // del removes a key from the node.
-void node::del(bolt::bytes k) {
+void node::del(bolt::const_bytes k) {
     // Find index of key.
     // auto it = std::find_if(
     //     inodes.begin(), inodes.end(), [&](impl::inode &item) -> bool {
@@ -293,14 +293,12 @@ void node::del(bolt::bytes k) {
     // }
     auto it = impl::upper_bound(
         std::begin(inodes), std::end(inodes), k,
-        [](const bolt::bytes &k, impl::inode &item) -> bool {
+        [](const bolt::const_bytes &k, impl::inode &item) -> bool {
             auto cmp = impl::compare_three_way(k, item.key);
             return !std::is_gt(cmp);
         });
     if (it == inodes.end() ||
         !std::is_eq(impl::compare_three_way(it->key, k))) {
-        log_debug("### node {} del [{}, {}] not found", pgid, k, it->key);
-        dump();
         return;
     }
     // Delete inode from the node.

@@ -88,6 +88,7 @@ struct formatter<std::span<std::byte>> : nested_formatter<std::byte> {
     });
   };
 };
+
 FMT_END_NAMESPACE
 
 #endif  // !__ERROR_HPP__

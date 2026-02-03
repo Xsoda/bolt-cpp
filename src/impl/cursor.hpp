@@ -33,17 +33,17 @@ struct Cursor : public std::enable_shared_from_this<Cursor> {
     std::tuple<bolt::bytes, bolt::bytes> Last();
     std::tuple<bolt::bytes, bolt::bytes> Next();
     std::tuple<bolt::bytes, bolt::bytes> Prev();
-    std::tuple<bolt::bytes, bolt::bytes> Seek(bolt::bytes seek);
+    std::tuple<bolt::bytes, bolt::bytes> Seek(bolt::const_bytes seek);
     bolt::ErrorCode Delete();
 
-    std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> seek(bolt::bytes k);
+    std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> seek(bolt::const_bytes k);
     void first();
     void last();
     std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> next();
-    void search(bolt::bytes key, impl::pgid pgid);
-    void nsearch(bolt::bytes key);
-    void searchPage(bolt::bytes key, impl::page *p);
-    void searchNode(bolt::bytes key, impl::node_ptr n);
+    void search(bolt::const_bytes key, impl::pgid pgid);
+    void nsearch(bolt::const_bytes key);
+    void searchPage(bolt::const_bytes key, impl::page *p);
+    void searchNode(bolt::const_bytes key, impl::node_ptr n);
 
     std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> keyValue();
     impl::node_ptr node() const;

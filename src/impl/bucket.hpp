@@ -49,15 +49,15 @@ struct Bucket : public bucket,
     impl::pgid Root() const;
     bool Writable() const;
     impl::CursorPtr Cursor();
-    impl::BucketPtr RetrieveBucket(bolt::bytes name);
+    impl::BucketPtr RetrieveBucket(bolt::const_bytes name);
     impl::BucketPtr openBucket(bolt::bytes value);
-    std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucket(bolt::bytes key);
+    std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucket(bolt::const_bytes key);
     std::tuple<impl::BucketPtr, bolt::ErrorCode>
-    CreateBucketIfNotExists(bolt::bytes key);
-    bolt::ErrorCode DeleteBucket(bolt::bytes key);
-    bolt::bytes Get(bolt::bytes key);
-    bolt::ErrorCode Put(bolt::bytes key, bolt::bytes value);
-    bolt::ErrorCode Delete(bolt::bytes key);
+    CreateBucketIfNotExists(bolt::const_bytes key);
+    bolt::ErrorCode DeleteBucket(bolt::const_bytes key);
+    bolt::bytes Get(bolt::const_bytes key);
+    bolt::ErrorCode Put(bolt::const_bytes key, bolt::const_bytes value);
+    bolt::ErrorCode Delete(bolt::const_bytes key);
     std::uint64_t Sequence();
     bolt::ErrorCode SetSequence(std::uint64_t v);
     std::tuple<std::uint64_t, bolt::ErrorCode> NextSequence();
