@@ -45,7 +45,6 @@ TestResult TestCursor_Bucket() {
 
 TestResult TestCursor_Seek() {
     auto db = MustOpenDB();
-    fmt::println("database path: {}", db->Path());
     auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
         std::string name = "widgets";
         std::string foo = "foo";

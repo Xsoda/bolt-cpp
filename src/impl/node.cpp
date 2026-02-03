@@ -758,7 +758,7 @@ std::vector<impl::node_ptr> node::split_v2(size_t pageSize,
     size_t threshold = (size_t)(pageSize * fillPercent);
     size_t splitIdx, offset = 0;
 
-    while (offset < inodes.size()) {
+    do {
         if (inodes.size() - offset <= impl::minKeysPerPage * 2 ||
             sizeLessThan(pageSize, offset)) {
 
@@ -770,7 +770,7 @@ std::vector<impl::node_ptr> node::split_v2(size_t pageSize,
         split_result.emplace_back(
             std::span<impl::inode>(inodes.begin() + offset, splitIdx - offset));
         offset = splitIdx;
-    }
+    } while (offset < inodes.size());
 
     if (split_result.size() == 1) {
         nodes.emplace_back(shared_from_this());
