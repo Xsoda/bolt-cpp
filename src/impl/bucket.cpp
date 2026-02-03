@@ -4,6 +4,7 @@
 #include "impl/node.hpp"
 #include "impl/cursor.hpp"
 #include "impl/meta.hpp"
+#include "impl/bsearch.hpp"
 #include <algorithm>
 
 namespace bolt::impl {
@@ -172,8 +173,7 @@ bolt::ErrorCode Bucket::spill(std::vector<impl::node_ptr> &hold) {
                        });
         auto c = Cursor();
         auto [k, v, flags] = c->seek(key);
-        if (!std::is_eq(std::lexicographical_compare_three_way(
-                key.begin(), key.end(), k.begin(), k.end()))) {
+        if (!std::is_eq(impl::compare_three_way(key, k))) {
             _assert(false, "misplaced bucket header");
         }
         if ((flags & bolt::impl::bucketLeafFlag) == 0) {
@@ -301,8 +301,7 @@ impl::BucketPtr Bucket::RetrieveBucket(bolt::bytes name) {
     auto [k, v, flags] = c->seek(name);
 
     // Return nil if the key doesn't exist or it is not a bucket.
-    if (!std::is_eq(std::lexicographical_compare_three_way(
-            name.begin(), name.end(), k.begin(), k.end())) ||
+    if (!std::is_eq(impl::compare_three_way(name, k)) ||
         (flags & bolt::impl::bucketLeafFlag) == 0) {
         return nullptr;
     }
@@ -356,8 +355,7 @@ Bucket::CreateBucket(bolt::bytes key) {
     auto [k, v, flags] = c->seek(key);
 
     // Return an error if there is an existing key.
-    if (std::is_eq(std::lexicographical_compare_three_way(
-            key.begin(), key.end(), k.begin(), k.end()))) {
+    if (std::is_eq(impl::compare_three_way(key, k))) {
         if ((flags & bolt::impl::bucketLeafFlag) != 0) {
             return std::make_tuple(nullptr, bolt::ErrorCode::ErrorBucketExists);
         }
@@ -447,8 +445,7 @@ bolt::ErrorCode Bucket::DeleteBucket(bolt::bytes key) {
     auto [k, v, flags] = c->seek(key);
 
     // Return an error if bucket doesn't exist or is not a bucket.
-    if (!std::is_eq(std::lexicographical_compare_three_way(
-            key.begin(), key.end(), k.begin(), k.end()))) {
+    if (!std::is_eq(impl::compare_three_way(key, k))) {
         return bolt::ErrorCode::ErrorBucketNotFound;
     } else if ((flags & bolt::impl::bucketLeafFlag) == 0) {
         return bolt::ErrorCode::ErrorIncompatiableValue;
@@ -502,8 +499,7 @@ bolt::bytes Bucket::Get(bolt::bytes key) {
 
     // If our target node isn't the same key as what's passed in then return
     // nil.
-    if (!std::is_eq(std::lexicographical_compare_three_way(
-            key.begin(), key.end(), k.begin(), k.end()))) {
+    if (!std::is_eq(impl::compare_three_way(key, k))) {
         return bolt::bytes{};
     }
     return v;
@@ -536,8 +532,7 @@ bolt::ErrorCode Bucket::Put(bolt::bytes key, bolt::bytes value) {
     auto [k, v, flags] = c->seek(key);
 
     // Return an error if there is an existing key with a bucket value.
-    if (std::is_eq(std::lexicographical_compare_three_way(
-            key.begin(), key.end(), k.begin(), k.end())) &&
+    if (std::is_eq(impl::compare_three_way(key, k)) &&
         (flags & bolt::impl::bucketLeafFlag) != 0) {
         return bolt::ErrorCode::ErrorIncompatiableValue;
     }

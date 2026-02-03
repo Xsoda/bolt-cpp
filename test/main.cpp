@@ -3,6 +3,7 @@
 #include "impl/bsearch.hpp"
 #include <algorithm>
 #include <chrono>
+#include <compare>
 #include <span>
 #include <vector>
 
@@ -129,6 +130,7 @@ int main(int argc, char **argv) {
                  durationMs.count(), success_tests, failed_tests);
     return 0;
 }
+
 
 #if 0
 class Intvec {

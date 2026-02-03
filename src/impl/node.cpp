@@ -173,14 +173,12 @@ ptrdiff_t node::childIndex(impl::node_ptr child) {
     //           std::end(child->key));
     //       return !std::is_lt(ret);
     //     });
-    auto [it, cmp] =
-        impl::bsearch(std::begin(inodes), std::end(inodes), child,
-                      [](const impl::node_ptr &child,
-                         impl::inode &n) -> std::strong_ordering {
-                        return std::lexicographical_compare_three_way(
-                            std::begin(child->key), std::end(child->key),
-                            std::begin(n.key), std::end(n.key));
-                      });
+    auto it = impl::upper_bound(
+        std::begin(inodes), std::end(inodes), child,
+        [](const impl::node_ptr &child, impl::inode &n) -> bool {
+            auto cmp = impl::compare_three_way(child->key, n.key);
+            return !std::is_gt(cmp);
+        });
     return std::distance(inodes.begin(), it);
 }
 
@@ -248,15 +246,15 @@ void node::put(bolt::bytes oldKey, bolt::bytes newKey, bolt::bytes value,
     //                                                       inodes[index].key.end(),
     //                                                       oldKey.begin(),
     //                                                       oldKey.end()));
-    auto [it, cmp] = impl::bsearch(
+    auto it = impl::upper_bound(
         std::begin(inodes), std::end(inodes), oldKey,
-        [](const bolt::bytes &key, impl::inode &item) -> std::strong_ordering {
-          return std::lexicographical_compare_three_way(
-              std::begin(key), std::end(key), std::begin(item.key),
-              std::end(item.key));
+        [](const bolt::bytes &key, impl::inode &item) -> bool {
+            auto cmp = impl::compare_three_way(key, item.key);
+            return !std::is_gt(cmp);
         });
     auto index = std::distance(std::begin(inodes), it);
-    auto exact = inodes.size() > 0 && index < inodes.size() && std::is_eq(cmp);
+    auto exact = inodes.size() > 0 && index < inodes.size() &&
+                 std::is_eq(impl::compare_three_way(it->key, oldKey));
     if (!exact) {
         inodes.insert(inodes.begin() + index, impl::inode{});
     }
@@ -293,14 +291,14 @@ void node::del(bolt::bytes k) {
     //     dump();
     //     return;
     // }
-    auto [it, cmp] = impl::bsearch(
+    auto it = impl::upper_bound(
         std::begin(inodes), std::end(inodes), k,
-        [](const bolt::bytes &k, impl::inode &item) -> std::strong_ordering {
-          return std::lexicographical_compare_three_way(
-              std::begin(k), std::end(k), std::begin(item.key),
-              std::end(item.key));
+        [](const bolt::bytes &k, impl::inode &item) -> bool {
+            auto cmp = impl::compare_three_way(k, item.key);
+            return !std::is_gt(cmp);
         });
-    if (it == inodes.end() || !std::is_eq(cmp)) {
+    if (it == inodes.end() ||
+        !std::is_eq(impl::compare_three_way(it->key, k))) {
         log_debug("### node {} del [{}, {}] not found", pgid, k, it->key);
         dump();
         return;
@@ -465,9 +463,8 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
     // the children size on every loop iteration
     std::sort(children.begin(), children.end(),
               [](impl::node_ptr &a, impl::node_ptr &b) -> bool {
-                auto ret = std::lexicographical_compare_three_way(
-                    a->key.begin(), a->key.end(), b->key.begin(), b->key.end());
-                return std::is_lt(ret);
+                  auto ret = impl::compare_three_way(a->key, b->key);
+                  return std::is_lt(ret);
               });
     for (size_t i = 0; i < children.size(); i++) {
         auto err = children[i]->spill(hold);

@@ -357,7 +357,7 @@ func (c *Cursor) searchNode(key []byte, n *node) {
 }
 */
 void Cursor::searchNode(bolt::bytes key, impl::node_ptr n) {
-    // bool exact = false;
+    bool exact = false;
     // auto it = std::find_if(
     //     n->inodes.begin(), n->inodes.end(), [&](impl::inode &item) -> bool {
     //       auto ret = std::lexicographical_compare_three_way(
@@ -371,15 +371,17 @@ void Cursor::searchNode(bolt::bytes key, impl::node_ptr n) {
     // if (!exact && index > 0) {
     //     index--;
     // }
-    auto [it, cmp] = impl::bsearch(
+    auto it = impl::upper_bound(
         std::begin(n->inodes), std::end(n->inodes), key,
-        [](const bolt::bytes &key, impl::inode &item) -> std::strong_ordering {
-          return std::lexicographical_compare_three_way(
-              std::begin(key), std::end(key), std::begin(item.key),
-              std::end(item.key));
+        [&](const bolt::bytes &key, impl::inode &item) -> bool {
+          auto cmp = impl::compare_three_way(key, item.key);
+          if (std::is_eq(cmp)) {
+              exact = true;
+          }
+          return !std::is_gt(cmp);
         });
     auto index = std::distance(std::begin(n->inodes), it);
-    if (!std::is_eq(cmp) && index > 0) {
+    if (!exact && index > 0) {
         index--;
     }
     auto &e = stack.back();
@@ -391,7 +393,7 @@ void Cursor::searchNode(bolt::bytes key, impl::node_ptr n) {
 void Cursor::searchPage(bolt::bytes key, impl::page *p) {
     // Binary search for the correct range.
     auto inodes = p->branchPageElements();
-    // bool exact = false;
+    bool exact = false;
     // auto it = std::find_if(inodes.begin(), inodes.end(),
     //                        [&](impl::branchPageElement &item) -> bool {
     //                          auto k = item.key();
@@ -407,16 +409,19 @@ void Cursor::searchPage(bolt::bytes key, impl::page *p) {
     // if (!exact && index > 0) {
     //     index--;
     // }
-    auto [it, cmp] = impl::bsearch(
+    auto it = impl::upper_bound(
         std::begin(inodes), std::end(inodes), key,
-        [](const bolt::bytes &key,
-           impl::branchPageElement &item) -> std::strong_ordering {
-          auto k = item.key();
-          return std::lexicographical_compare_three_way(
-              std::begin(key), std::end(key), std::begin(k), std::end(k));
+        [&](const bolt::bytes &key,
+           impl::branchPageElement &item) -> bool {
+            auto k = item.key();
+            auto cmp = impl::compare_three_way(key, k);
+            if (std::is_eq(cmp)) {
+                exact = true;
+            }
+            return !std::is_gt(cmp);
         });
     auto index = std::distance(std::begin(inodes), it);
-    if (!std::is_eq(cmp) && index > 0) {
+    if (!exact && index > 0) {
         index--;
     }
     auto &e = stack.back();
@@ -441,14 +446,12 @@ void Cursor::nsearch(bolt::bytes key) {
         //     });
         // auto index = std::distance(nptr->inodes.begin(), it);
         // e.index = static_cast<int>(index);
-        auto [it, cmp] =
-            impl::bsearch(std::begin(nptr->inodes), std::end(nptr->inodes), key,
-                          [](const bolt::bytes &key,
-                             impl::inode &item) -> std::strong_ordering {
-                            return std::lexicographical_compare_three_way(
-                                std::begin(key), std::end(key),
-                                std::begin(item.key), std::end(item.key));
-                          });
+        auto it = impl::upper_bound(
+            std::begin(nptr->inodes), std::end(nptr->inodes), key,
+            [](const bolt::bytes &key, impl::inode &item) -> bool {
+                auto cmp = impl::compare_three_way(key, item.key);
+                return !std::is_gt(cmp);
+            });
         auto index = std::distance(std::begin(nptr->inodes), it);
         e.index = static_cast<int>(index);
         return;
@@ -465,13 +468,12 @@ void Cursor::nsearch(bolt::bytes key) {
     //                        });
     // auto index = std::distance(inodes.begin(), it);
     // e.index = static_cast<int>(index);
-    auto [it, cmp] = impl::bsearch(
+    auto it = impl::upper_bound(
         std::begin(inodes), std::end(inodes), key,
-        [](const bolt::bytes &key,
-           impl::leafPageElement &item) -> std::strong_ordering {
-          auto k = item.key();
-          return std::lexicographical_compare_three_way(
-              std::begin(key), std::end(key), std::begin(k), std::end(k));
+        [](const bolt::bytes &key, impl::leafPageElement &item) -> bool {
+            auto k = item.key();
+            auto cmp = impl::compare_three_way(key, k);
+            return !std::is_gt(cmp);
         });
     auto index = std::distance(std::begin(inodes), it);
     e.index = static_cast<int>(index);

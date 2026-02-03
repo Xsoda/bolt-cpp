@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <compare>
 #ifndef __BSEARCH_HPP__
 #define __BSEARCH_HPP__
@@ -7,61 +8,6 @@
 #include <tuple>
 
 namespace bolt::impl {
-
-template <class ForwardIt,
-          class T = typename std::iterator_traits<ForwardIt>::value_type,
-          class Compare>
-std::tuple<ForwardIt, std::strong_ordering> bsearch(ForwardIt first, ForwardIt last,
-                                                    const T &value, Compare comp) {
-    ForwardIt it = first;
-    auto ret = std::strong_ordering::equal;
-    typename std::iterator_traits<ForwardIt>::difference_type left, right,
-        middle;
-    left = 0;
-    right = std::distance(first, last) - 1;
-    while (left <= right) {
-        middle = left + ((right - left) >> 1);
-        it = std::next(first, middle);
-        ret = comp(value, *it);
-        if (std::is_lt(ret)) {
-            right = middle - 1;
-        } else if (std::is_gt(ret)) {
-            left = middle + 1;
-        } else {
-            break;
-        }
-    }
-    if (!std::is_eq(ret)) {
-        it = std::next(first, left);
-    }
-    return std::make_tuple(it, ret);
-}
-
-template <class ForwardIt,
-          class T = typename std::iterator_traits<ForwardIt>::value_type,
-          class Compare>
-std::tuple<ForwardIt, std::strong_ordering>
-bsearch2(ForwardIt first, ForwardIt last, const T &value, Compare comp) {
-    ForwardIt it = first;
-    auto ret = std::strong_ordering::less;
-    typename std::iterator_traits<ForwardIt>::difference_type count, step;
-    count = std::distance(first, last);
-
-    while (count > 0) {
-        it = first;
-        step = count / 2;
-        ret = comp(value, *it);
-        if (std::is_lt(ret)) {
-            count = step;
-        } else if (std::is_gt(ret)) {
-            first = ++it;
-            count -= step + 1;
-        } else {
-            break;
-        }
-    }
-    return std::make_tuple(first, ret);
-}
 
 template <class ForwardIt,
           class T = typename std::iterator_traits<ForwardIt>::value_type,
@@ -78,7 +24,7 @@ ForwardIt upper_bound(ForwardIt first, ForwardIt last, const T &value,
         std::advance(it, step);
 
         if (!comp(value, *it)) {
-            first = ++it;
+            first = std::next(it);
             count -= step + 1;
         } else
             count = step;
@@ -102,7 +48,7 @@ ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T &value,
         std::advance(it, step);
 
         if (comp(*it, value)) {
-            first = ++it;
+            first = std::next(it);
             count -= step + 1;
         } else
             count = step;
@@ -110,5 +56,12 @@ ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T &value,
 
     return first;
 }
+
+template <class ContainerA, class ContainerB>
+auto compare_three_way(ContainerA a, ContainerB b) {
+    return std::lexicographical_compare_three_way(std::begin(a), std::end(a),
+                                                  std::begin(b), std::end(b));
+}
+
 }
 #endif  // !__BSEARCH_HPP__
