@@ -7,7 +7,6 @@
 #include "impl/tx.hpp"
 #include <mutex>
 #include <tuple>
-#include <type_traits>
 
 namespace bolt::impl {
 
