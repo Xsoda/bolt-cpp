@@ -9,14 +9,6 @@
 #include "util.hpp"
 #include <memory>
 
-std::span<std::byte> to_bytes(std::string &str) {
-    return std::span<std::byte>(reinterpret_cast<std::byte*>(str.data()), str.size());
-}
-
-std::string to_string(std::span<const std::byte> s) {
-    return std::string(reinterpret_cast<const char *>(s.data()), s.size());
-}
-
 TestResult TestNode_put() {
     bolt::impl::meta meta(1);
     bolt::impl::DBPtr db = std::make_shared<bolt::impl::DB>();

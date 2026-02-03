@@ -12,10 +12,9 @@
 #include <memory>
 #include <string>
 
-extern std::span<std::byte> to_bytes(std::string &str);
+
 extern bolt::impl::DBPtr MustOpenDB();
 extern void MustCloseDB(bolt::impl::DBPtr &&db);
-extern std::string to_string(std::span<const std::byte> s);
 
 TestResult TestTx_Commit_ErrorTxClosed() {
     std::string foo = "foo";
@@ -80,26 +79,26 @@ TestResult TestTx_Cursor() {
 
           auto c = tx->Cursor();
           if (auto [k, v] = c->First(); !Equal(k, to_bytes(widgets))) {
-              fmt::println("unexpected key: {}", to_string(k));
+              fmt::println("unexpected key: {}", k);
               return bolt::ErrorUnexpected;
           } else if (!v.empty()) {
-              fmt::println("unexpected value: {}", to_string(v));
+              fmt::println("unexpected value: {}", v);
               return bolt::ErrorUnexpected;
           }
 
           if (auto [k, v] = c->Next(); !Equal(k, to_bytes(woojits))) {
-              fmt::println("unexpected key: {}", to_string(k));
+              fmt::println("unexpected key: {}", k);
               return bolt::ErrorUnexpected;
           } else if (!v.empty()) {
-              fmt::println("unexpected value: {}", to_string(v));
+              fmt::println("unexpected value: {}", v);
               return bolt::ErrorUnexpected;
           }
 
           if (auto [k, v] = c->Next(); !k.empty()) {
-              fmt::println("unexpected key: {}", to_string(k));
+              fmt::println("unexpected key: {}", k);
               return bolt::ErrorUnexpected;
           } else if (!v.empty()) {
-              fmt::println("unexpected value: {}", to_string(v));
+              fmt::println("unexpected value: {}", v);
               return bolt::ErrorUnexpected;
           }
           return bolt::Success;

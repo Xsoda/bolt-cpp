@@ -3,13 +3,13 @@
 #include "impl/page.hpp"
 #include "random.hpp"
 #include "test.hpp"
+#include "util.hpp"
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <string>
 #include <iostream>
 #include <cassert>
-extern std::span<std::byte> to_bytes(std::string &str);
 
 std::string tempfile() {
     auto tmpdir = std::filesystem::temp_directory_path();

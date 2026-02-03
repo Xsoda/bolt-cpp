@@ -16,8 +16,6 @@
 #include <concepts>
 #include <bit>
 
-extern std::span<std::byte> to_bytes(std::string &str);
-extern std::string to_string(std::span<const std::byte> s);
 extern bolt::impl::DBPtr MustOpenDB();
 extern void MustCloseDB(bolt::impl::DBPtr &&db);
 
@@ -89,39 +87,37 @@ TestResult TestCursor_Seek() {
         auto c = tx->Bucket(to_bytes(name))->Cursor();
         auto [k, v] = c->Seek(to_bytes(bar));
         if (!Equal(k, to_bytes(bar)) || !Equal(v, to_bytes(val[1]))) {
-            fmt::println("unexpected key: {}, value: {}", to_string(k),
-                         to_string(v));
+          fmt::println("unexpected key: {}, value: {}", k, v);
             fmt::println("expected key: {}, value: {}", bar, val[1]);
             return bolt::ErrorUnexpected;
         }
         std::tie(k, v) = c->Seek(to_bytes(bas));
         if (!Equal(k, to_bytes(baz)) || !Equal(v, to_bytes(val[2]))) {
-            fmt::println("unexpected key: {}, value: {}", to_string(k),
-                         to_string(v));
+            fmt::println("unexpected key: {}, value: {}", k, v);
             fmt::println("expected key: {}, value: {}", baz, val[2]);
             return bolt::ErrorUnexpected;
         }
         if (std::tie(k, v) = c->Seek(bolt::bytes());
             !Equal(k, to_bytes(bar))) {
-            fmt::println("unexpected key: {}", to_string(k));
+            fmt::println("unexpected key: {}", k);
             return bolt::ErrorUnexpected;
         } else if (!Equal(v, to_bytes(val[1]))) {
-            fmt::println("unexpected value: {}", to_string(v));
+            fmt::println("unexpected value: {}", v);
             return bolt::ErrorUnexpected;
         }
         if (std::tie(k, v) = c->Seek(to_bytes(zzz)); !k.empty()) {
-            fmt::println("unexpected key: {}", to_string(k));
+            fmt::println("unexpected key: {}", k);
             return bolt::ErrorUnexpected;
         } else if (!v.empty()) {
-            fmt::println("unexpected value: {}", to_string(v));
+            fmt::println("unexpected value: {}", v);
             return bolt::ErrorUnexpected;
         }
         if (std::tie(k, v) = c->Seek(to_bytes(bkt));
             !Equal(k, to_bytes(bkt))) {
-            fmt::println("unexpected key: {}", to_string(k));
+            fmt::println("unexpected key: {}", k);
             return bolt::ErrorUnexpected;
         } else if (!v.empty()) {
-            fmt::println("unexpected value: {}", to_string(v));
+            fmt::println("unexpected value: {}", v);
             return bolt::ErrorUnexpected;
         }
         return bolt::Success;
