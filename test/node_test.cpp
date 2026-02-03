@@ -15,6 +15,7 @@ TestResult TestNode_put() {
     bolt::impl::TxPtr tx = std::make_shared<bolt::impl::Tx>(db, meta);
     bolt::impl::BucketPtr bucket = std::make_shared<bolt::impl::Bucket>(tx);
     auto n = std::make_shared<bolt::impl::node>(bucket);
+
     std::vector<std::byte> bar = {std::byte('b'), std::byte('a'), std::byte('r')};
     std::vector<std::byte> baz = {std::byte('b'), std::byte('a'), std::byte('z')};
     std::vector<std::byte> foo = {std::byte('f'), std::byte('o'), std::byte('o')};
