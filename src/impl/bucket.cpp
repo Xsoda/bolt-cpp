@@ -607,7 +607,7 @@ std::tuple<std::uint64_t, bolt::ErrorCode> Bucket::NextSequence() {
 // forEachPage iterates over every page in a bucket, including inline pages.
 void Bucket::forEachPage(std::function<void(impl::page *, int)> &&fn) {
     // If we have an inline page then just use that.
-    if (page == nullptr) {
+    if (page != nullptr) {
         fn(page, 0);
         return;
     }
@@ -618,6 +618,7 @@ void Bucket::forEachPage(std::function<void(impl::page *, int)> &&fn) {
 impl::BucketStats Bucket::Stats() {
     impl::BucketStats subStats, s;
     auto txptr = tx.lock();
+    _assert(!tx.expired(), "tx already closed");
     auto dbptr = txptr->db.lock();
     auto pageSize = dbptr->pageSize;
     s.BucketN += 1;

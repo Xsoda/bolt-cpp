@@ -238,24 +238,255 @@ TestResult TestCursor_Delete() {
     return true;
 }
 
-TestResult TestCursor_Seek_Large() { return true; }
+TestResult TestCursor_Seek_Large() {
+    auto db = MustOpenDB();
+    int count = 10000;
+    if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string widgets = "widgets";
+        std::vector<std::byte> value;
+        value.assign(100, std::byte(0));
+        std::uint64_t k;
+        auto key = std::span<std::byte>{reinterpret_cast<std::byte *>(&k),
+                                        sizeof(std::uint64_t)};
+        auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+        if (err != bolt::Success) {
+            return err;
+        }
+        for (auto i = 0; i < count; i += 100) {
+            for (auto j = i; j < i + 100; j += 2) {
+                k = j;
+                if constexpr (std::endian::native == std::endian::little) {
+                    k = byteswap(k);
+                }
+                if (auto err = b->Put(key, to_bytes(value));
+                    err != bolt::Success) {
+                    return err;
+                }
+            }
+        }
+        return bolt::Success;
+    }); err != bolt::Success) {
+        return TestResult(false, "Update fail, {}", err);
+    }
+    if (auto err = db->View([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string widgets = "widgets";
+        std::uint64_t k, num;
+        auto c = tx->Bucket(to_bytes(widgets))->Cursor();
+        auto key = std::span<std::byte>{reinterpret_cast<std::byte *>(&k),
+                                        sizeof(std::uint64_t)};
+        for (auto i = 0; i < count; i++) {
+            k = i;
+            if constexpr (std::endian::native == std::endian::little) {
+                k = byteswap(k);
+            }
+            auto [seek, val] = c->Seek(key);
+            if (i == count - 1) {
+                if (!seek.empty()) {
+                    return bolt::ErrorUnexpected;
+                }
+                continue;
+            }
+            num = reinterpret_cast<const std::uint64_t *>(seek.data())[0];
+            if constexpr (std::endian::native == std::endian::little) {
+                num = byteswap(num);
+            }
+            if (i % 2 == 0) {
+                if (num != std::uint64_t(i)) {
+                    fmt::println("unexpected num: {}", num);
+                    return bolt::ErrorUnexpected;
+                }
+            } else {
+                if (num != std::uint64_t(i + 1)) {
+                    fmt::println("unexpected num: {} != {}", num, i + 1);
+                    return bolt::ErrorUnexpected;
+                }
+            }
+        }
+        return bolt::Success;
+    }); err != bolt::Success) {
+        return TestResult(false, "View fail, {}", err);
+    }
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestCursor_EmptyBucket() { return true; }
+TestResult TestCursor_EmptyBucket() {
+    auto db = MustOpenDB();
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          std::string widgets = "widgets";
+          auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+          return err;
+    }); err != bolt::Success) {
+        return TestResult(false, "Update fail, {}", err);
+    }
+    if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string widgets = "widgets";
+        auto c = tx->Bucket(to_bytes(widgets))->Cursor();
+        auto [k, v] = c->First();
+        if (!k.empty()) {
+            fmt::println("unexpected key: {}", k);
+            return bolt::ErrorUnexpected;
+        } else if (!v.empty()) {
+            fmt::println("unexpected value: {}", v);
+            return bolt::ErrorUnexpected;
+        }
+        return bolt::Success;
+    }); err != bolt::Success) {
+        return TestResult(false, "View fail, {}", err);
+    }
+    MustCloseDB(std::move(db));
+    return true; }
 
-TestResult TestCursor_EmptyBucketReverse() { return true; }
+TestResult TestCursor_EmptyBucketReverse() {
+    auto db = MustOpenDB();
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          std::string widgets = "widgets";
+          auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+          return err;
+        });
+        err != bolt::Success) {
+        return TestResult(false, "Update fail, {}", err);
+    }
+    if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          std::string widgets = "widgets";
+          auto c = tx->Bucket(to_bytes(widgets))->Cursor();
+          auto [k, v] = c->Last();
+          if (!k.empty()) {
+            fmt::println("unexpected key: {}", k);
+            return bolt::ErrorUnexpected;
+          } else if (!v.empty()) {
+            fmt::println("unexpected value: {}", v);
+            return bolt::ErrorUnexpected;
+          }
+          return bolt::Success;
+        });
+        err != bolt::Success) {
+        return TestResult(false, "View fail, {}", err);
+    }
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestCursor_Iterate_Leaf() { return true; }
+TestResult TestCursor_Iterate_Leaf() {
+    std::string widgets = "widgets";
+    std::string baz = "baz";
+    std::string foo = "foo";
+    std::string bar = "bar";
+    std::string vempty = "";
+    std::string v0 = "\x00";
+    std::string v1 = "\x01";
+    auto db = MustOpenDB();
+    if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+        if (err != bolt::Success) {
+            return err;
+        }
+        if (err = b->Put(to_bytes(baz), to_bytes(vempty));
+            err != bolt::Success) {
+            return err;
+        }
+        if (err = b->Put(to_bytes(foo), to_bytes(v0)); err != bolt::Success) {
+            return err;
+        }
+        if (err = b->Put(to_bytes(bar), to_bytes(v1)); err != bolt::Success) {
+            return err;
+        }
+        return bolt::Success;
+    }); err != bolt::Success) {
+        return TestResult(false, "Update fail, {}", err);
+    }
+    auto [tx, err] = db->Begin(false);
+    if (err != bolt::Success) {
+        return TestResult(false, "Begin tx fail, {}", err);
+    }
+    auto c = tx->Bucket(to_bytes(widgets))->Cursor();
 
-TestResult TestCursor_LeafRootReverse() { return true; }
+    auto [k, v] = c->First();
+    if (!Equal(k, to_bytes(bar))) {
+        return TestResult(false, "unexpected key: {}", k);
+    } else if (!Equal(v, to_bytes(v1))) {
+        return TestResult(false, "unexpected value: {}", v);
+    }
 
-TestResult TestCursor_Restart() { return true; }
+    std::tie(k, v) = c->Next();
+    if (!Equal(k, to_bytes(baz))) {
+        return TestResult(false, "unexpected key: {}", k);
+    } else if (!Equal(v, to_bytes(vempty))) {
+        return TestResult(false, "unexpected value: {}", v);
+    }
 
-TestResult TestCursor_First_EmptyPages() { return true; }
+    std::tie(k, v) = c->Next();
+    if (!Equal(k, to_bytes(foo))) {
+        return TestResult(false, "unexpected key: {}", k);
+    } else if (!Equal(v, to_bytes(v0))) {
+        return TestResult(false, "unexpected value: {}", v);
+    }
 
-TestResult TestCursor_QuickCheck() { return true; }
+    std::tie(k, v) = c->Next();
+    if (!k.empty()) {
+        return TestResult(false, "expected nil key: {}", k);
+    } else if (!v.empty()) {
+        return TestResult(false, "expected nil value: {}", v);
+    }
 
-TestResult TestCursor_QuickCheck_Reverse() { return true; }
+    std::tie(k, v) = c->Next();
+    if (!k.empty()) {
+        return TestResult(false, "unexpected nil key: {}", k);
+    } else if (!v.empty()) {
+        return TestResult(false, "unexpected nil value: {}", v);
+    }
+    if (err = tx->Rollback(); err != bolt::Success) {
+        return TestResult(false, "Rollback fail, {}", err);
+    }
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestCursor_QuickCheck_BucketsOnly() { return true; }
+TestResult TestCursor_LeafRootReverse() {
+    auto db = MustOpenDB();
 
-TestResult TestCursor_QuickCheck_BucketsOnly_Reverse() { return true; }
+    MustCloseDB(std::move(db));
+    return true;
+}
+
+TestResult TestCursor_Restart() {
+    auto db = MustOpenDB();
+
+    MustCloseDB(std::move(db));
+    return true;
+}
+
+TestResult TestCursor_First_EmptyPages() {
+    auto db = MustOpenDB();
+
+    MustCloseDB(std::move(db));
+    return true;
+}
+
+TestResult TestCursor_QuickCheck() {
+    auto db = MustOpenDB();
+
+    MustCloseDB(std::move(db));
+    return true;
+}
+
+TestResult TestCursor_QuickCheck_Reverse() {
+    auto db = MustOpenDB();
+
+    MustCloseDB(std::move(db));
+    return true;
+}
+
+TestResult TestCursor_QuickCheck_BucketsOnly() {
+    auto db = MustOpenDB();
+
+    MustCloseDB(std::move(db));
+    return true;
+}
+
+TestResult TestCursor_QuickCheck_BucketsOnly_Reverse() {
+    auto db = MustOpenDB();
+
+    MustCloseDB(std::move(db));
+    return true;
+}
