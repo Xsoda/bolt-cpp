@@ -5,6 +5,7 @@
 #include "impl/cursor.hpp"
 #include "impl/meta.hpp"
 #include "impl/bsearch.hpp"
+#include "impl/utils.hpp"
 #include <algorithm>
 
 namespace bolt::impl {
@@ -613,6 +614,84 @@ void Bucket::forEachPage(std::function<void(impl::page *, int)> &&fn) {
     // Otherwise traverse the page hierarchy.
     auto txptr = tx.lock();
     txptr->forEachPage(root, 0, std::forward<decltype(fn)>(fn));
+}
+impl::BucketStats Bucket::Stats() {
+    impl::BucketStats subStats, s;
+    auto txptr = tx.lock();
+    auto dbptr = txptr->db.lock();
+    auto pageSize = dbptr->pageSize;
+    s.BucketN += 1;
+    if (root == 0) {
+        s.InlineBucketN += 1;
+    }
+    forEachPage(
+        [&](impl::page *p, int depth) {
+            if ((p->flags & impl::leafPageFlag) != 0) {
+                s.KeyN += int(p->count);
+                // used totals the used bytes for the page
+                auto used = impl::pageHeaderSize;
+                if (p->count != 0) {
+                    // If page has any elements, add all element headers.
+                    used += impl::leafPageElementSize * int(p->count - 1);
+                    // Add all element key, value sizes.
+                    // The computation takes advantage of the fact that the position
+                    // of the last element's key/value equals to the total of the
+                    // sizes of all previous elements' keys and values. It also
+                    // includes the last element's header.
+                    auto lastElement = p->leafPageElement(p->count - 1);
+                    used += int(lastElement->pos + lastElement->ksize +
+                                lastElement->vsize);
+                }
+                if (root == 0) {
+                    // For inlined bucket just update the inline stats
+                    s.InlineBucketInuse += used;
+                } else {
+                    // For non-inlined bucket update all the leaf stats
+                    s.LeafPageN++;
+                    s.LeafInuse += used;
+                    s.LeafOverflowN += int(p->overflow);
+
+                    // Collect stats from sub-buckets.
+                    // Do that by iterating over all element headers
+                    // looking for the ones with the bucketLeafFlag.
+                    for (auto i = std::uint16_t(0); i < p->count; i++) {
+                        auto e = p->leafPageElement(i);
+                        if ((e->flags & impl::bucketLeafFlag) != 0) {
+                            // For any bucket element, open the element
+                            // value and recursively call Stats on the
+                            // contained bucket.
+                            subStats += openBucket(e->value())->Stats();
+                        }
+                    }
+                }
+            } else if ((p->flags & impl::branchPageFlag) != 0) {
+                s.BranchPageN++;
+                auto lastElement = p->branchPageElement(p->count - 1);
+                // used totals the used bytes for the page
+                // Add header and all element headers.
+                auto used = impl::pageHeaderSize +
+                    (impl::branchPageElementSize * int(p->count - 1));
+                // Add size of all keys and values.
+                // Again, use the fact that last element's position equals to
+                // the total of key, value sizes of all previous elements.
+                used += int(lastElement->pos + lastElement->ksize);
+                s.BranchInuse += used;
+                s.BranchOverflowN += int(p->overflow);
+            }
+            // Keep track of maximum page depth.
+            if (depth + 1 > s.Depth) {
+                s.Depth = depth + 1;
+            }
+        });
+    // Alloc stats can be computed from page counts and pageSize.
+    s.BranchAlloc = (s.BranchPageN + s.BranchOverflowN) * pageSize;
+    s.LeafAlloc = (s.LeafPageN + s.LeafOverflowN) * pageSize;
+
+    // Add the max depth of sub-buckets to get total nested depth.
+    s.Depth += subStats.Depth;
+    // Add the stats for all sub-buckets
+    s += subStats;
+    return s;
 }
 
 void Bucket::dump() {

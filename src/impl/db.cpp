@@ -195,6 +195,23 @@ bolt::ErrorCode DB::init() {
     return file.Fdatasync();
 }
 
+// Batch calls fn as part of a batch. It behaves similar to Update,
+// except:
+//
+// 1. concurrent Batch calls can be combined into a single Bolt
+// transaction.
+//
+// 2. the function passed to Batch may be called multiple times,
+// regardless of whether it returns error or not.
+//
+// This means that Batch function side effects must be idempotent and
+// take permanent effect only after a successful return is seen in
+// caller.
+//
+// The maximum batch size and delay can be adjusted with DB.MaxBatchSize
+// and DB.MaxBatchDelay, respectively.
+//
+// Batch is only useful when there are multiple goroutines calling it.
 bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     std::shared_ptr<impl::call> c = std::make_shared<impl::call>();
     do {

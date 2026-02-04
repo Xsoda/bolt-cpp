@@ -33,6 +33,61 @@ struct BucketStats {
     int BucketN;
     int InlineBucketN;
     int InlineBucketInuse;
+    BucketStats()
+        : BranchPageN(0), BranchOverflowN(0), LeafPageN(0), LeafOverflowN(0),
+          KeyN(0), Depth(0), BranchAlloc(0), BranchInuse(0), LeafAlloc(0),
+          LeafInuse(0), BucketN(0), InlineBucketN(0), InlineBucketInuse(0){};
+    ~BucketStats() = default;
+    BucketStats(const BucketStats &other) {
+        BranchPageN = other.BranchPageN;
+        BranchOverflowN = other.BranchOverflowN;
+        LeafPageN = other.LeafPageN;
+        LeafOverflowN = other.LeafOverflowN;
+        KeyN = other.KeyN;
+        Depth = other.Depth;
+        BranchAlloc = other.BranchAlloc;
+        BranchInuse = other.BranchInuse;
+        LeafAlloc = other.LeafAlloc;
+        LeafInuse = other.LeafInuse;
+        BucketN = other.BucketN;
+        InlineBucketN = other.InlineBucketN;
+        InlineBucketInuse = other.InlineBucketInuse;
+    };
+    BucketStats &operator+=(const BucketStats &other) {
+        BranchPageN += other.BranchPageN;
+        BranchOverflowN += other.BranchOverflowN;
+        LeafPageN += other.LeafPageN;
+        LeafOverflowN += other.LeafOverflowN;
+        KeyN += other.KeyN;
+        Depth += other.Depth;
+        BranchAlloc += other.BranchAlloc;
+        BranchInuse += other.BranchInuse;
+        LeafAlloc += other.LeafAlloc;
+        LeafInuse += other.LeafInuse;
+        BucketN += other.BucketN;
+        InlineBucketN += other.InlineBucketN;
+        InlineBucketInuse += other.InlineBucketInuse;
+        return *this;
+    };
+    BucketStats &operator=(const BucketStats &other) {
+        if (this == &other) {
+            return *this;
+        }
+        BranchPageN = other.BranchPageN;
+        BranchOverflowN = other.BranchOverflowN;
+        LeafPageN = other.LeafPageN;
+        LeafOverflowN = other.LeafOverflowN;
+        KeyN = other.KeyN;
+        Depth = other.Depth;
+        BranchAlloc = other.BranchAlloc;
+        BranchInuse = other.BranchInuse;
+        LeafAlloc = other.LeafAlloc;
+        LeafInuse = other.LeafInuse;
+        BucketN = other.BucketN;
+        InlineBucketN = other.InlineBucketN;
+        InlineBucketInuse = other.InlineBucketInuse;
+        return *this;
+    };
 };
 
 struct Bucket : public bucket,

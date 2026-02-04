@@ -237,8 +237,6 @@ std::tuple<std::uintptr_t, bolt::ErrorCode> FileImpl::Mmap(std::uint64_t size) {
         CreateFileMapping(file, &sa, PAGE_READONLY, sizehi, sizelo, NULL);
     if (fm == NULL) {
         auto [size, err] = Size();
-        std::cout << "File Size " << size << std::endl;
-        std::cout << "Last Error " << GetLastError() << std::endl;
         return std::make_tuple((std::uintptr_t)nullptr,
                                bolt::ErrorCode::ErrorSystemCall);
     }

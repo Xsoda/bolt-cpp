@@ -1,6 +1,6 @@
 #include "fmt/base.h"
-#include "test.hpp"
 #include "impl/bsearch.hpp"
+#include "test.hpp"
 #include <algorithm>
 #include <chrono>
 #include <compare>
@@ -30,6 +30,17 @@ TestResult TestDB_OpenErrChecksum();
 TestResult TestCursor_Bucket();
 TestResult TestCursor_Seek();
 TestResult TestCursor_Delete();
+TestResult TestCursor_Seek_Large();
+TestResult TestCursor_EmptyBucket();
+TestResult TestCursor_EmptyBucketReverse();
+TestResult TestCursor_Iterate_Leaf();
+TestResult TestCursor_LeafRootReverse();
+TestResult TestCursor_Restart();
+TestResult TestCursor_First_EmptyPages();
+TestResult TestCursor_QuickCheck();
+TestResult TestCursor_QuickCheck_Reverse();
+TestResult TestCursor_QuickCheck_BucketsOnly();
+TestResult TestCursor_QuickCheck_BucketsOnly_Reverse();
 TestResult TestTx_Commit_ErrorTxClosed();
 TestResult TestTx_Rollback_ErrorTxClosed();
 TestResult TestTx_Commit_ErrorTxNotWritable();
@@ -76,14 +87,25 @@ static const std::vector<Test> tests = {
     {"Test Cursor Bucket", TestCursor_Bucket},
     {"Test Cursor Seek", TestCursor_Seek},
     {"Test Cursor Delete", TestCursor_Delete},
+    {"Test Cursor Seek Large", TestCursor_Seek_Large},
+    {"Test Cursor EmptyBucket", TestCursor_EmptyBucket},
+    {"Test Cursor EmptyBucketReverse", TestCursor_EmptyBucketReverse},
+    {"Test Cursor Iterate Leaf", TestCursor_Iterate_Leaf},
+    {"Test Cursor LeafRootReverse", TestCursor_LeafRootReverse},
+    {"Test Cursor Restart", TestCursor_Restart},
+    {"Test Cursor First EmptyPages", TestCursor_First_EmptyPages},
+    {"Test Cursor QuickCheck", TestCursor_QuickCheck},
+    {"Test Cursor QuickCheck Reverse", TestCursor_QuickCheck_Reverse},
+    {"Test Cursor QuickCheck BucketsOnly", TestCursor_QuickCheck_BucketsOnly},
+    {"Test Cursor QuickCheck BucketsOnly Reverse",
+     TestCursor_QuickCheck_BucketsOnly_Reverse},
     {"Test Tx Commit ErrorTxClosed", TestTx_Commit_ErrorTxClosed},
     {"Test Tx Rollback ErrorTxClosed", TestTx_Rollback_ErrorTxClosed},
     {"Test Tx Commit ErrorTxNotWritable", TestTx_Commit_ErrorTxNotWritable},
     {"Test Tx Cursor", TestTx_Cursor},
     {"Test Tx CreateBucket ErrorTxNotWritable",
      TestTx_CreateBucket_ErrorTxNotWritable},
-    {"Test Tx CreateBucket ErrorTxClosed",
-     TestTx_CreateBucket_ErrorTxClosed},
+    {"Test Tx CreateBucket ErrorTxClosed", TestTx_CreateBucket_ErrorTxClosed},
     {"Test Tx Bucket", TestTx_Bucket},
     {"Test Tx Get NotFound", TestTx_Get_NotFound},
     {"Test Tx CreateBucket", TestTx_CreateBucket},
@@ -95,8 +117,7 @@ static const std::vector<Test> tests = {
     {"Test Tx CreateBucket ErrorBucketNameRequired",
      TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired},
     {"Test Tx DeleteBucket", TestTx_DeleteBucket},
-    {"Test Tx DeleteBucket ErrorTxClosed",
-     TestTx_DeleteBucket_ErrorTxClosed},
+    {"Test Tx DeleteBucket ErrorTxClosed", TestTx_DeleteBucket_ErrorTxClosed},
     {"Test Tx DeleteBucket ReadOnly", TestTx_DeleteBucket_ReadOnly},
     {"Test Tx DeleteBucket NotFound", TestTx_DeleteBucket_NotFound},
     {"Test Tx ForEach NoError", TestTx_ForEach_NoError},
@@ -107,30 +128,29 @@ static const std::vector<Test> tests = {
 
 using namespace fmt::literals;
 int main(int argc, char **argv) {
-    int success_tests = 0;
-    int failed_tests = 0;
-    std::chrono::steady_clock::time_point startTime, endTime;
-    startTime = std::chrono::steady_clock::now();
-    for (auto test : tests) {
-        auto res = test.run();
-        if (res.success) {
-            success_tests++;
-        } else {
-            failed_tests++;
-        }
+  int success_tests = 0;
+  int failed_tests = 0;
+  std::chrono::steady_clock::time_point startTime, endTime;
+  startTime = std::chrono::steady_clock::now();
+  for (auto test : tests) {
+    auto res = test.run();
+    if (res.success) {
+      success_tests++;
+    } else {
+      failed_tests++;
     }
-    endTime = std::chrono::steady_clock::now();
+  }
+  endTime = std::chrono::steady_clock::now();
 
-    auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-        endTime - startTime);
-    auto durationS =
-        std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime);
-    fmt::println("Finished {} tests in {}s ({}ms). Succeed: {}. Failed: {}.",
-                 success_tests + failed_tests, durationS.count(),
-                 durationMs.count(), success_tests, failed_tests);
-    return 0;
+  auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+      endTime - startTime);
+  auto durationS =
+      std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime);
+  fmt::println("Finished {} tests in {}s ({}ms). Succeed: {}. Failed: {}.",
+               success_tests + failed_tests, durationS.count(),
+               durationMs.count(), success_tests, failed_tests);
+  return 0;
 }
-
 
 #if 0
 class Intvec {

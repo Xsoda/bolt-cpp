@@ -13,54 +13,6 @@
 
 namespace bolt::impl {
 
-TxStats::TxStats() {
-    PageCount = 0;
-    PageAlloc = 0;
-    CursorCount = 0;
-    NodeCount = 0;
-    NodeDeref = 0;
-    Rebalance = 0;
-    RebalanceTime = 0ms;
-    Split = 0;
-    Spill = 0;
-    SpillTime = 0ms;
-    Write = 0;
-    WriteTime = 0ms;
-}
-
-TxStats TxStats::operator-(const TxStats &other) {
-    TxStats diff;
-    diff.PageCount = PageCount - other.PageCount;
-    diff.PageAlloc = PageAlloc - other.PageAlloc;
-    diff.CursorCount = CursorCount - other.CursorCount;
-    diff.NodeCount = NodeCount - other.NodeCount;
-    diff.NodeDeref = NodeDeref - other.NodeDeref;
-    diff.Rebalance = Rebalance - other.Rebalance;
-    diff.RebalanceTime = RebalanceTime - other.RebalanceTime;
-    diff.Split = Split - other.Split;
-    diff.Spill = Spill - other.Spill;
-    diff.SpillTime = SpillTime - other.SpillTime;
-    diff.Write = Write - other.Write;
-    diff.WriteTime = WriteTime - other.WriteTime;
-    return diff;
-}
-
-TxStats &TxStats::operator+=(const TxStats &other) {
-    PageCount += other.PageCount;
-    PageAlloc += other.PageAlloc;
-    CursorCount += other.CursorCount;
-    NodeCount += other.NodeCount;
-    NodeDeref += other.NodeDeref;
-    Rebalance += other.Rebalance;
-    RebalanceTime += other.RebalanceTime;
-    Split += other.Split;
-    Spill += other.Spill;
-    SpillTime += other.SpillTime;
-    Write += other.Write;
-    WriteTime += other.WriteTime;
-    return *this;
-}
-
 Tx::Tx(impl::DBPtr db, impl::meta meta) : db(db), meta(meta) {}
 
 Tx::Tx() {}

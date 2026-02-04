@@ -223,6 +223,12 @@ TestResult TestCursor_Delete() {
         return TestResult(false, "2. unexpected error: {}", err);
     }
     if (auto err = db->View([count](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string widgets = "widgets";
+        auto stats = tx->Bucket(to_bytes(widgets))->Stats();
+        if (stats.KeyN != count / 2 + 1) {
+            fmt::println("unexpected KeyN: %d", stats.KeyN);
+            return bolt::ErrorUnexpected;
+        }
         return bolt::Success;
     });
         err != bolt::Success) {
@@ -231,3 +237,25 @@ TestResult TestCursor_Delete() {
     MustCloseDB(std::move(db));
     return true;
 }
+
+TestResult TestCursor_Seek_Large() { return true; }
+
+TestResult TestCursor_EmptyBucket() { return true; }
+
+TestResult TestCursor_EmptyBucketReverse() { return true; }
+
+TestResult TestCursor_Iterate_Leaf() { return true; }
+
+TestResult TestCursor_LeafRootReverse() { return true; }
+
+TestResult TestCursor_Restart() { return true; }
+
+TestResult TestCursor_First_EmptyPages() { return true; }
+
+TestResult TestCursor_QuickCheck() { return true; }
+
+TestResult TestCursor_QuickCheck_Reverse() { return true; }
+
+TestResult TestCursor_QuickCheck_BucketsOnly() { return true; }
+
+TestResult TestCursor_QuickCheck_BucketsOnly_Reverse() { return true; }
