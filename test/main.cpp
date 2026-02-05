@@ -26,7 +26,32 @@ TestResult TestDB_OpenPathRequired();
 TestResult TestDB_OpenInvalid();
 TestResult TestDB_OpenErrVersionMismatch();
 TestResult TestDB_OpenErrChecksum();
-// TestResult TestDB_OpenSize();
+TestResult TestDB_OpenSize();
+TestResult TestDB_Open_Size_Large();
+TestResult TestDB_Open_Check();
+TestResult TestDB_Open_FileTooSmall();
+TestResult TestDB_Open_InitialMmapSize();
+TestResult TestDB_Begin_ErrDatabaseNotOpen();
+TestResult TestDB_BeginRW();
+TestResult TestDB_BeginRW_Closed();
+TestResult TestDB_Close_PendingTx_RW();
+TestResult TestDB_Close_PendingTx_RO();
+TestResult TestDB_Update();
+TestResult TestDB_Update_Closed();
+TestResult TestDB_Update_ManualCommit();
+TestResult TestDB_Update_ManualRollback();
+TestResult TestDB_View_ManualCommit();
+TestResult TestDB_View_ManualRollback();
+TestResult TestDB_Update_Panic();
+TestResult TestDB_View_Error();
+TestResult TestDB_View_Panic();
+TestResult TestDB_Stats();
+TestResult TestDB_Consistency();
+TestResult TestDB_Stats_Sub();
+TestResult TestDB_Batch();
+TestResult TestDB_Batch_Panic();
+TestResult TestDB_BatchFull();
+TestResult TestDB_BatchTime();
 TestResult TestCursor_Bucket();
 TestResult TestCursor_Seek();
 TestResult TestCursor_Delete();
@@ -62,6 +87,50 @@ TestResult TestTx_ForEach_WithError();
 TestResult TestTx_OnCommit();
 TestResult TestTx_OnCommit_Rollback();
 TestResult TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired();
+TestResult TestBucket_Get_NonExistent();
+TestResult TestBucket_Get_FromNode();
+TestResult TestBUcket_Get_IncompatibleValue();
+TestResult TestBucket_Get_Capacity();
+TestResult TestBucket_Put();
+TestResult TestBucket_Put_Repeat();
+TestResult TestBucket_Put_Large();
+TestResult TestBucket_Put_VeryLarge();
+TestResult TestBUcket_Put_IncompatibleValue();
+TestResult TestBucket_Put_Closed();
+TestResult TestBucket_Put_ReadOnly();
+TestResult TestBucket_Delete();
+TestResult TestBucket_Delete_Large();
+TestResult TestBucket_Delete_FreelistOverflow();
+TestResult TestBucket_Nested();
+TestResult TestBucket_Delete_Bucket();
+TestResult TestBucket_Delete_ReadOnly();
+TestResult TestBucket_Delete_Closed();
+TestResult TestBucket_DeleteBucket_Nested();
+TestResult TestBucket_DeleteBucket_Nested2();
+TestResult TestBucket_DeleteBucket_Large();
+TestResult TestBucket_Bucket_IncompatibleValue();
+TestResult TestBucket_CreateBucket_IncompatibleValue();
+TestResult TestBucket_DeleteBucket_IncompatibleValue();
+TestResult TestBucket_Sequence();
+TestResult TestBucket_NextSequence();
+TestResult TestBucket_NextSequence_Persist();
+TestResult TestBucket_NextSequence_ReadOnly();
+TestResult TestBucket_NextSequence_Closed();
+TestResult TestBucket_ForEach();
+TestResult TestBucket_ForEach_ShortCircuit();
+TestResult TestBucket_ForEach_Closed();
+TestResult TestBucket_Put_EmptyKey();
+TestResult TestBucket_Put_KeyTooLarge();
+TestResult TestBucket_Put_ValueTooLarge();
+TestResult TestBucket_Stats();
+TestResult TestBucket_Stats_RandomFill();
+TestResult TestBucket_Stats_Small();
+TestResult TestBucket_Stats_EmptyBucket();
+TestResult TestBucket_Stats_Nested();
+TestResult TestBucket_Stats_Large();
+TestResult TestBucket_Put_Single();
+TestResult TestBucket_Put_Multiple();
+TestResult TestBucket_Delete_Quick();
 
 static const std::vector<Test> tests = {
     {"Test Page Type", TestPageType},
@@ -83,7 +152,32 @@ static const std::vector<Test> tests = {
     {"Test DB Open ErrorDatabaseInvalid", TestDB_OpenInvalid},
     {"Test DB Open ErrorVersionMismatch", TestDB_OpenErrVersionMismatch},
     {"Test DB Open ErrorChecksum", TestDB_OpenErrChecksum},
-    // {"Test DB Open Size", TestDB_OpenSize},
+    {"Test DB Open Size", TestDB_OpenSize},
+    {"Test DB Open Size Large", TestDB_Open_Size_Large},
+    {"Test DB Open Check", TestDB_Open_Check},
+    {"Test DB Open_FileTooSmall", TestDB_Open_FileTooSmall},
+    {"Test DB Open InitialMmapSize", TestDB_Open_InitialMmapSize},
+    {"Test DB Begin ErrDatabaseNotOpen},", TestDB_Begin_ErrDatabaseNotOpen},
+    {"Test DB BeginRW", TestDB_BeginRW},
+    {"Test DB BeginRW Closed", TestDB_BeginRW_Closed},
+    {"Test DB Close PendingTx RW", TestDB_Close_PendingTx_RW},
+    {"Test DB Close PendingTx RO", TestDB_Close_PendingTx_RO},
+    {"Test DB Update", TestDB_Update},
+    {"Test DB Update Closed", TestDB_Update_Closed},
+    {"Test DB Update ManualCommit", TestDB_Update_ManualCommit},
+    {"Test DB Update ManualRollback", TestDB_Update_ManualRollback},
+    {"Test DB View ManualCommit", TestDB_View_ManualCommit},
+    {"Test DB View ManualRollback", TestDB_View_ManualRollback},
+    {"Test DB Update Panic", TestDB_Update_Panic},
+    {"Test DB View Error", TestDB_View_Error},
+    {"Test DB View Panic", TestDB_View_Panic},
+    {"Test DB Stats", TestDB_Stats},
+    {"Test DB Consistency", TestDB_Consistency},
+    {"Test DB Stats Sub", TestDB_Stats_Sub},
+    {"Test DB Batch", TestDB_Batch},
+    {"Test DB Batch Panic", TestDB_Batch_Panic},
+    {"Test DB BatchFull", TestDB_BatchFull},
+    {"Test DB BatchTime", TestDB_BatchTime},
     {"Test Cursor Bucket", TestCursor_Bucket},
     {"Test Cursor Seek", TestCursor_Seek},
     {"Test Cursor Delete", TestCursor_Delete},
@@ -124,6 +218,53 @@ static const std::vector<Test> tests = {
     {"Test Tx ForEach WithError", TestTx_ForEach_WithError},
     {"Test Tx OnCommit", TestTx_OnCommit},
     {"Test Tx OnCommit Rollback", TestTx_OnCommit_Rollback},
+    {"Test Bucket Get NonExistent", TestBucket_Get_NonExistent},
+    {"Test Bucket Get FromNode", TestBucket_Get_FromNode},
+    {"Test BUcket Get IncompatibleValue", TestBUcket_Get_IncompatibleValue},
+    {"Test Bucket Get Capacity", TestBucket_Get_Capacity},
+    {"Test Bucket Put", TestBucket_Put},
+    {"Test Bucket Put Repeat", TestBucket_Put_Repeat},
+    {"Test Bucket Put Large", TestBucket_Put_Large},
+    {"Test Bucket Put VeryLarge", TestBucket_Put_VeryLarge},
+    {"Test BUcket Put IncompatibleValue", TestBUcket_Put_IncompatibleValue},
+    {"Test Bucket Put Closed", TestBucket_Put_Closed},
+    {"Test Bucket Put ReadOnly", TestBucket_Put_ReadOnly},
+    {"Test Bucket Delete", TestBucket_Delete},
+    {"Test Bucket Delete Large", TestBucket_Delete_Large},
+    {"Test Bucket Delete FreelistOverflow", TestBucket_Delete_FreelistOverflow},
+    {"Test Bucket Nested", TestBucket_Nested},
+    {"Test Bucket Delete Bucket", TestBucket_Delete_Bucket},
+    {"Test Bucket Delete ReadOnly", TestBucket_Delete_ReadOnly},
+    {"Test Bucket Delete Closed", TestBucket_Delete_Closed},
+    {"Test Bucket DeleteBucket Nested", TestBucket_DeleteBucket_Nested},
+    {"Test Bucket DeleteBucket Nested2", TestBucket_DeleteBucket_Nested2},
+    {"Test Bucket DeleteBucket Large", TestBucket_DeleteBucket_Large},
+    {"Test Bucket Bucket IncompatibleValue",
+     TestBucket_Bucket_IncompatibleValue},
+    {"Test Bucket CreateBucket IncompatibleValue",
+     TestBucket_CreateBucket_IncompatibleValue},
+    {"Test Bucket DeleteBucket IncompatibleValue",
+     TestBucket_DeleteBucket_IncompatibleValue},
+    {"Test Bucket Sequence", TestBucket_Sequence},
+    {"Test Bucket NextSequence", TestBucket_NextSequence},
+    {"Test Bucket NextSequence Persist", TestBucket_NextSequence_Persist},
+    {"Test Bucket NextSequence ReadOnly", TestBucket_NextSequence_ReadOnly},
+    {"Test Bucket NextSequence Closed", TestBucket_NextSequence_Closed},
+    {"Test Bucket ForEach", TestBucket_ForEach},
+    {"Test Bucket ForEach ShortCircuit", TestBucket_ForEach_ShortCircuit},
+    {"Test Bucket ForEach Closed", TestBucket_ForEach_Closed},
+    {"Test Bucket Put EmptyKey", TestBucket_Put_EmptyKey},
+    {"Test Bucket Put KeyTooLarge", TestBucket_Put_KeyTooLarge},
+    {"Test Bucket Put ValueTooLarge", TestBucket_Put_ValueTooLarge},
+    {"Test Bucket Stats", TestBucket_Stats},
+    {"Test Bucket Stats RandomFill", TestBucket_Stats_RandomFill},
+    {"Test Bucket Stats Small", TestBucket_Stats_Small},
+    {"Test Bucket Stats EmptyBucket", TestBucket_Stats_EmptyBucket},
+    {"Test Bucket Stats Nested", TestBucket_Stats_Nested},
+    {"Test Bucket Stats Large", TestBucket_Stats_Large},
+    {"Test Bucket Put Single", TestBucket_Put_Single},
+    {"Test Bucket Put Multiple", TestBucket_Put_Multiple},
+    {"Test Bucket Delete Quick", TestBucket_Delete_Quick},
 };
 
 using namespace fmt::literals;

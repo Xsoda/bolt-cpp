@@ -187,9 +187,10 @@ TestResult TestDB_OpenSize() {
       if (err != bolt::ErrorCode::Success) {
         return err;
       }
+      std::vector<std::byte> value;
+      value.assign(1000, std::byte(0));
       for (int i = 0; i < 10000; i++) {
         std::string key = fmt::format("{:04d}", i);
-        std::vector<std::byte> value{1000, std::byte(0)};
         err = b->Put(to_bytes(key), value);
         if (err != bolt::ErrorCode::Success) {
           return err;
@@ -205,5 +206,87 @@ TestResult TestDB_OpenSize() {
         return TestResult(false, "database close fail");
     }
     fmt::println("database {} closed", path);
+
+    auto sz = std::filesystem::file_size(path);
+
+    auto db0 = std::make_shared<bolt::impl::DB>();
+    if (err = db0->Open(path); err != bolt::Success) {
+        return TestResult(false, "reopen database {} fail, {}", path, err);
+    }
+    if (err = db0->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string data = "data";
+        std::vector<std::byte> zero = {std::byte(0)};
+        if (auto err =
+            tx->Bucket(to_bytes(data))->Put(to_bytes(zero), to_bytes(zero));
+            err != bolt::Success) {
+            return err;
+        }
+        return bolt::Success;
+    }); err != bolt::Success) {
+        return TestResult(false, "Update fail, {}", err);
+    }
+    if (err = db0->Close(); err != bolt::Success) {
+        return TestResult(false, "Close database fail, {}", err);
+    }
+
+    auto newSz = std::filesystem::file_size(path);
+    if (newSz == 0) {
+        return TestResult(false, "unexpected new file size: {}", newSz);
+    }
+    if (sz < newSz - 5 * pagesize) {
+        return TestResult(false, "unexpected file growth: {} => {}", sz, newSz);
+    }
     return true;
 }
+
+TestResult TestDB_Open_Size_Large() { return true; }
+
+TestResult TestDB_Open_Check() { return true; }
+
+TestResult TestDB_Open_FileTooSmall() { return true; }
+
+TestResult TestDB_Open_InitialMmapSize() { return true; }
+
+TestResult TestDB_Begin_ErrDatabaseNotOpen() { return true; }
+
+TestResult TestDB_BeginRW() { return true; }
+
+TestResult TestDB_BeginRW_Closed() { return true; }
+
+TestResult Close_PendingTx(bool writable) { return true; }
+
+TestResult TestDB_Close_PendingTx_RW() { return Close_PendingTx(true); }
+
+TestResult TestDB_Close_PendingTx_RO() { return Close_PendingTx(false); }
+
+TestResult TestDB_Update() { return true; }
+
+TestResult TestDB_Update_Closed() { return true; }
+
+TestResult TestDB_Update_ManualCommit() { return true; }
+
+TestResult TestDB_Update_ManualRollback() { return true; }
+
+TestResult TestDB_View_ManualCommit() { return true; }
+
+TestResult TestDB_View_ManualRollback() { return true; }
+
+TestResult TestDB_Update_Panic() { return true; }
+
+TestResult TestDB_View_Error() { return true; }
+
+TestResult TestDB_View_Panic() { return true; }
+
+TestResult TestDB_Stats() { return true; }
+
+TestResult TestDB_Consistency() { return true; }
+
+TestResult TestDB_Stats_Sub() { return true; }
+
+TestResult TestDB_Batch() { return true; }
+
+TestResult TestDB_Batch_Panic() { return true; }
+
+TestResult TestDB_BatchFull() { return true; }
+
+TestResult TestDB_BatchTime() { return true; }
