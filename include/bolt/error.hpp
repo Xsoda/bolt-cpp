@@ -71,9 +71,11 @@ template <> struct formatter<bolt::ErrorCode>: nested_formatter<fmt::string_view
   };
 };
 
-template <>
-struct formatter<std::span<const std::byte>> : nested_formatter<fmt::string_view> {
-  auto format(const std::span<const std::byte> bytes, format_context &ctx) const
+template <typename T>
+requires std::is_same_v<T, std::byte> || std::is_same_v<T, const std::byte>
+struct formatter<std::span<T>>
+    : nested_formatter<fmt::string_view> {
+  auto format(const std::span<T> bytes, format_context &ctx) const
       -> decltype(ctx.out()) {
     return write_padded(ctx, [this, bytes](auto out) -> decltype(out) {
       for (auto it : bytes) {

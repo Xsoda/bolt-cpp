@@ -199,7 +199,6 @@ bolt::ErrorCode Bucket::spill(std::vector<impl::node_ptr> &hold) {
         _assert(false, "pgid ({}) above high water mark ({})", rootNode->pgid, txptr->meta.pgid);
     }
     root = rootNode->pgid;
-    log_debug("* set bucket root {}", root);
     return bolt::ErrorCode::Success;
 }
 

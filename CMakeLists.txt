@@ -72,6 +72,8 @@ target_sources(${PROJECT_NAME}
   test/cursor_test.cpp
   test/tx_test.cpp
   test/test.hpp
+  test/quick_check.hpp
+  test/util.hpp
   test/random.hpp
   test/random.cpp
 )

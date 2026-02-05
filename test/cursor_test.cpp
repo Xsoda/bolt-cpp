@@ -217,7 +217,6 @@ TestResult TestCursor_Delete() {
                 err != bolt::ErrorIncompatiableValue) {
                 return err;
             }
-            b->dump();
             return bolt::Success;
         });
         err != bolt::Success) {
@@ -675,16 +674,74 @@ TestResult TestCursor_QuickCheck() {
         MustCloseDB(std::move(db));
         return true;
     };
-    if (auto ret = qc.Check(fn, 1000); !ret) {
+    if (auto ret = qc.Check(fn); !ret) {
         return TestResult(false, "quick check fail");
     }
     return true;
 }
 
 TestResult TestCursor_QuickCheck_Reverse() {
-    auto db = MustOpenDB();
+    QuickCheck qc;
+    auto fn = [](TestData &testdata) -> bool {
+        std::string widgets = "widgets";
+        bolt::impl::BucketPtr b;
+        auto db = MustOpenDB();
+        auto [tx, err] = db->Begin(true);
+        if (err != bolt::Success) {
+            fmt::println("Begin tx fail, {}", err);
+            return false;
+        }
+        std::tie(b, err) = tx->CreateBucket(to_bytes(widgets));
+        if (err != bolt::Success) {
+            fmt::println("CreateBucket fail, {}", err);
+        }
+        for (auto &[k, v] : testdata) {
+            if (err = b->Put(k, v); err != bolt::Success) {
+                fmt::println("Put {{{}, {}}} fail, {}", k, v, err);
+                return false;
+            }
+        }
+        if (err = tx->Commit(); err != bolt::Success) {
+            fmt::println("Commit fail, {}", err);
+            return false;
+        }
 
-    MustCloseDB(std::move(db));
+        testdata.Sort();
+
+        size_t index = 0;
+        std::tie(tx, err) = db->Begin(false);
+        if (err != bolt::Success) {
+            fmt::println("Begin tx fail, {}", err);
+            return false;
+        }
+        size_t size = testdata.size();
+        auto c = tx->Bucket(to_bytes(widgets))->Cursor();
+        for (auto [k, v] = c->Last(); !k.empty(); std::tie(k, v) = c->Prev()) {
+            if (!Equal(k, testdata[size - index - 1].first)) {
+                fmt::println("unexpected key: {}", k);
+                return false;
+            } else if (!Equal(v, testdata[size - index - 1].second)) {
+                fmt::println("unexpected value: {}", v);
+                return false;
+            }
+            index++;
+        }
+        if (size != index) {
+            fmt::println("unexpected item count: {}, expected {}",
+                         size, index);
+            return false;
+        }
+        if (err = tx->Rollback(); err != bolt::Success) {
+            fmt::println("Rollback fail, {}", err);
+            return false;
+        }
+        MustCloseDB(std::move(db));
+        return true;
+    };
+    if (auto ret = qc.Check(fn); !ret) {
+        return TestResult(false, "quick check fail");
+    }
+    return true;
     return true;
 }
 
