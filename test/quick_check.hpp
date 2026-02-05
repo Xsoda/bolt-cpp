@@ -12,22 +12,32 @@ struct TestData {
         std::pair<std::span<const std::byte>, std::span<const std::byte>>;
     std::vector<std::byte> memory;
     std::vector<Item> items;
-    std::span<std::byte> RandomBytes(std::uint32_t min, std::uint32_t max) {
+    std::uint32_t RandomInt(std::uint32_t min, std::uint32_t max) {
         auto length = Random();
         length %= (max - min);
         length += min;
-        memory.resize(memory.size() + length);
-        std::span<std::byte> result =
-            std::span<std::byte>(reinterpret_cast<std::byte *>(
-                                     memory.data() + memory.size() - length),
-                                 length);
-        return RandomCharset(result);
+        return length;
     };
     void Generate(size_t size) {
         items.reserve(size);
+        std::vector<std::uint32_t> lens;
+        lens.reserve(size * 2);
         for (size_t i = 0; i < size; i++) {
-            auto k = RandomBytes(1, 1024);
-            auto v = RandomBytes(0, 1024);
+            lens.push_back(RandomInt(1, 1024));
+            lens.push_back(RandomInt(0, 1024));
+        }
+        std::uint32_t total = 0;
+        for (auto it : lens) {
+            total += it;
+        }
+        memory.resize(total);
+        RandomCharset(memory);
+        std::uint32_t offset = 0;
+        for (size_t i = 0; i < size; i++) {
+            auto k = std::span<std::byte>(reinterpret_cast<std::byte*>(memory.data() + offset), lens[i * 2]);
+            offset += lens[i * 2];
+            auto v = std::span<std::byte>(reinterpret_cast<std::byte*>(memory.data() + offset), lens[i * 2 + 1]);
+            offset += lens[i * 2 + 1];
             items.push_back(std::make_pair(k, v));
         }
     };

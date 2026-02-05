@@ -675,7 +675,7 @@ TestResult TestCursor_QuickCheck() {
         MustCloseDB(std::move(db));
         return true;
     };
-    if (auto ret = qc.Check(fn, 100); !ret) {
+    if (auto ret = qc.Check(fn, 1000); !ret) {
         return TestResult(false, "quick check fail");
     }
     return true;
