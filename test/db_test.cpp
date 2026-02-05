@@ -26,7 +26,7 @@ bolt::impl::DBPtr MustOpenDB() {
     auto db = std::make_shared<bolt::impl::DB>();
     auto path = tempfile();
     auto err = db->Open(path);
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         assert("open database fail" && false);
         return nullptr;
     }
@@ -35,7 +35,7 @@ bolt::impl::DBPtr MustOpenDB() {
 
 void MustCloseDB(bolt::impl::DBPtr &&db) {
     auto err = db->Close();
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         assert("close database fail" && false);
     }
 }
@@ -50,7 +50,7 @@ void MustCheck(bolt::impl::DBPtr db) {
                     fmt::println("  - {}", item);
                 }
             }
-            return bolt::ErrorCode::Success;
+            return bolt::Success;
     });
 }
 
@@ -58,7 +58,7 @@ TestResult TestDB_Open() {
     auto db = std::make_shared<bolt::impl::DB>();
     auto path = tempfile();
     auto err = db->Open(path, false);
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         return TestResult(false, "expected open success");
     }
     auto s = db->Path();
@@ -66,7 +66,7 @@ TestResult TestDB_Open() {
         return TestResult(false, "expected path");
     }
     err = db->Close();
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         return TestResult(false, "expected close database");
     }
     return true;
@@ -75,7 +75,7 @@ TestResult TestDB_Open() {
 TestResult TestDB_OpenPathRequired() {
     auto db = std::make_shared<bolt::impl::DB>();
     auto err = db->Open("", false);
-    if (err == bolt::ErrorCode::Success) {
+    if (err == bolt::Success) {
         return TestResult(false, "expected open database fail");
     }
     return true;
@@ -90,7 +90,7 @@ TestResult TestDB_OpenInvalid() {
 
     auto db = std::make_shared<bolt::impl::DB>();
     auto err = db->Open(path, false);
-    if (err != bolt::ErrorCode::ErrorDatabaseInvalid) {
+    if (err != bolt::ErrorDatabaseInvalid) {
         return TestResult(false, "expected error is ErrorDatabaseInvalid");
     }
     return true;
@@ -105,16 +105,16 @@ TestResult TestDB_OpenErrVersionMismatch() {
     std::uint64_t size;
     std::vector<std::byte> buf;
     auto err = file.Open(path, false);
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         return TestResult(false, "open database file fail");
     }
     std::tie(size, err) = file.Size();
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         return TestResult(false, "stat database file fail");
     }
     buf.assign(size, std::byte(0));
     std::tie(size, err) = file.ReadAt(buf, 0);
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         return TestResult(false, "read database file fail");
     }
     auto meta0 = reinterpret_cast<bolt::impl::meta *>(
@@ -124,13 +124,13 @@ TestResult TestDB_OpenErrVersionMismatch() {
         &buf.data()[bolt::impl::pageHeaderSize + bolt::impl::Getpagesize()]);
     meta1->version++;
     std::tie(size, err) = file.WriteAt(buf, 0);
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         return TestResult(false, "write database file fail");
     }
 
     db = std::make_shared<bolt::impl::DB>();
     err = db->Open(path);
-    if (err != bolt::ErrorCode::ErrorVersionMismatch) {
+    if (err != bolt::ErrorVersionMismatch) {
         return TestResult(false, "expected error is ErrorVersionMismatch");
     }
     return true;
@@ -145,16 +145,16 @@ TestResult TestDB_OpenErrChecksum() {
     std::uint64_t size;
     std::vector<std::byte> buf;
     auto err = file.Open(path, false);
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         return TestResult(false, "open database file fail");
     }
     std::tie(size, err) = file.Size();
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         return TestResult(false, "stat database file fail");
     }
     buf.assign(size, std::byte(0));
     std::tie(size, err) = file.ReadAt(buf, 0);
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         return TestResult(false, "read database file fail");
     }
     auto meta0 = reinterpret_cast<bolt::impl::meta *>(
@@ -164,13 +164,13 @@ TestResult TestDB_OpenErrChecksum() {
         &buf.data()[bolt::impl::pageHeaderSize + bolt::impl::Getpagesize()]);
     meta1->pgid++;
     std::tie(size, err) = file.WriteAt(buf, 0);
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         return TestResult(false, "write database file fail");
     }
 
     db = std::make_shared<bolt::impl::DB>();
     err = db->Open(path);
-    if (err != bolt::ErrorCode::ErrorChecksum) {
+    if (err != bolt::ErrorChecksum) {
         return TestResult(false, "expected error is ErrorChecksum");
     }
     return true;
@@ -184,7 +184,7 @@ TestResult TestDB_OpenSize() {
     auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
       std::string name = "data";
       auto [b, err] = tx->CreateBucketIfNotExists(to_bytes(name));
-      if (err != bolt::ErrorCode::Success) {
+      if (err != bolt::Success) {
         return err;
       }
       std::vector<std::byte> value;
@@ -192,17 +192,17 @@ TestResult TestDB_OpenSize() {
       for (int i = 0; i < 10000; i++) {
         std::string key = fmt::format("{:04d}", i);
         err = b->Put(to_bytes(key), value);
-        if (err != bolt::ErrorCode::Success) {
+        if (err != bolt::Success) {
           return err;
         }
       }
-      return bolt::ErrorCode::Success;
+      return bolt::Success;
     });
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         return TestResult(false, "database Update fail");
     }
     err = db->Close();
-    if (err != bolt::ErrorCode::Success) {
+    if (err != bolt::Success) {
         return TestResult(false, "database close fail");
     }
     fmt::println("database {} closed", path);
