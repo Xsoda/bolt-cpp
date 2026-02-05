@@ -10,11 +10,11 @@ constexpr bool Equal(ContainerA a, ContainerB b) {
 }
 
 template <class Container>
-constexpr std::span<const std::byte> to_bytes(Container &container) {
+constexpr std::span<const std::byte> to_bytes(const Container &container) {
     return std::span<const std::byte>(reinterpret_cast<const std::byte*>(container.data()), container.size());
 }
 
 template <class Container>
-std::string to_string(Container &container) {
+std::string to_string(const Container &container) {
     return std::string(reinterpret_cast<const char*>(container.data()), container.size());
 }
