@@ -437,12 +437,12 @@ std::tuple<size_t, size_t> node::splitIndex(size_t threshold, size_t off) {
         impl::inode &inode = inodes.at(i);
         size_t elsize = pageElementSize() + inode.key.size() + inode.value.size();
 
-        if (i >= impl::minKeysPerPage && sz + elsize > threshold) {
+        if (i - off >= impl::minKeysPerPage && sz + elsize > threshold) {
             break;
         }
         sz += elsize;
-
     }
+
     return std::make_tuple(index, sz);
 }
 
