@@ -13,9 +13,6 @@
 #include <string>
 
 
-extern bolt::impl::DBPtr MustOpenDB();
-extern void MustCloseDB(bolt::impl::DBPtr &&db);
-
 TestResult TestTx_Commit_ErrorTxClosed() {
     std::string foo = "foo";
     auto db = MustOpenDB();

@@ -17,9 +17,6 @@
 #include <concepts>
 #include <bit>
 
-extern bolt::impl::DBPtr MustOpenDB();
-extern void MustCloseDB(bolt::impl::DBPtr &&db);
-
 TestResult TestCursor_Bucket() {
     auto db = MustOpenDB();
     auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
@@ -130,19 +127,6 @@ TestResult TestCursor_Seek() {
     return true;
 }
 
-template <std::integral T> constexpr T byteswap(T value) noexcept {
-    union {
-        T val;
-        char ptr[sizeof(T)];
-    } s;
-    s.val = value;
-    for (int i = 0; i < sizeof(T) / 2; i++) {
-        auto tmp = s.ptr[i];
-        s.ptr[i] = s.ptr[sizeof(T) - i - 1];
-        s.ptr[sizeof(T) - i - 1] = tmp;
-    }
-    return s.val;
-}
 TestResult TestCursor_Delete() {
     auto db = MustOpenDB();
     const int count = 1000;
@@ -155,15 +139,12 @@ TestResult TestCursor_Delete() {
         if (err != bolt::Success) {
             return err;
         }
+        std::uint64_t k;
+        std::vector<std::byte> value;
+        value.assign(100, std::byte(0));
         for (int i = 0; i < count; i++) {
-            std::uint64_t k = i;
-            std::vector<std::byte> value;
-            value.assign(100, std::byte(0));
-            if constexpr (std::endian::native == std::endian::little) {
-                k = byteswap(k);
-            }
-            std::span<std::byte> key = std::span<std::byte>{
-                reinterpret_cast<std::byte *>(&k), sizeof(std::uint64_t)};
+            k = i;
+            auto key = u64tob(k);
             std::span<std::byte> val = std::span<std::byte>{
                 reinterpret_cast<std::byte *>(value.data()), value.size()};
             if (auto err = b->Put(key, val); err != bolt::Success) {
@@ -186,12 +167,7 @@ TestResult TestCursor_Delete() {
             auto c = tx->Bucket(to_bytes(widgets))->Cursor();
             std::uint64_t m = count / 2;
             auto b = c->Bucket();
-            if constexpr (std::endian::native == std::endian::little) {
-              m = byteswap(m);
-            }
-            std::span<std::byte> bound = std::span<std::byte>{
-                reinterpret_cast<std::byte *>(&m),
-                sizeof(std::uint64_t)};
+            auto bound = u64tob(m);
             auto [k, v] = c->First();
 
             while (std::is_lt(bolt::impl::compare_three_way(k, bound))) {
@@ -202,8 +178,7 @@ TestResult TestCursor_Delete() {
             }
 
             c->Seek(to_bytes(sub));
-            if (auto err = c->Delete();
-                err != bolt::ErrorIncompatiableValue) {
+            if (auto err = c->Delete(); err != bolt::ErrorIncompatiableValue) {
                 return err;
             }
             return bolt::Success;
@@ -215,7 +190,7 @@ TestResult TestCursor_Delete() {
         std::string widgets = "widgets";
         auto stats = tx->Bucket(to_bytes(widgets))->Stats();
         if (stats.KeyN != count / 2 + 1) {
-            fmt::println("unexpected KeyN: %d", stats.KeyN);
+            fmt::println("unexpected KeyN: {}", stats.KeyN);
             return bolt::ErrorUnexpected;
         }
         return bolt::Success;
@@ -550,13 +525,6 @@ TestResult TestCursor_Restart() {
     }
     MustCloseDB(std::move(db));
     return true;
-}
-
-std::span<const std::byte> u64tob(std::uint64_t &v) {
-    if constexpr (std::endian::native == std::endian::little) {
-        v = byteswap(v);
-    }
-    return std::span<const std::byte>(reinterpret_cast<const std::byte*>(&v), sizeof(std::uint64_t));
 }
 
 TestResult TestCursor_First_EmptyPages() {
