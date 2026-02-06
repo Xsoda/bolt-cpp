@@ -70,7 +70,7 @@ bolt::ErrorCode Tx::writeMeta() {
     std::vector<std::byte> buf;
     buf.assign(dbptr->pageSize, std::byte(0x00));
 
-   impl::page *p = dbptr->pageInBuffer(bolt::bytes{buf}, 0);
+    impl::page *p = dbptr->pageInBuffer(bolt::bytes{buf}, 0);
     meta.write(p);
     auto [_, err] = dbptr->file.WriteAt(bolt::bytes{buf},
                                         (std::int64_t)p->id * dbptr->pageSize);

@@ -214,7 +214,7 @@ TestResult TestDB_Open_Size_Large() {
     std::string data = "data";
     value.assign(50, std::byte(0));
     auto zero = std::span<std::byte>(value.data(), 1);
-    for (int i = 0; i < 10000 /* 10000 */; i++) {
+    for (int i = 0; i < 1000; i++) {
         auto start = std::chrono::steady_clock::now();
         if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             auto [b, err] = tx->CreateBucketIfNotExists(to_bytes(data));

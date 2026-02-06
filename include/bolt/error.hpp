@@ -37,7 +37,8 @@ namespace bolt {
   XX(DatabaseEOF, "database eof")                                              \
   XX(Unexpected, "unexpected")                                                 \
   XX(Expected, "expected error")                                               \
-  XX(ExceptionCaptured, "exception captured")
+  XX(ExceptionCaptured, "exception captured")                                  \
+  XX(NotImplemented, "not implemented")
 
 
 typedef enum {
