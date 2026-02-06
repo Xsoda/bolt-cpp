@@ -3,14 +3,15 @@
 #ifndef __UTILS_HPP__
 #define __UTILS_HPP__
 
-#include <cstdint>
-#include <memory>
-#include <chrono>
-#include <source_location>
 #include "bolt/common.hpp"
 #include "bolt/error.hpp"
 #include "fmt/core.h"
 #include <cassert>
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <source_location>
+#include <stdexcept>
 
 namespace bolt::impl {
     using namespace std::chrono_literals;
@@ -50,8 +51,7 @@ namespace bolt::impl {
                   fmt::format_string<Args...> fmt, Args &&...args) {
         if (!condition) {
             fmt::println(stderr, "Assert Failed at {}:{} {}", location.file_name(), location.line(), location.function_name());
-            fmt::println(stderr, fmt, std::forward<Args>(args)...);
-            assert(false);
+            throw std::runtime_error(fmt::format(fmt, std::forward<Args>(args)...));
         }
     };
 

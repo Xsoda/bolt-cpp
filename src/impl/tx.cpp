@@ -9,6 +9,7 @@
 #include <chrono>
 #include <mutex>
 #include <fmt/format.h>
+#include <fmt/chrono.h>
 #include <inttypes.h>
 
 namespace bolt::impl {
@@ -167,8 +168,8 @@ bolt::ErrorCode Tx::Commit() {
     // Rebalance nodes which have had deletions.
     auto startTime = std::chrono::system_clock::now();
     auto since = [](std::chrono::time_point<std::chrono::system_clock> start) {
-        return std::chrono::duration_cast<std::chrono::milliseconds>(
-                                                                     std::chrono::system_clock::now() - start);
+      return std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::system_clock::now() - start);
     };
     root->rebalance();
     if (stats.Rebalance > 0) {

@@ -36,7 +36,9 @@ namespace bolt {
   XX(MmapTooLarge, "mmap too large")                                           \
   XX(DatabaseEOF, "database eof")                                              \
   XX(Unexpected, "unexpected")                                                 \
-  XX(Expected, "expected error")
+  XX(Expected, "expected error")                                               \
+  XX(ExceptionCaptured, "exception captured")
+
 
 typedef enum {
   Success = 0,

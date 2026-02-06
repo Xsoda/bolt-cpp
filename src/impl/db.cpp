@@ -1,4 +1,5 @@
 #include "impl/db.hpp"
+#include "bolt/error.hpp"
 #include "impl/async.hpp"
 #include "impl/batch.hpp"
 #include "impl/file.hpp"
@@ -6,6 +7,7 @@
 #include "impl/page.hpp"
 #include "impl/tx.hpp"
 #include <mutex>
+#include <shared_mutex>
 #include <tuple>
 
 namespace bolt::impl {
@@ -256,7 +258,12 @@ bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     }
 
     tx->managed = true;
-    err = fn(tx);
+    try {
+        err = fn(tx);
+    } catch (const std::exception &e) {
+        fmt::println(stderr, "exception: {}", e.what());
+        err = bolt::ErrorExceptionCaptured;
+    }
     tx->managed = false;
 
     if (err != bolt::ErrorCode::Success) {
@@ -284,7 +291,12 @@ bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     }
 
     tx->managed = true;
-    err = fn(tx);
+    try {
+        err = fn(tx);
+    } catch (const std::exception &e) {
+        fmt::println(stderr, "exception: {}", e.what());
+        err = bolt::ErrorExceptionCaptured;
+    }
     tx->managed = false;
 
     if (err != bolt::ErrorCode::Success) {
@@ -585,5 +597,11 @@ impl::Info DB::Info() const {
     info.Data = dataref;
     info.PageSize = pageSize;
     return info;
-};
+}
+
+impl::Stats DB::Stats() {
+    std::shared_lock<std::shared_mutex> lock(statlock);
+    return stats;
+}
+
 }

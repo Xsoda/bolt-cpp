@@ -24,6 +24,10 @@ struct Stats {
     size_t TxN;
     size_t OpenTxN;
     impl::TxStats TxStats;
+    Stats()
+        : FreePageN(0), PendingPageN(0), FreeAlloc(0), FreelistInuse(0), TxN(0),
+          OpenTxN(0){};
+    ~Stats() = default;
 };
 
 struct Info {
@@ -118,6 +122,7 @@ struct DB : public std::enable_shared_from_this<DB> {
     std::tuple<impl::TxPtr, bolt::ErrorCode> beginRWTx();
     void removeTx(impl::TxPtr tx);
     impl::Info Info() const;
+    impl::Stats Stats();
 
     bolt::ErrorCode Update(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn);
     bolt::ErrorCode Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn);
