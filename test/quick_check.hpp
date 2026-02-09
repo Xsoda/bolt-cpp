@@ -16,7 +16,7 @@ struct TestData {
         auto length = Random();
         length %= (max - min);
         length += min;
-        return length;
+        return (uint32_t)length;
     };
     void Generate(size_t size) {
         items.reserve(size);

@@ -644,11 +644,11 @@ impl::BucketStats Bucket::Stats() {
                 }
                 if (root == 0) {
                     // For inlined bucket just update the inline stats
-                    s.InlineBucketInuse += used;
+                    s.InlineBucketInuse += (int)used;
                 } else {
                     // For non-inlined bucket update all the leaf stats
                     s.LeafPageN++;
-                    s.LeafInuse += used;
+                    s.LeafInuse += (int)used;
                     s.LeafOverflowN += int(p->overflow);
 
                     // Collect stats from sub-buckets.
@@ -675,7 +675,7 @@ impl::BucketStats Bucket::Stats() {
                 // Again, use the fact that last element's position equals to
                 // the total of key, value sizes of all previous elements.
                 used += int(lastElement->pos + lastElement->ksize);
-                s.BranchInuse += used;
+                s.BranchInuse += (int)used;
                 s.BranchOverflowN += int(p->overflow);
             }
             // Keep track of maximum page depth.

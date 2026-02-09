@@ -41,7 +41,7 @@ void batch::run() {
                 bolt::ErrorCode err;
                 try {
                     err = it->get()->fn(tx);
-                } catch (const std::exception &e) {
+                } catch ([[maybe_unused]] const std::exception &e) {
                     err = bolt::ErrorExceptionCaptured;
                 }
                 if (err != bolt::Success) {

@@ -253,7 +253,7 @@ void node::put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_b
             return !std::is_gt(cmp);
         });
     auto index = std::distance(std::begin(inodes), it);
-    auto exact = inodes.size() > 0 && index < inodes.size() &&
+    auto exact = inodes.size() > 0 && (size_t)index < inodes.size() &&
                  std::is_eq(impl::compare_three_way(it->key, oldKey));
     if (!exact) {
         inodes.insert(inodes.begin() + index, impl::inode{});
