@@ -60,6 +60,7 @@ DB::DB() {
     meta1 = NULL;
     pageSize = 0;
     opened = false;
+    readOnly = false;
 }
 
 DB::~DB() {
@@ -220,15 +221,15 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
         std::lock_guard<std::mutex> lock(batchMu);
         if (batch == nullptr || (batch != nullptr
                                  && batch->calls.size() >= MaxBatchSize)) {
-            batch = std::make_unique<impl::batch>(shared_from_this());
-            AfterFunc(MaxBatchDelay, [&]() {
+            batch = std::make_shared<impl::batch>(shared_from_this());
+            AfterFunc(MaxBatchDelay, [batch = this->batch]() {
                 batch->trigger();
             });
         }
         c->fn = std::move(fn);
         batch->calls.push_back(c);
         if (batch->calls.size() >= MaxBatchSize) {
-            AsyncFireAndForget([&]() {
+            AsyncFireAndForget([batch = this->batch]() {
                 batch->trigger();
             });
         }
@@ -450,10 +451,13 @@ bolt::ErrorCode DB::grow(std::uint64_t sz) {
     // Truncate and fsync to ensure file size metadata is flushed.
     // https://github.com/boltdb/bolt/issues/284
     if (!NoGrowSync && !readOnly) {
-        auto err = file.Truncate(sz);
+        bolt::ErrorCode err;
+#ifndef WIN32
+        err = file.Truncate(sz);
         if (err != bolt::ErrorCode::Success) {
             return bolt::ErrorCode::ErrorFileResizeFail;
         }
+#endif
         err = file.Fsync();
         if (err != bolt::ErrorCode::Success) {
             return bolt::ErrorCode::ErrorFileSyncFail;

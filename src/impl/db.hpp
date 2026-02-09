@@ -91,13 +91,14 @@ struct DB : public std::enable_shared_from_this<DB> {
     impl::TxPtr rwtx;
     std::vector<impl::TxPtr> txs;
     std::unique_ptr<impl::freelist> freelist;
+
     // temporary save tx page, page pointer is std::vector::data()
     std::map<impl::page *, std::unique_ptr<std::vector<std::byte>>> pagePool;
     std::mutex poolMutex;
 
     impl::Stats stats;
 
-    std::unique_ptr<impl::batch> batch;
+    std::shared_ptr<impl::batch> batch;
     std::mutex batchMu;
 
     std::mutex rwlock;          // Allows only one writer at a time.

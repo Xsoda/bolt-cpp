@@ -29,6 +29,9 @@ struct batch {
 
     batch(std::shared_ptr<impl::DB> db) : db(db){};
     void trigger();
+
+    ~batch();
+private:
     void run();
 };
 

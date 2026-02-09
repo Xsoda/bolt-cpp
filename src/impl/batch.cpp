@@ -1,4 +1,5 @@
 #include "impl/batch.hpp"
+#include "bolt/error.hpp"
 #include "impl/db.hpp"
 #include "impl/async.hpp"
 #include <chrono>
@@ -15,7 +16,9 @@ void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn) {
     }, delay);
 }
 
-void batch::trigger() { std::call_once(start, std::bind(&batch::run, this)); }
+void batch::trigger() {
+    std::call_once(start, std::bind(&batch::run, this));
+}
 
 void batch::run() {
     auto dbptr = db.lock();
@@ -25,36 +28,43 @@ void batch::run() {
     }
 
     do {
-            std::lock_guard<std::mutex> _(dbptr->batchMu);
-            if (dbptr->batch.get() == this) {
-                dbptr->batch = nullptr;
-            }
+        std::lock_guard<std::mutex> lock(dbptr->batchMu);
+        if (dbptr->batch.get() == this) {
+            dbptr->batch = nullptr;
+        }
     } while (0);
 
     while (calls.size() > 0) {
         ptrdiff_t failIdx = -1;
         auto err = dbptr->Update([&](impl::TxPtr tx) -> bolt::ErrorCode {
             for (auto it = calls.begin(); it != calls.end(); it++) {
-                auto ret = it->get()->fn(tx);
-                if (ret != bolt::ErrorCode::Success) {
+                bolt::ErrorCode err;
+                try {
+                    err = it->get()->fn(tx);
+                } catch (const std::exception &e) {
+                    err = bolt::ErrorExceptionCaptured;
+                }
+                if (err != bolt::Success) {
                     failIdx = std::distance(calls.begin(), it);
-                    return ret;
+                    return err;
                 }
             }
-            return bolt::ErrorCode::Success;
+            return bolt::Success;
         });
 
         if (failIdx >= 0) {
             auto c = std::move(calls[failIdx]);
             calls.erase(calls.begin() + failIdx);
-            c->err.set_value(bolt::ErrorCode::ErrorTrySolo);
+            c->err.set_value(bolt::ErrorTrySolo);
             continue;
         }
         for (auto &it : calls) {
-            it->err.set_value(bolt::ErrorCode::Success);
+            it->err.set_value(bolt::Success);
         }
         break;
-  }
+    }
 }
+
+batch::~batch() { db.reset(); }
 
 }
