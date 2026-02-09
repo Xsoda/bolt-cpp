@@ -4,9 +4,11 @@
 #include "impl/bucket.hpp"
 #include "impl/meta.hpp"
 #include "impl/utils.hpp"
+#include "impl/page.hpp"
 #include <functional>
 #include <future>
 #include <memory>
+#include <optional>
 
 namespace bolt::impl {
 
@@ -182,6 +184,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
         &&fn);
     impl::BucketPtr Bucket(bolt::const_bytes name);
     impl::CursorPtr Cursor();
+    std::tuple<std::optional<impl::PageInfo>, bolt::ErrorCode> Page(int id);
 };
 
 } // namespace bolt::impl

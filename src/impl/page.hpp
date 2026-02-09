@@ -50,6 +50,8 @@ struct PageInfo {
     std::string Type;
     int Count;
     int OverflowCount;
+    PageInfo() : ID(0), Count(0), OverflowCount(0){};
+    ~PageInfo() = default;
 };
 
 constexpr size_t branchPageElementSize = sizeof(branchPageElement);

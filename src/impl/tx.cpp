@@ -1,4 +1,5 @@
 #include "impl/tx.hpp"
+#include "bolt/error.hpp"
 #include "impl/page.hpp"
 #include "impl/bucket.hpp"
 #include "impl/db.hpp"
@@ -445,5 +446,26 @@ impl::BucketPtr Tx::Bucket(bolt::const_bytes name) {
 }
 
 impl::CursorPtr Tx::Cursor() { return root->Cursor(); }
+
+std::tuple<std::optional<impl::PageInfo>, bolt::ErrorCode> Tx::Page(int id) {
+    auto dbptr = db.lock();
+    if (dbptr == nullptr) {
+        return std::make_tuple(std::nullopt, bolt::ErrorTxClosed);
+    } else if (id >= meta.pgid) {
+        return std::make_tuple(std::nullopt, bolt::Success);
+    }
+    impl::PageInfo info;
+
+    auto p = dbptr->page(impl::pgid(id));
+    info.ID = id;
+    info.Count = p->count;
+    info.OverflowCount = p->overflow;
+    if (dbptr->freelist->freed(impl::pgid(id))) {
+        info.Type = "free";
+    } else {
+        info.Type = p->type();
+    }
+    return std::make_tuple(info, bolt::Success);
+}
 
 }

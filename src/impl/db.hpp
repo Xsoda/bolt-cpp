@@ -28,6 +28,20 @@ struct Stats {
         : FreePageN(0), PendingPageN(0), FreeAlloc(0), FreelistInuse(0), TxN(0),
           OpenTxN(0){};
     ~Stats() = default;
+    friend Stats operator-(Stats lhs, const Stats rhs) {
+        Stats result;
+        result.FreePageN = lhs.FreePageN;
+        result.PendingPageN = lhs.PendingPageN;
+        result.FreeAlloc = lhs.FreeAlloc;
+        result.TxN = lhs.TxN - rhs.TxN;
+        result.TxStats = lhs.TxStats - rhs.TxStats;
+        return result;
+    };
+    friend Stats operator+(Stats lhs, const Stats rhs) {
+        Stats result;
+        result.TxStats = lhs.TxStats + rhs.TxStats;
+        return result;
+    };
 };
 
 struct Info {

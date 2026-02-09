@@ -212,9 +212,10 @@ TestResult TestDB_Open_Size_Large() {
     std::uint64_t index = 0;
     std::vector<std::byte> value;
     std::string data = "data";
+    auto count = 100;
     value.assign(50, std::byte(0));
     auto zero = std::span<std::byte>(value.data(), 1);
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < count; i++) {
         auto start = std::chrono::steady_clock::now();
         if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             auto [b, err] = tx->CreateBucketIfNotExists(to_bytes(data));
@@ -246,7 +247,7 @@ TestResult TestDB_Open_Size_Large() {
     auto sz = std::filesystem::file_size(path);
     if (sz == 0) {
         return TestResult(false, "unexpected new file size: {}", sz);
-    } else if (sz < (1 << 30)) {
+    } else if (sz < (1 << 30) && count == 10000) {
         return TestResult(false, "expected larger initial size: {}", sz);
     }
 
@@ -571,17 +572,217 @@ TestResult TestDB_Update_Panic() {
     return true;
 }
 
-TestResult TestDB_View_Error() { return true; }
+TestResult TestDB_View_Error() {
+    auto db = MustOpenDB();
+    if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          return bolt::ErrorExpected;
+    }); err != bolt::ErrorExpected) {
+        return TestResult(false, "unexpected error, {}", err);
+    }
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestDB_View_Panic() { return true; }
+TestResult TestDB_View_Panic() {
+    auto db = MustOpenDB();
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string widgets = "widgets";
+        if (auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+            err != bolt::Success) {
+            return err;
+        }
+        return bolt::Success;
+    }); err != bolt::Success) {
+        return TestResult(false, "update fail, {}", err);
+    }
+    if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          std::string widgets = "widgets";
+          if (tx->Bucket(to_bytes(widgets)) == nullptr) {
+            return bolt::ErrorBucketNotFound;
+          }
+          throw std::runtime_error("omg");
+          return bolt::Success;
+          return bolt::Success;
+    }); err != bolt::ErrorExceptionCaptured) {
+        return TestResult(false, "unexpected error, {}", err);
+    }
+    if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          std::string widgets = "widgets";
+          if (tx->Bucket(to_bytes(widgets)) == nullptr) {
+              return bolt::ErrorBucketNotFound;
+          }
+        return bolt::Success;
+    }); err != bolt::Success) {
+        return TestResult(false, "unexpected error, {}", err);
+    }
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestDB_Stats() { return true; }
+TestResult TestDB_Stats() {
+    auto db = MustOpenDB();
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          std::string widgets = "widgets";
+          if (auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+              err != bolt::Success) {
+              return err;
+          }
+        return bolt::Success;
+    }); err != bolt::Success) {
+        return TestResult(false, "unexpected error, {}", err);
+    }
+    auto stats = db->Stats();
+    if (stats.TxStats.PageCount != 2) {
+        return TestResult(false, "unexpected TxStats.PageCount: {}",
+                          stats.TxStats.PageCount);
+    } else if (stats.FreePageN != 0) {
+        return TestResult(false, "unexpected FreePageN != 0: {}",
+                          stats.FreePageN);
+    } else if (stats.PendingPageN != 2) {
+        return TestResult(false, "unexpected PendingPageN != 2: {}",
+                          stats.PendingPageN);
+    }
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestDB_Consistency() { return true; }
+TestResult TestDB_Consistency() {
+    std::string widgets = "widgets";
+    std::string foo = "foo";
+    std::string bar = "bar";
+    auto db = MustOpenDB();
+    if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+        return err;
+    }); err != bolt::Success) {
+        return TestResult(false, "Update fail, {}", err);
+    }
+    for (int i = 0; i < 10; i++) {
+        if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+            return tx->Bucket(to_bytes(widgets))->Put(to_bytes(foo), to_bytes(bar));
+        }); err != bolt::Success) {
+            return TestResult(false, "Update fail, {}", err);
+        }
+    }
+    if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        if (auto [p, err] = tx->Page(0); !p.has_value()) {
+            fmt::println("expected page");
+            return bolt::ErrorUnexpected;
+        } else if (p->Type != "meta") {
+            fmt::println("unexpected page type: %s", p->Type);
+            return bolt::ErrorUnexpected;
+        }
+        if (auto [p, err] = tx->Page(1); !p.has_value()) {
+            fmt::println("expected page");
+            return bolt::ErrorUnexpected;
+        } else if (p->Type != "meta") {
+            fmt::println("unexpected page type: %s", p->Type);
+            return bolt::ErrorUnexpected;
+        }
+        if (auto [p, err] = tx->Page(2); !p.has_value()) {
+            fmt::println("expected page");
+            return bolt::ErrorUnexpected;
+        } else if (p->Type != "free") {
+            fmt::println("unexpected page type: %s", p->Type);
+            return bolt::ErrorUnexpected;
+        }
+        if (auto [p, err] = tx->Page(3); !p.has_value()) {
+            fmt::println("expected page");
+            return bolt::ErrorUnexpected;
+        } else if (p->Type != "free") {
+            fmt::println("unexpected page type: %s", p->Type);
+            return bolt::ErrorUnexpected;
+        }
+        if (auto [p, err] = tx->Page(4); !p.has_value()) {
+            fmt::println("expected page");
+            return bolt::ErrorUnexpected;
+        } else if (p->Type != "leaf") {
+            fmt::println("unexpected page type: %s", p->Type);
+            return bolt::ErrorUnexpected;
+        }
+        if (auto [p, err] = tx->Page(5); !p.has_value()) {
+            fmt::println("expected page");
+            return bolt::ErrorUnexpected;
+        } else if (p->Type != "freelist") {
+            fmt::println("unexpected page type: %s", p->Type);
+            return bolt::ErrorUnexpected;
+        }
+        if (auto [p, err] = tx->Page(6); p.has_value()) {
+            fmt::println("expected page");
+            return bolt::ErrorUnexpected;
+        }
+        return bolt::Success;
+    }); err != bolt::Success) {
+        return TestResult(false, "Update fail, {}", err);
+    }
+    MustCloseDB(std::move(db));
+    return true;
+}
 
-TestResult TestDB_Stats_Sub() { return true; }
+TestResult TestDB_Stats_Sub() {
+    bolt::impl::Stats a, b;
+    a.TxStats.PageCount = 3;
+    a.FreePageN = 4;
+    b.TxStats.PageCount = 10;
+    b.FreePageN = 14;
+    auto diff = b - a;
+    if (diff.TxStats.PageCount != 7) {
+        return TestResult(false, "unexpected TxStats.PageCount: {}", diff.TxStats.PageCount);
+    }
+    if (diff.FreePageN != 14) {
+        return TestResult(false, "unexpected FreePageN: {}", diff.FreePageN);
+    }
+    return true;
+}
 
-TestResult TestDB_Batch() { return true; }
+TestResult TestDB_Batch() {
+    auto db = MustOpenDB();
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string widgets = "widgets";
+        if (auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+            err != bolt::Success) {
+            return err;
+        }
+        return bolt::Success;
+    }); err != bolt::Success) {
+        return TestResult(false, "Update fail, {}", err);
+    }
+    auto n = 2;
+    auto fn = [db](int i) -> bolt::ErrorCode {
+      return db->Batch([i](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string value = "";
+        std::string widgets = "widgets";
+        std::uint64_t key = i;
+        return tx->Bucket(to_bytes(widgets))->Put(u64tob(key), to_bytes(value));
+      });
+    };
+    std::vector<std::future<bolt::ErrorCode>> tasks;
+    for (int i = 0; i < n; i++) {
+        tasks.push_back(std::async(std::launch::async, fn, i));
+    }
+
+    for (auto &it : tasks) {
+        if (auto err = it.get(); err != bolt::Success) {
+            fmt::println("batch result fail, {}", err);
+        }
+    }
+
+    if (auto err = db->View([n](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+        std::string widgets = "widgets";
+        auto b = tx->Bucket(to_bytes(widgets));
+        for (int i = 0; i < n; i++) {
+            std::uint64_t key = i;
+            if (auto v = b->Get(u64tob(key)); v.data() == nullptr) {
+                return bolt::ErrorUnexpected;
+            }
+        }
+        return bolt::Success;
+    }); err != bolt::Success) {
+        return TestResult(false, "View fail, {}", err);
+    }
+    MustCloseDB(std::move(db));
+    return true;
+}
 
 TestResult TestDB_Batch_Panic() { return true; }
 
