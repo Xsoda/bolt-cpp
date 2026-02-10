@@ -269,15 +269,12 @@ bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
 
     if (err != bolt::ErrorCode::Success) {
         tx->Rollback();
-
-        if (!tx->db.expired()) {
-            tx->rollback();
-        }
-
-        return err;
+        goto __rollback;
     }
+
     err = tx->Commit();
 
+__rollback:
     if (!tx->db.expired()) {
         tx->rollback();
     }
@@ -302,15 +299,12 @@ bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
 
     if (err != bolt::ErrorCode::Success) {
         tx->Rollback();
-
-        if (!tx->db.expired()) {
-            tx->rollback();
-        }
-
-        return err;
+        goto __rollback;
     }
+
     err = tx->Rollback();
 
+__rollback:
     if (!tx->db.expired()) {
         tx->rollback();
     }

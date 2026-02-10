@@ -204,7 +204,7 @@ impl::node_ptr node::prevSibling() {
     }
     auto pptr = parent.lock();
     size_t index = (size_t)pptr->childIndex(shared_from_this());
-    if (index >= pptr->numChildren() - 1) {
+    if (index == 0) {
         return nullptr;
     }
     return pptr->childAt(index - 1);
@@ -633,8 +633,6 @@ void node::rebalance() {
 
                 child->parent = target;
                 target->children.push_back(child);
-            } else {
-                log_debug("* bucket node {} not found", item.pgid);
             }
         }
 
@@ -647,8 +645,6 @@ void node::rebalance() {
         auto it = bktptr->nodes.find(pgid);
         if (it != bktptr->nodes.end()) {
             bktptr->nodes.erase(it);
-        } else {
-            log_debug("* bucket remove node {} not found", pgid);
         }
         self->free();
     }

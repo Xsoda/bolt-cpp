@@ -72,7 +72,7 @@ impl::node_ptr Bucket::node(impl::pgid pgid, impl::node_ptr parent) {
 bolt::ErrorCode Bucket::ForEach(
     std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &&fn) {
     auto txptr = tx.lock();
-    if (!txptr) {
+    if (!txptr || txptr->db.expired()) {
         return bolt::ErrorCode::ErrorTxClosed;
     }
     auto c = Cursor();
@@ -488,7 +488,7 @@ bolt::ErrorCode Bucket::DeleteBucket(bolt::const_bytes key) {
 // Get retrieves the value for a key in the bucket.
 // Returns a nil value if the key does not exist or if the key is a nested
 // bucket. The returned value is only valid for the life of the transaction.
-bolt::bytes Bucket::Get(bolt::const_bytes key) {
+bolt::const_bytes Bucket::Get(bolt::const_bytes key) {
     auto c = Cursor();
     auto [k, v, flags] = c->seek(key);
 
@@ -545,6 +545,8 @@ bolt::ErrorCode Bucket::Put(bolt::const_bytes key, bolt::const_bytes value) {
 bolt::ErrorCode Bucket::Delete(bolt::const_bytes key) {
     if (tx.expired()) {
         return bolt::ErrorCode::ErrorTxClosed;
+    } else if (auto txptr = tx.lock(); txptr->db.expired()) {
+        return bolt::ErrorCode::ErrorTxClosed;
     } else if (!Writable()) {
         return bolt::ErrorCode::ErrorTxNotWritable;
     }
@@ -569,6 +571,8 @@ std::uint64_t Bucket::Sequence() { return sequence; }
 bolt::ErrorCode Bucket::SetSequence(std::uint64_t v) {
     if (tx.expired()) {
         return bolt::ErrorCode::ErrorTxClosed;
+    } else if (auto txptr = tx.lock(); txptr->db.expired()) {
+        return bolt::ErrorCode::ErrorTxClosed;
     } else if (!Writable()) {
         return bolt::ErrorCode::ErrorTxNotWritable;
     }
@@ -588,6 +592,8 @@ bolt::ErrorCode Bucket::SetSequence(std::uint64_t v) {
 std::tuple<std::uint64_t, bolt::ErrorCode> Bucket::NextSequence() {
     if (tx.expired()) {
         return std::make_tuple(0,bolt::ErrorCode::ErrorTxClosed);
+    } else if (auto txptr = tx.lock(); txptr->db.expired()) {
+        return std::make_tuple(0, bolt::ErrorCode::ErrorTxClosed);
     } else if (!Writable()) {
         return std::make_tuple(0,bolt::ErrorCode::ErrorTxNotWritable);
     }

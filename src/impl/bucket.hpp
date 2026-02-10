@@ -59,7 +59,9 @@ struct BucketStats {
         LeafPageN += other.LeafPageN;
         LeafOverflowN += other.LeafOverflowN;
         KeyN += other.KeyN;
-        Depth += other.Depth;
+        if (Depth < other.Depth) {
+            Depth = other.Depth;
+        }
         BranchAlloc += other.BranchAlloc;
         BranchInuse += other.BranchInuse;
         LeafAlloc += other.LeafAlloc;
@@ -110,7 +112,7 @@ struct Bucket : public bucket,
     std::tuple<impl::BucketPtr, bolt::ErrorCode>
     CreateBucketIfNotExists(bolt::const_bytes key);
     bolt::ErrorCode DeleteBucket(bolt::const_bytes key);
-    bolt::bytes Get(bolt::const_bytes key);
+    bolt::const_bytes Get(bolt::const_bytes key);
     bolt::ErrorCode Put(bolt::const_bytes key, bolt::const_bytes value);
     bolt::ErrorCode Delete(bolt::const_bytes key);
     std::uint64_t Sequence();
