@@ -1,10 +1,13 @@
 #include "fmt/base.h"
 #include "impl/bsearch.hpp"
+#include "bolt/error.hpp"
 #include "test.hpp"
+#include "util.hpp"
 #include <algorithm>
 #include <chrono>
 #include <compare>
 #include <span>
+#include <string>
 #include <vector>
 
 TestResult TestPageType();
@@ -133,91 +136,91 @@ TestResult TestBucket_Put_Multiple();
 TestResult TestBucket_Delete_Quick();
 
 static const std::vector<Test> tests = {
-    // {"Test Page Type", TestPageType},
-    // {"Test Merge Pgid", TestMergePgid},
-    // {"Test Freelist free", TestFreelist_free},
-    // {"Test Freelist free overflow", TestFreelist_free_overflow},
-    // {"Test Freelist release", TestFreelist_release},
-    // {"Test Freelist allocate", TestFreelist_allocate},
-    // {"Test Freelist read", TestFreelist_read},
-    // {"Test Freelist write", TestFreelist_write},
-    // {"Test Node put", TestNode_put},
-    // {"Test Node read_LeafPage", TestNode_read_LeafPage},
-    // {"Test Node write_LeafPage", TestNode_write_LeafPage},
-    // {"Test Node split", TestNode_split},
-    // {"Test Node split_MinKeys", TestNode_split_MinKeys},
-    // {"Test Node split_SinglePage", TestNode_split_SinglePage},
-    // {"Test DB Open", TestDB_Open},
-    // {"Test DB Open Path Required", TestDB_OpenPathRequired},
-    // {"Test DB Open ErrorDatabaseInvalid", TestDB_OpenInvalid},
-    // {"Test DB Open ErrorVersionMismatch", TestDB_OpenErrVersionMismatch},
-    // {"Test DB Open ErrorChecksum", TestDB_OpenErrChecksum},
-    // {"Test DB Open Size", TestDB_OpenSize},
-    // {"Test DB Open Size Large", TestDB_Open_Size_Large},
-    // {"Test DB Open Check", TestDB_Open_Check},
-    // {"Test DB Open_FileTooSmall", TestDB_Open_FileTooSmall},
-    // {"Test DB Open InitialMmapSize", TestDB_Open_InitialMmapSize},
-    // {"Test DB Begin ErrDatabaseNotOpen},", TestDB_Begin_ErrDatabaseNotOpen},
-    // {"Test DB BeginRW", TestDB_BeginRW},
-    // {"Test DB BeginRW Closed", TestDB_BeginRW_Closed},
-    // {"Test DB Close PendingTx RW", TestDB_Close_PendingTx_RW},
-    // {"Test DB Close PendingTx RO", TestDB_Close_PendingTx_RO},
-    // {"Test DB Update", TestDB_Update},
-    // {"Test DB Update Closed", TestDB_Update_Closed},
-    // {"Test DB Update ManualCommit", TestDB_Update_ManualCommit},
-    // {"Test DB Update ManualRollback", TestDB_Update_ManualRollback},
-    // {"Test DB View ManualCommit", TestDB_View_ManualCommit},
-    // {"Test DB View ManualRollback", TestDB_View_ManualRollback},
-    // {"Test DB Update Panic", TestDB_Update_Panic},
-    // {"Test DB View Error", TestDB_View_Error},
-    // {"Test DB View Panic", TestDB_View_Panic},
-    // {"Test DB Stats", TestDB_Stats},
-    // {"Test DB Consistency", TestDB_Consistency},
-    // {"Test DB Stats Sub", TestDB_Stats_Sub},
-    // {"Test DB Batch", TestDB_Batch},
-    // {"Test DB Batch Panic", TestDB_Batch_Panic},
-    // {"Test DB BatchFull", TestDB_BatchFull},
-    // {"Test DB BatchTime", TestDB_BatchTime},
-    // {"Test Cursor Bucket", TestCursor_Bucket},
-    // {"Test Cursor Seek", TestCursor_Seek},
-    // {"Test Cursor Delete", TestCursor_Delete},
-    // {"Test Cursor Seek Large", TestCursor_Seek_Large},
-    // {"Test Cursor EmptyBucket", TestCursor_EmptyBucket},
-    // {"Test Cursor EmptyBucketReverse", TestCursor_EmptyBucketReverse},
-    // {"Test Cursor Iterate Leaf", TestCursor_Iterate_Leaf},
-    // {"Test Cursor LeafRootReverse", TestCursor_LeafRootReverse},
-    // {"Test Cursor Restart", TestCursor_Restart},
-    // {"Test Cursor First EmptyPages", TestCursor_First_EmptyPages},
-    // {"Test Cursor QuickCheck", TestCursor_QuickCheck},
-    // {"Test Cursor QuickCheck Reverse", TestCursor_QuickCheck_Reverse},
-    // {"Test Cursor QuickCheck BucketsOnly", TestCursor_QuickCheck_BucketsOnly},
-    // {"Test Cursor QuickCheck BucketsOnly Reverse",
-    //  TestCursor_QuickCheck_BucketsOnly_Reverse},
-    // {"Test Tx Commit ErrorTxClosed", TestTx_Commit_ErrorTxClosed},
-    // {"Test Tx Rollback ErrorTxClosed", TestTx_Rollback_ErrorTxClosed},
-    // {"Test Tx Commit ErrorTxNotWritable", TestTx_Commit_ErrorTxNotWritable},
-    // {"Test Tx Cursor", TestTx_Cursor},
-    // {"Test Tx CreateBucket ErrorTxNotWritable",
-    //  TestTx_CreateBucket_ErrorTxNotWritable},
-    // {"Test Tx CreateBucket ErrorTxClosed", TestTx_CreateBucket_ErrorTxClosed},
-    // {"Test Tx Bucket", TestTx_Bucket},
-    // {"Test Tx Get NotFound", TestTx_Get_NotFound},
-    // {"Test Tx CreateBucket", TestTx_CreateBucket},
-    // {"Test Tx CreateBucketIfNotExists", TestTx_CreateBucketIfNotExists},
-    // {"Test Tx CreateBucketIfNotExists ErrorBucketNameRequired",
-    //  TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired},
-    // {"Test Tx CreateBucket ErrorBucketExists",
-    //  TestTx_CreateBucket_ErrorBucketExists},
-    // {"Test Tx CreateBucket ErrorBucketNameRequired",
-    //  TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired},
-    // {"Test Tx DeleteBucket", TestTx_DeleteBucket},
-    // {"Test Tx DeleteBucket ErrorTxClosed", TestTx_DeleteBucket_ErrorTxClosed},
-    // {"Test Tx DeleteBucket ReadOnly", TestTx_DeleteBucket_ReadOnly},
-    // {"Test Tx DeleteBucket NotFound", TestTx_DeleteBucket_NotFound},
-    // {"Test Tx ForEach NoError", TestTx_ForEach_NoError},
-    // {"Test Tx ForEach WithError", TestTx_ForEach_WithError},
-    // {"Test Tx OnCommit", TestTx_OnCommit},
-    // {"Test Tx OnCommit Rollback", TestTx_OnCommit_Rollback},
+    {"Test Page Type", TestPageType},
+    {"Test Merge Pgid", TestMergePgid},
+    {"Test Freelist free", TestFreelist_free},
+    {"Test Freelist free overflow", TestFreelist_free_overflow},
+    {"Test Freelist release", TestFreelist_release},
+    {"Test Freelist allocate", TestFreelist_allocate},
+    {"Test Freelist read", TestFreelist_read},
+    {"Test Freelist write", TestFreelist_write},
+    {"Test Node put", TestNode_put},
+    {"Test Node read_LeafPage", TestNode_read_LeafPage},
+    {"Test Node write_LeafPage", TestNode_write_LeafPage},
+    {"Test Node split", TestNode_split},
+    {"Test Node split_MinKeys", TestNode_split_MinKeys},
+    {"Test Node split_SinglePage", TestNode_split_SinglePage},
+    {"Test DB Open", TestDB_Open},
+    {"Test DB Open Path Required", TestDB_OpenPathRequired},
+    {"Test DB Open ErrorDatabaseInvalid", TestDB_OpenInvalid},
+    {"Test DB Open ErrorVersionMismatch", TestDB_OpenErrVersionMismatch},
+    {"Test DB Open ErrorChecksum", TestDB_OpenErrChecksum},
+    {"Test DB Open Size", TestDB_OpenSize},
+    {"Test DB Open Size Large", TestDB_Open_Size_Large},
+    {"Test DB Open Check", TestDB_Open_Check},
+    {"Test DB Open_FileTooSmall", TestDB_Open_FileTooSmall},
+    {"Test DB Open InitialMmapSize", TestDB_Open_InitialMmapSize},
+    {"Test DB Begin ErrDatabaseNotOpen},", TestDB_Begin_ErrDatabaseNotOpen},
+    {"Test DB BeginRW", TestDB_BeginRW},
+    {"Test DB BeginRW Closed", TestDB_BeginRW_Closed},
+    {"Test DB Close PendingTx RW", TestDB_Close_PendingTx_RW},
+    {"Test DB Close PendingTx RO", TestDB_Close_PendingTx_RO},
+    {"Test DB Update", TestDB_Update},
+    {"Test DB Update Closed", TestDB_Update_Closed},
+    {"Test DB Update ManualCommit", TestDB_Update_ManualCommit},
+    {"Test DB Update ManualRollback", TestDB_Update_ManualRollback},
+    {"Test DB View ManualCommit", TestDB_View_ManualCommit},
+    {"Test DB View ManualRollback", TestDB_View_ManualRollback},
+    {"Test DB Update Panic", TestDB_Update_Panic},
+    {"Test DB View Error", TestDB_View_Error},
+    {"Test DB View Panic", TestDB_View_Panic},
+    {"Test DB Stats", TestDB_Stats},
+    {"Test DB Consistency", TestDB_Consistency},
+    {"Test DB Stats Sub", TestDB_Stats_Sub},
+    {"Test DB Batch", TestDB_Batch},
+    {"Test DB Batch Panic", TestDB_Batch_Panic},
+    {"Test DB BatchFull", TestDB_BatchFull},
+    {"Test DB BatchTime", TestDB_BatchTime},
+    {"Test Cursor Bucket", TestCursor_Bucket},
+    {"Test Cursor Seek", TestCursor_Seek},
+    {"Test Cursor Delete", TestCursor_Delete},
+    {"Test Cursor Seek Large", TestCursor_Seek_Large},
+    {"Test Cursor EmptyBucket", TestCursor_EmptyBucket},
+    {"Test Cursor EmptyBucketReverse", TestCursor_EmptyBucketReverse},
+    {"Test Cursor Iterate Leaf", TestCursor_Iterate_Leaf},
+    {"Test Cursor LeafRootReverse", TestCursor_LeafRootReverse},
+    {"Test Cursor Restart", TestCursor_Restart},
+    {"Test Cursor First EmptyPages", TestCursor_First_EmptyPages},
+    {"Test Cursor QuickCheck", TestCursor_QuickCheck},
+    {"Test Cursor QuickCheck Reverse", TestCursor_QuickCheck_Reverse},
+    {"Test Cursor QuickCheck BucketsOnly", TestCursor_QuickCheck_BucketsOnly},
+    {"Test Cursor QuickCheck BucketsOnly Reverse",
+     TestCursor_QuickCheck_BucketsOnly_Reverse},
+    {"Test Tx Commit ErrorTxClosed", TestTx_Commit_ErrorTxClosed},
+    {"Test Tx Rollback ErrorTxClosed", TestTx_Rollback_ErrorTxClosed},
+    {"Test Tx Commit ErrorTxNotWritable", TestTx_Commit_ErrorTxNotWritable},
+    {"Test Tx Cursor", TestTx_Cursor},
+    {"Test Tx CreateBucket ErrorTxNotWritable",
+     TestTx_CreateBucket_ErrorTxNotWritable},
+    {"Test Tx CreateBucket ErrorTxClosed", TestTx_CreateBucket_ErrorTxClosed},
+    {"Test Tx Bucket", TestTx_Bucket},
+    {"Test Tx Get NotFound", TestTx_Get_NotFound},
+    {"Test Tx CreateBucket", TestTx_CreateBucket},
+    {"Test Tx CreateBucketIfNotExists", TestTx_CreateBucketIfNotExists},
+    {"Test Tx CreateBucketIfNotExists ErrorBucketNameRequired",
+     TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired},
+    {"Test Tx CreateBucket ErrorBucketExists",
+     TestTx_CreateBucket_ErrorBucketExists},
+    {"Test Tx CreateBucket ErrorBucketNameRequired",
+     TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired},
+    {"Test Tx DeleteBucket", TestTx_DeleteBucket},
+    {"Test Tx DeleteBucket ErrorTxClosed", TestTx_DeleteBucket_ErrorTxClosed},
+    {"Test Tx DeleteBucket ReadOnly", TestTx_DeleteBucket_ReadOnly},
+    {"Test Tx DeleteBucket NotFound", TestTx_DeleteBucket_NotFound},
+    {"Test Tx ForEach NoError", TestTx_ForEach_NoError},
+    {"Test Tx ForEach WithError", TestTx_ForEach_WithError},
+    {"Test Tx OnCommit", TestTx_OnCommit},
+    {"Test Tx OnCommit Rollback", TestTx_OnCommit_Rollback},
     {"Test Bucket Get NonExistent", TestBucket_Get_NonExistent},
     {"Test Bucket Get FromNode", TestBucket_Get_FromNode},
     {"Test BUcket Get IncompatibleValue", TestBUcket_Get_IncompatibleValue},
@@ -267,7 +270,6 @@ static const std::vector<Test> tests = {
     {"Test Bucket Delete Quick", TestBucket_Delete_Quick},
 };
 
-using namespace fmt::literals;
 int main(int argc, char **argv) {
   int success_tests = 0;
   int failed_tests = 0;
@@ -292,63 +294,3 @@ int main(int argc, char **argv) {
                durationMs.count(), success_tests, failed_tests);
   return 0;
 }
-
-#if 0
-class Intvec {
-  public:
-    explicit Intvec(size_t num = 0) : m_size(num), m_data(std::make_unique<int[]>(10)) {
-        log("constructor");
-    }
-
-    ~Intvec() {
-        log("destructor");
-        if (m_data) {
-            m_data.release();
-            m_data = 0;
-        }
-    }
-
-    Intvec(const Intvec &other)
-        : m_size(other.m_size), m_data(new int[m_size]) {
-        log("copy constructor");
-        for (size_t i = 0; i < m_size; ++i)
-            m_data[i] = other.m_data[i];
-    }
-
-    Intvec &operator=(const Intvec &other) {
-        log("copy assignment operator");
-        Intvec tmp(other);
-        std::swap(m_size, tmp.m_size);
-        std::swap(m_data, tmp.m_data);
-        return *this;
-    }
-
-    Intvec &operator=(Intvec &&other) {
-        log("move assignment operator");
-        std::swap(m_size, other.m_size);
-        std::swap(m_data, other.m_data);
-        return *this;
-    }
-
-  private:
-    void log(const char *msg) {
-        fmt::println("{} {}", fmt::ptr(this), msg);
-    }
-
-    size_t m_size;
-    std::unique_ptr<int[]> m_data;
-};
-
-int main(int argc, char **argv) {
-    Intvec v1(20);
-    Intvec v2;
-
-    fmt::println("assigning lvalue...");
-    v2 = v1;
-    fmt::println("ended assigning lvalue...");
-
-    fmt::println("assigning rvalue...");
-    v2 = Intvec(33);
-    fmt::println("ended assigning rvalue...");
-}
-#endif

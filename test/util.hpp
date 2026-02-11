@@ -17,9 +17,13 @@ constexpr bool Equal(ContainerA a, ContainerB b) {
     return std::is_eq(bolt::impl::compare_three_way(a, b));
 }
 
-template <class Container>
+template <typename Container>
 constexpr std::span<const std::byte> to_bytes(const Container &container) {
     return std::span<const std::byte>(reinterpret_cast<const std::byte*>(container.data()), container.size());
+}
+
+inline std::span<const std::byte> to_bytes(const char *str) {
+    return std::span<const std::byte>(reinterpret_cast<const std::byte*>(str), std::char_traits<char>::length(str));
 }
 
 template <class Container>
@@ -43,7 +47,7 @@ template <std::integral T> constexpr T byteswap(T value) noexcept {
 
 inline std::span<const std::byte> u64tob(std::uint64_t &v) {
     if constexpr (std::endian::native == std::endian::little) {
-      v = byteswap(v);
+        v = byteswap(v);
     }
     return std::span<const std::byte>(reinterpret_cast<const std::byte *>(&v),
                                       sizeof(std::uint64_t));
