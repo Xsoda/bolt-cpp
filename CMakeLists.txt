@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(bolt-cpp CXX)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -13,11 +13,22 @@ if(CCACHE_PROGRAM)
   set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
 
+add_library(bolt)
+
 add_subdirectory(deps/fmt)
-add_executable(${PROJECT_NAME})
-target_include_directories(${PROJECT_NAME} PUBLIC SYSTEM .)
-target_compile_options(${PROJECT_NAME} PRIVATE ${PEDANTIC_COMPILE_FLAGS})
-target_link_libraries(${PROJECT_NAME} fmt::fmt)
+target_include_directories(bolt
+  PUBLIC
+  SYSTEM .
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_compile_options(bolt PRIVATE ${PEDANTIC_COMPILE_FLAGS})
+target_link_libraries(bolt fmt::fmt)
+
+
+add_executable(bolt-tests)
+target_link_libraries(bolt-tests PRIVATE bolt fmt::fmt)
 
 if(MSVC)
   add_compile_definitions(
@@ -33,7 +44,7 @@ if(MSVC)
 )
 endif()
 
-target_sources(${PROJECT_NAME}
+target_sources(bolt
   PRIVATE
   include/bolt/pimpl.hpp
   include/bolt/common.hpp
@@ -62,7 +73,7 @@ target_sources(${PROJECT_NAME}
   src/impl/bsearch.hpp
 )
 
-target_sources(${PROJECT_NAME}
+target_sources(bolt-tests
   PRIVATE
   test/main.cpp
   test/page_test.cpp
@@ -79,9 +90,9 @@ target_sources(${PROJECT_NAME}
   test/random.cpp
 )
 
-
-include_directories(
-  "${CMAKE_CURRENT_SOURCE_DIR}/test"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src"
-  "${CMAKE_CURRENT_SOURCE_DIR}/include"
+target_include_directories(bolt-tests
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/test
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
 )

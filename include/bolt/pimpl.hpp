@@ -26,6 +26,7 @@ public:
 private:
     std::unique_ptr<T> pImpl;
 };
+
 } // namespace bolt
 
 #endif  // !__PIMPL_HPP__
