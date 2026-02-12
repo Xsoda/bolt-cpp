@@ -6,6 +6,7 @@
 #include "impl/freelist.hpp"
 #include "impl/page.hpp"
 #include "impl/tx.hpp"
+#include "fmt/std.h"
 #include <chrono>
 #include <ctime>
 #include <exception>
@@ -254,8 +255,6 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     if (executor.joinable()) {
         fmt::println("executor joinable, {}", fmt::ptr(ptr.get()));
         executor.join();
-    } else {
-        fmt::println("executor is not joinable, {}", fmt::ptr(ptr.get()));
     }
     if (f.get() == bolt::ErrorCode::ErrorTrySolo) {
         return Update(std::move(c->fn));

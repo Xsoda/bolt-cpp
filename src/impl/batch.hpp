@@ -27,7 +27,7 @@ struct batch {
     std::vector<std::shared_ptr<call>> calls;
 
     std::jthread timer;
-    std::thread::id thrd_id;
+
 
     batch(std::shared_ptr<impl::DB> db) : db(db){};
     void trigger();

@@ -6,6 +6,7 @@
 #include <mutex>
 #include <thread>
 #include <iterator>
+#include "fmt/std.h"
 
 namespace bolt::impl {
 
@@ -20,7 +21,7 @@ void batch::run() {
         return;
     }
 
-    if (std::this_thread::get_id() != thrd_id) {
+    if (timer.joinable()) {
         timer.request_stop();
     }
 
@@ -64,16 +65,12 @@ void batch::run() {
 }
 
 batch::~batch() {
-    fmt::println("call batch::~batch {}", fmt::ptr(this));
-    timer.request_stop();
-    timer.join();
     db.reset();
 }
 
 void batch::AfterFunc(std::chrono::milliseconds delay,
                       std::function<void()> &&fn) {
     timer = std::jthread([delay, fn, this](std::stop_token stoken) {
-        thrd_id = std::this_thread::get_id();
         auto until = std::chrono::steady_clock::now() + delay;
         do {
             if (stoken.stop_requested()) {
