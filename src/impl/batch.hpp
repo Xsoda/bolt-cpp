@@ -6,13 +6,12 @@
 #include <functional>
 #include <future>
 #include <mutex>
+#include <thread>
 
 namespace bolt::impl {
 
 struct DB;
 struct Tx;
-
-void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn);
 
 struct call {
     std::function<bolt::ErrorCode(std::shared_ptr<impl::Tx>)> fn;
@@ -27,8 +26,13 @@ struct batch {
     std::once_flag start;
     std::vector<std::shared_ptr<call>> calls;
 
+    std::jthread timer;
+    std::thread::id thrd_id;
+
     batch(std::shared_ptr<impl::DB> db) : db(db){};
     void trigger();
+
+    void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn);
 
     ~batch();
 private:

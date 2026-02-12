@@ -9,13 +9,6 @@
 
 namespace bolt::impl {
 
-void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn) {
-    AsyncFireAndForget([fn](std::chrono::milliseconds delay) {
-        std::this_thread::sleep_for(delay);
-        fn();
-    }, delay);
-}
-
 void batch::trigger() {
     std::call_once(start, std::bind(&batch::run, this));
 }
@@ -27,9 +20,14 @@ void batch::run() {
         return;
     }
 
+    if (std::this_thread::get_id() != thrd_id) {
+        timer.request_stop();
+    }
+
     do {
         std::lock_guard<std::mutex> lock(dbptr->batchMu);
         if (dbptr->batch.get() == this) {
+            fmt::println("batch user count: {}, {}", dbptr->batch.use_count(), fmt::ptr(this));
             dbptr->batch = nullptr;
         }
     } while (0);
@@ -65,6 +63,27 @@ void batch::run() {
     }
 }
 
-batch::~batch() { db.reset(); }
+batch::~batch() {
+    fmt::println("call batch::~batch {}", fmt::ptr(this));
+    timer.request_stop();
+    timer.join();
+    db.reset();
+}
+
+void batch::AfterFunc(std::chrono::milliseconds delay,
+                      std::function<void()> &&fn) {
+    timer = std::jthread([delay, fn, this](std::stop_token stoken) {
+        thrd_id = std::this_thread::get_id();
+        auto until = std::chrono::steady_clock::now() + delay;
+        do {
+            if (stoken.stop_requested()) {
+                return;
+            }
+            std::this_thread::sleep_for(1ms);
+        } while (std::chrono::steady_clock::now() < until);
+        fmt::println("delay timeout, {}", fmt::ptr(this));
+        fn();
+    });
+}
 
 }

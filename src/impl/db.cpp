@@ -6,8 +6,12 @@
 #include "impl/freelist.hpp"
 #include "impl/page.hpp"
 #include "impl/tx.hpp"
+#include <chrono>
+#include <ctime>
+#include <exception>
 #include <mutex>
 #include <shared_mutex>
+#include <thread>
 #include <tuple>
 
 namespace bolt::impl {
@@ -130,6 +134,7 @@ bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
 bolt::ErrorCode DB::Close() {
     std::lock_guard<std::mutex> rw(rwlock);
     std::lock_guard<std::mutex> ml(metalock);
+    std::lock_guard<std::mutex> lock(batchMu);
     std::shared_lock<std::shared_mutex> mm(mmaplock);
     if (!opened) {
         return bolt::ErrorCode::Success;
@@ -148,6 +153,7 @@ bolt::ErrorCode DB::Close() {
         }
     }
     path = "";
+    batch = nullptr;
     return file.Close();
 }
 
@@ -216,21 +222,28 @@ bolt::ErrorCode DB::init() {
 //
 // Batch is only useful when there are multiple goroutines calling it.
 bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
+    std::jthread executor;
+    std::shared_ptr<impl::batch> ptr;
     std::shared_ptr<impl::call> c = std::make_shared<impl::call>();
     do {
         std::lock_guard<std::mutex> lock(batchMu);
         if (batch == nullptr || (batch != nullptr
                                  && batch->calls.size() >= MaxBatchSize)) {
             batch = std::make_shared<impl::batch>(shared_from_this());
-            AfterFunc(MaxBatchDelay, [batch = this->batch]() {
-                batch->trigger();
+            batch->AfterFunc(MaxBatchDelay, [b = batch]() {
+                fmt::println("timer trigger, {}", fmt::ptr(b.get()));
+                b->trigger();
+                fmt::println("timer trigger done, {}, {}", fmt::ptr(b.get()), b.use_count());
             });
         }
+        ptr = batch;
         c->fn = std::move(fn);
         batch->calls.push_back(c);
         if (batch->calls.size() >= MaxBatchSize) {
-            AsyncFireAndForget([batch = this->batch]() {
-                batch->trigger();
+            executor = std::jthread([b = batch](std::stop_token stoken) {
+                fmt::println("executor trigger, {}", fmt::ptr(b.get()));
+                b->trigger();
+                fmt::println("executor trigger done, {}, {}", fmt::ptr(b.get()), b.use_count());
             });
         }
     } while (0);
@@ -238,6 +251,12 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     auto f = c->err.get_future();
     f.wait();
 
+    if (executor.joinable()) {
+        fmt::println("executor joinable, {}", fmt::ptr(ptr.get()));
+        executor.join();
+    } else {
+        fmt::println("executor is not joinable, {}", fmt::ptr(ptr.get()));
+    }
     if (f.get() == bolt::ErrorCode::ErrorTrySolo) {
         return Update(std::move(c->fn));
     }

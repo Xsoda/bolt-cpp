@@ -807,8 +807,9 @@ TestResult TestDB_BatchFull() {
         return TestResult(false, "Update fail, {}", err);
     }
     const auto size = 3;
-    auto put = [db](int i) -> bolt::ErrorCode {
+    auto put = [&db](int i) -> bolt::ErrorCode {
       return db->Batch([i](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+          fmt::println("put {}", i);
           std::string widgets = "widgets";
           std::string empty = "";
           std::uint64_t key = i;
@@ -817,14 +818,17 @@ TestResult TestDB_BatchFull() {
     };
     db->MaxBatchSize = size;
     db->MaxBatchDelay = 1h;
-    std::vector<std::future<bolt::ErrorCode>> promises;
-    promises.push_back(std::async(std::launch::async, std::bind(put, 1)));
-    promises.push_back(std::async(std::launch::async, std::bind(put, 2)));
-    promises.push_back(std::async(std::launch::async, std::bind(put, 3)));
-    for (int i = 0; i < size; i++) {
-        if (auto err = promises[i].get(); err != bolt::Success) {
-            return TestResult(false, "unexpected error, {}", err);
-        }
+    auto f1 = std::async(std::launch::async, std::bind(put, 1));
+    auto f2 = std::async(std::launch::async, std::bind(put, 2));
+    auto f3 = std::async(std::launch::async, std::bind(put, 3));
+    if (auto err = f1.get(); err != bolt::Success) {
+        return TestResult(false, "unexpected error", err);
+    }
+    if (auto err = f2.get(); err != bolt::Success) {
+        return TestResult(false, "unexpected error", err);
+    }
+    if (auto err = f3.get(); err != bolt::Success) {
+        return TestResult(false, "unexpected error", err);
     }
     if (auto err = db->View([size](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
         std::string widgets = "widgets";
