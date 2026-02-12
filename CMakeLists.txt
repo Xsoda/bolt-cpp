@@ -45,10 +45,18 @@ if(MSVC)
 endif()
 
 target_sources(bolt
-  PRIVATE
+  PUBLIC
+  FILE_SET HEADERS
+  BASE_DIRS "include"
+  FILES
   include/bolt/pimpl.hpp
   include/bolt/common.hpp
   include/bolt/error.hpp
+  include/bolt/bolt.hpp
+)
+
+target_sources(bolt
+  PRIVATE
   src/impl/utils.hpp
   src/impl/page.cpp
   src/impl/page.hpp
@@ -71,6 +79,7 @@ target_sources(bolt
   src/impl/cursor.cpp
   src/impl/cursor.hpp
   src/impl/bsearch.hpp
+  src/bolt.cpp
 )
 
 target_sources(bolt-tests

@@ -22,7 +22,9 @@ public:
         return *this;
     };
     pimpl &operator=(const pimpl<T> &) = delete;
-
+    operator bool() {
+        return pImpl->get();
+    };
 private:
     std::unique_ptr<T> pImpl;
 };
