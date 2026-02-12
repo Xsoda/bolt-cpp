@@ -5,6 +5,7 @@
 
 #include "bolt/common.hpp"
 #include "bolt/error.hpp"
+#include "bolt/stats.hpp"
 #include "fmt/core.h"
 #include <cassert>
 #include <chrono>

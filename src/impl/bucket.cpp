@@ -620,8 +620,8 @@ void Bucket::forEachPage(std::function<void(impl::page *, int)> &&fn) {
     auto txptr = tx.lock();
     txptr->forEachPage(root, 0, std::forward<decltype(fn)>(fn));
 }
-impl::BucketStats Bucket::Stats() {
-    impl::BucketStats subStats, s;
+bolt::BucketStats Bucket::Stats() {
+    bolt::BucketStats subStats, s;
     auto txptr = tx.lock();
     _assert(!tx.expired(), "tx already closed");
     auto dbptr = txptr->db.lock();

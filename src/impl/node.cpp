@@ -10,6 +10,7 @@
 #include <iterator>
 #include <iostream>
 #include <span>
+
 #ifndef NDEBUG
 #include <ranges>
 #include "fmt/format.h"

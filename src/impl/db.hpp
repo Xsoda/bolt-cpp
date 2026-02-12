@@ -16,39 +16,6 @@ struct freelist;
 struct meta;
 struct batch;
 
-struct Stats {
-    size_t FreePageN;
-    size_t PendingPageN;
-    size_t FreeAlloc;
-    size_t FreelistInuse;
-    size_t TxN;
-    size_t OpenTxN;
-    impl::TxStats TxStats;
-    Stats()
-        : FreePageN(0), PendingPageN(0), FreeAlloc(0), FreelistInuse(0), TxN(0),
-          OpenTxN(0){};
-    ~Stats() = default;
-    friend Stats operator-(Stats lhs, const Stats rhs) {
-        Stats result;
-        result.FreePageN = lhs.FreePageN;
-        result.PendingPageN = lhs.PendingPageN;
-        result.FreeAlloc = lhs.FreeAlloc;
-        result.TxN = lhs.TxN - rhs.TxN;
-        result.TxStats = lhs.TxStats - rhs.TxStats;
-        return result;
-    };
-    friend Stats operator+(Stats lhs, const Stats rhs) {
-        Stats result;
-        result.TxStats = lhs.TxStats + rhs.TxStats;
-        return result;
-    };
-};
-
-struct Info {
-    std::uint32_t PageSize;
-    std::uintptr_t Data;
-};
-
 struct DB : public std::enable_shared_from_this<DB> {
     // When enabled, the database will perform a Check() after every commit.
     // A panic is issued if the database is in an inconsistent state. This
@@ -96,7 +63,7 @@ struct DB : public std::enable_shared_from_this<DB> {
     std::map<impl::page *, std::unique_ptr<std::vector<std::byte>>> pagePool;
     std::mutex poolMutex;
 
-    impl::Stats stats;
+    bolt::Stats stats;
 
     std::shared_ptr<impl::batch> batch;
     std::mutex batchMu;
@@ -114,7 +81,7 @@ struct DB : public std::enable_shared_from_this<DB> {
     explicit DB();
     ~DB();
     bolt::ErrorCode init();
-    std::string Path() const;
+    const std::string &Path() const;
     bolt::ErrorCode Open(std::string path, bool readOnly=false);
     bolt::ErrorCode Close();
     void Sync();
@@ -136,8 +103,8 @@ struct DB : public std::enable_shared_from_this<DB> {
     std::tuple<impl::TxPtr, bolt::ErrorCode> beginTx();
     std::tuple<impl::TxPtr, bolt::ErrorCode> beginRWTx();
     void removeTx(impl::TxPtr tx);
-    impl::Info Info() const;
-    impl::Stats Stats();
+    bolt::Info Info() const;
+    bolt::Stats Stats();
 
     bolt::ErrorCode Update(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn);
     bolt::ErrorCode Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn);

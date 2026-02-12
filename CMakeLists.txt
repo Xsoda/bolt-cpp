@@ -26,10 +26,6 @@ target_include_directories(bolt
 target_compile_options(bolt PRIVATE ${PEDANTIC_COMPILE_FLAGS})
 target_link_libraries(bolt fmt::fmt)
 
-
-add_executable(bolt-tests)
-target_link_libraries(bolt-tests PRIVATE bolt fmt::fmt)
-
 if(MSVC)
   add_compile_definitions(
     /W3
@@ -81,6 +77,9 @@ target_sources(bolt
   src/impl/bsearch.hpp
   src/bolt.cpp
 )
+
+add_executable(bolt-tests)
+target_link_libraries(bolt-tests PRIVATE bolt fmt::fmt)
 
 target_sources(bolt-tests
   PRIVATE

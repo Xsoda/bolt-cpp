@@ -151,7 +151,7 @@ bolt::ErrorCode DB::Close() {
     return file.Close();
 }
 
-std::string DB::Path() const {
+const std::string &DB::Path() const {
     return path;
 }
 
@@ -590,14 +590,14 @@ std::tuple<std::uint64_t, bolt::ErrorCode> DB::mmapSize(std::uint64_t size) {
     return std::make_tuple(size, bolt::ErrorCode::Success);
 }
 
-impl::Info DB::Info() const {
-    impl::Info info;
+bolt::Info DB::Info() const {
+    bolt::Info info;
     info.Data = dataref;
     info.PageSize = pageSize;
     return info;
 }
 
-impl::Stats DB::Stats() {
+bolt::Stats DB::Stats() {
     std::shared_lock<std::shared_mutex> lock(statlock);
     return stats;
 }

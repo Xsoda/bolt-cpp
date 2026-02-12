@@ -5,6 +5,7 @@
 #include "common.hpp"
 #include "error.hpp"
 #include "pimpl.hpp"
+#include "stats.hpp"
 #include <functional>
 #include <memory>
 #include <tuple>
@@ -37,7 +38,13 @@ public:
     bolt::ErrorCode View(std::function<bolt::ErrorCode(Tx)> &&fn);
 
     std::tuple<Tx, bolt::ErrorCode> Begin(bool writable);
+    bolt::Info Info();
+    bolt::Stats Stats();
+    bool IsReadOnly();
+    std::string Path();
+
     DB();
+    DB(bolt::impl::DBPtr db) : pImpl(db){};
     DB(const DB &) = delete;
     DB &operator=(const DB &) = delete;
     operator bool() { return pImpl; };
@@ -58,6 +65,12 @@ public:
     bolt::Cursor Cursor();
     bolt::ErrorCode Commit();
     bolt::ErrorCode Rollback();
+
+    bool Writable();
+    void OnCommit(std::function<void()> &&fn);
+    std::uint64_t Size();
+    bolt::DB DB();
+    bolt::TxStats Stats();
 
     std::future<std::vector<std::string>> Check();
 
@@ -93,6 +106,9 @@ public:
     bolt::Tx Tx();
     // retrieve child bucket
     bolt::Bucket RetrieveBucket(bolt::const_bytes name);
+
+    bool Writable();
+    bolt::BucketStats Stats();
 
     Bucket() = delete;
     Bucket(bolt::impl::BucketPtr bucket): pImpl(bucket) {};

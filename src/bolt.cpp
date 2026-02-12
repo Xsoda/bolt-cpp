@@ -42,6 +42,13 @@ std::tuple<Tx, bolt::ErrorCode> DB::Begin(bool writable) {
     auto [tx, err] = pImpl->get()->Begin(writable);
     return std::make_pair(tx, err);
 }
+bolt::Info DB::Info() { return pImpl->get()->Info(); }
+
+bolt::Stats DB::Stats() { return pImpl->get()->Stats(); }
+
+bool DB::IsReadOnly() { return pImpl->get()->IsReadOnly(); }
+
+std::string DB::Path() { return pImpl->get()->Path(); }
 
 // Tx
 std::tuple<bolt::Bucket, bolt::ErrorCode>
@@ -79,6 +86,18 @@ bolt::ErrorCode Tx::Rollback() { return pImpl->get()->Rollback(); }
 std::future<std::vector<std::string>> Tx::Check() {
     return pImpl->get()->Check();
 }
+
+bool Tx::Writable() { return pImpl->get()->Writable(); }
+
+void Tx::OnCommit(std::function<void()> &&fn) {
+    return pImpl->get()->OnCommit(std::move(fn));
+}
+
+std::uint64_t Tx::Size() { return pImpl->get()->Size(); }
+
+bolt::DB Tx::DB() { return pImpl->get()->DB(); }
+
+bolt::TxStats Tx::Stats() { return pImpl->get()->Stats(); }
 
 // Bucket
 std::tuple<bolt::Bucket, bolt::ErrorCode>
@@ -132,6 +151,10 @@ bolt::Tx Bucket::Tx() { return pImpl->get()->Tx(); }
 bolt::Bucket Bucket::RetrieveBucket(bolt::const_bytes name) {
     return pImpl->get()->RetrieveBucket(name);
 }
+
+bool Bucket::Writable() { return pImpl->get()->Writable(); }
+
+bolt::BucketStats Bucket::Stats() { return pImpl->get()->Stats(); }
 
 // Cursor
 bolt::Bucket Cursor::Bucket() { return pImpl->get()->Bucket(); }

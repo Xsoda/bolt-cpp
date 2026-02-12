@@ -49,7 +49,7 @@ std::int64_t Tx::Size() const {
 
 bool Tx::Writable() const { return writable; }
 
-impl::TxStats Tx::Stats() const { return stats; }
+bolt::TxStats Tx::Stats() const { return stats; }
 
 impl::page *Tx::page(impl::pgid id) {
     auto it = pages.find(id);
@@ -150,6 +150,7 @@ bolt::ErrorCode Tx::write() {
     for (auto it : pages) {
         dbptr->releasePage(it);
     }
+
     return bolt::Success;
 }
 

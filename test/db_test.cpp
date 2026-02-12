@@ -720,7 +720,7 @@ TestResult TestDB_Consistency() {
 }
 
 TestResult TestDB_Stats_Sub() {
-    bolt::impl::Stats a, b;
+    bolt::Stats a, b;
     a.TxStats.PageCount = 3;
     a.FreePageN = 4;
     b.TxStats.PageCount = 10;

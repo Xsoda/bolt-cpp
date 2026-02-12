@@ -12,118 +12,6 @@
 
 namespace bolt::impl {
 
-struct TxStats {
-    // Page statistics.
-    size_t PageCount;
-    size_t PageAlloc;
-
-    // Cursor statistics.
-    size_t CursorCount;
-
-    // Node statistics
-    size_t NodeCount;
-    size_t NodeDeref;
-
-    // Rebalance statistics.
-    size_t Rebalance;
-    std::chrono::milliseconds RebalanceTime;
-
-    // Split/Spill statistics.
-    size_t Split;
-    size_t Spill;
-    std::chrono::milliseconds SpillTime;
-
-    // Write statistics.
-    size_t Write;
-    std::chrono::milliseconds WriteTime;
-
-    TxStats()
-        : PageCount(0), PageAlloc(0), CursorCount(0), NodeCount(0), NodeDeref(0),
-          Rebalance(0), RebalanceTime(0ms), Split(0), Spill(0), SpillTime(0ms),
-          Write(0), WriteTime(0ms){};
-
-    ~TxStats() = default;
-    TxStats(const TxStats &other) {
-        PageCount = other.PageCount;
-        PageAlloc = other.PageAlloc;
-        CursorCount = other.CursorCount;
-        NodeCount = other.NodeCount;
-        NodeDeref = other.NodeDeref;
-        Rebalance = other.Rebalance;
-        RebalanceTime = other.RebalanceTime;
-        Split = other.Split;
-        Spill = other.Spill;
-        SpillTime = other.SpillTime;
-        Write = other.Write;
-        WriteTime = other.WriteTime;
-    };
-    TxStats &operator+=(const TxStats &other) {
-        PageCount += other.PageCount;
-        PageAlloc += other.PageAlloc;
-        CursorCount += other.CursorCount;
-        NodeCount += other.NodeCount;
-        NodeDeref += other.NodeDeref;
-        Rebalance += other.Rebalance;
-        RebalanceTime += other.RebalanceTime;
-        Split += other.Split;
-        Spill += other.Spill;
-        SpillTime += other.SpillTime;
-        Write += other.Write;
-        WriteTime += other.WriteTime;
-        return *this;
-    };
-    friend TxStats operator+(TxStats lhs, const TxStats &rhs) {
-        TxStats result;
-        result.PageCount += lhs.PageCount + rhs.PageCount;
-        result.PageAlloc += lhs.PageAlloc + rhs.PageAlloc;
-        result.CursorCount += lhs.CursorCount + rhs.CursorCount;
-        result.NodeCount += lhs.NodeCount + rhs.NodeCount;
-        result.NodeDeref += lhs.NodeDeref + rhs.NodeDeref;
-        result.Rebalance += lhs.Rebalance + rhs.Rebalance;
-        result.RebalanceTime += lhs.RebalanceTime + rhs.RebalanceTime;
-        result.Split += lhs.Split + rhs.Split;
-        result.Spill += lhs.Spill + rhs.Spill;
-        result.SpillTime += lhs.SpillTime + rhs.SpillTime;
-        result.Write += lhs.Write + rhs.Write;
-        result.WriteTime += lhs.WriteTime + rhs.WriteTime;
-        return result;
-    };
-    friend TxStats operator-(TxStats lhs, const TxStats &rhs) {
-        TxStats result;
-        result.PageCount += lhs.PageCount - rhs.PageCount;
-        result.PageAlloc += lhs.PageAlloc - rhs.PageAlloc;
-        result.CursorCount += lhs.CursorCount - rhs.CursorCount;
-        result.NodeCount += lhs.NodeCount - rhs.NodeCount;
-        result.NodeDeref += lhs.NodeDeref - rhs.NodeDeref;
-        result.Rebalance += lhs.Rebalance - rhs.Rebalance;
-        result.RebalanceTime += lhs.RebalanceTime - rhs.RebalanceTime;
-        result.Split += lhs.Split - rhs.Split;
-        result.Spill += lhs.Spill - rhs.Spill;
-        result.SpillTime += lhs.SpillTime - rhs.SpillTime;
-        result.Write += lhs.Write - rhs.Write;
-        result.WriteTime += lhs.WriteTime - rhs.WriteTime;
-        return result;
-    };
-    TxStats &operator=(const TxStats &other) {
-        if (this == &other) {
-            return *this;
-        }
-        PageCount = other.PageCount;
-        PageAlloc = other.PageAlloc;
-        CursorCount = other.CursorCount;
-        NodeCount = other.NodeCount;
-        NodeDeref = other.NodeDeref;
-        Rebalance = other.Rebalance;
-        RebalanceTime = other.RebalanceTime;
-        Split = other.Split;
-        Spill = other.Spill;
-        SpillTime = other.SpillTime;
-        Write = other.Write;
-        WriteTime = other.WriteTime;
-        return *this;
-    };
-};
-
 struct Tx : public std::enable_shared_from_this<Tx> {
     bool writable;
     bool managed;
@@ -131,7 +19,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     impl::meta meta;
     impl::BucketPtr root;
     std::map<impl::pgid, impl::page *> pages;
-    impl::TxStats stats;
+    bolt::TxStats stats;
     std::vector<std::function<void()>> commitHandlers;
     int WriteFlag;
 
@@ -154,7 +42,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     bool Writable() const;
     void OnCommit(std::function<void()> &&fn) { commitHandlers.push_back(fn); };
 
-    impl::TxStats Stats() const;
+    bolt::TxStats Stats() const;
 
     impl::page *page(impl::pgid id);
 
