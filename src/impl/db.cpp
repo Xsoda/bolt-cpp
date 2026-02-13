@@ -1,6 +1,5 @@
 #include "impl/db.hpp"
 #include "bolt/error.hpp"
-#include "impl/async.hpp"
 #include "impl/batch.hpp"
 #include "impl/file.hpp"
 #include "impl/freelist.hpp"
@@ -224,6 +223,7 @@ bolt::ErrorCode DB::init() {
 // Batch is only useful when there are multiple goroutines calling it.
 bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     std::jthread executor;
+    bool wait_executor = false;
     std::shared_ptr<impl::batch> ptr;
     std::shared_ptr<impl::call> c = std::make_shared<impl::call>();
     do {
@@ -232,19 +232,16 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
                                  && batch->calls.size() >= MaxBatchSize)) {
             batch = std::make_shared<impl::batch>(shared_from_this());
             batch->AfterFunc(MaxBatchDelay, [b = batch]() {
-                fmt::println("timer trigger, {}", fmt::ptr(b.get()));
                 b->trigger();
-                fmt::println("timer trigger done, {}, {}", fmt::ptr(b.get()), b.use_count());
             });
+            ptr = batch;
         }
-        ptr = batch;
         c->fn = std::move(fn);
-        batch->calls.push_back(c);
+        batch->calls.emplace_back(c);
         if (batch->calls.size() >= MaxBatchSize) {
-            executor = std::jthread([b = batch](std::stop_token stoken) {
-                fmt::println("executor trigger, {}", fmt::ptr(b.get()));
+            wait_executor = true;
+            executor = std::jthread([b = batch]() {
                 b->trigger();
-                fmt::println("executor trigger done, {}, {}", fmt::ptr(b.get()), b.use_count());
             });
         }
     } while (0);
@@ -252,10 +249,13 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     auto f = c->err.get_future();
     f.wait();
 
-    if (executor.joinable()) {
-        fmt::println("executor joinable, {}", fmt::ptr(ptr.get()));
+    if (ptr) {
+        ptr->wait();
+    }
+    if (wait_executor) {
         executor.join();
     }
+
     if (f.get() == bolt::ErrorCode::ErrorTrySolo) {
         return Update(std::move(c->fn));
     }

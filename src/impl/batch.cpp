@@ -1,12 +1,10 @@
 #include "impl/batch.hpp"
 #include "bolt/error.hpp"
 #include "impl/db.hpp"
-#include "impl/async.hpp"
 #include <chrono>
 #include <mutex>
 #include <thread>
 #include <iterator>
-#include "fmt/std.h"
 
 namespace bolt::impl {
 
@@ -21,14 +19,11 @@ void batch::run() {
         return;
     }
 
-    if (timer.joinable()) {
-        timer.request_stop();
-    }
+    timer.request_stop();
 
     do {
         std::lock_guard<std::mutex> lock(dbptr->batchMu);
         if (dbptr->batch.get() == this) {
-            fmt::println("batch user count: {}, {}", dbptr->batch.use_count(), fmt::ptr(this));
             dbptr->batch = nullptr;
         }
     } while (0);
@@ -68,6 +63,12 @@ batch::~batch() {
     db.reset();
 }
 
+void batch::wait() {
+    _assert(timer.get_id() != std::this_thread::get_id(), "Same thread join self");
+    timer.request_stop();
+    timer.join();
+}
+
 void batch::AfterFunc(std::chrono::milliseconds delay,
                       std::function<void()> &&fn) {
     timer = std::jthread([delay, fn, this](std::stop_token stoken) {
@@ -78,7 +79,6 @@ void batch::AfterFunc(std::chrono::milliseconds delay,
             }
             std::this_thread::sleep_for(1ms);
         } while (std::chrono::steady_clock::now() < until);
-        fmt::println("delay timeout, {}", fmt::ptr(this));
         fn();
     });
 }
