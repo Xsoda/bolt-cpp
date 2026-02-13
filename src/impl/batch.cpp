@@ -19,10 +19,11 @@ void batch::run() {
         return;
     }
 
-    timer.request_stop();
-
     do {
         std::lock_guard<std::mutex> lock(dbptr->batchMu);
+
+        timer.request_stop();
+
         if (dbptr->batch.get() == this) {
             dbptr->batch = nullptr;
         }
