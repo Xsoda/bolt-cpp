@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"sync"
 	"syscall"
 
 	bolt "github.com/boltdb/bolt"
@@ -92,5 +93,20 @@ func main() {
 	}); err != nil {
 		fmt.Println(err.Error())
 	}
+	wg := sync.WaitGroup{}
+	for i := 0; i < 100; i++ {
+		go func() {
+			wg.Add(1)
+			db.Batch(func(tx *bolt.Tx) error {
+				fmt.Printf("execute %d\n", i)
+				if i%33 == 0 {
+					return fmt.Errorf("execute %d", i)
+				}
+				return nil
+			})
+			wg.Done()
+		}()
+	}
+	wg.Wait()
 	db.Close()
 }
