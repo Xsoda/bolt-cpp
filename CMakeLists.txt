@@ -13,7 +13,7 @@ if(CCACHE_PROGRAM)
   set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
 
-add_library(bolt)
+add_library(bolt STATIC)
 
 add_subdirectory(deps/fmt)
 target_include_directories(bolt
