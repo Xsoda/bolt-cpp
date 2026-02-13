@@ -193,6 +193,7 @@ TestResult TestBucket_Put_VeryLarge() {
     auto batchN = 200000;
     auto ksize = 8;
     auto vsize = 500;
+    db->StrictMode = false;
     for (auto i = 0; i < n; i += batchN) {
         if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
@@ -219,6 +220,7 @@ TestResult TestBucket_Put_VeryLarge() {
             return TestResult(false, "update fail, {}", err);
         }
     }
+    MustCheck(db);
     MustCloseDB(std::move(db));
     return true;
 }

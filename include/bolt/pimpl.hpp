@@ -23,7 +23,7 @@ public:
     };
     pimpl &operator=(const pimpl<T> &) = delete;
     operator bool() {
-        return pImpl->get();
+        return pImpl != nullptr;
     };
 private:
     std::unique_ptr<T> pImpl;

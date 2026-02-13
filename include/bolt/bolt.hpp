@@ -78,7 +78,7 @@ public:
     Tx(bolt::impl::TxPtr tx) : pImpl(tx){};
     Tx(const Tx &) = delete;
     Tx &operator=(const Tx &) = delete;
-    operator bool() { return pImpl; };
+    operator bool() { return pImpl && pImpl->get(); };
 private:
     bolt::pimpl<bolt::impl::TxPtr> pImpl;
 };
@@ -114,7 +114,7 @@ public:
     Bucket(bolt::impl::BucketPtr bucket): pImpl(bucket) {};
     Bucket(const Bucket &) = delete;
     Bucket &operator=(const Bucket &) = delete;
-    operator bool() { return pImpl; };
+    operator bool() { return pImpl && pImpl->get(); };
 private:
     bolt::pimpl<bolt::impl::BucketPtr> pImpl;
 };
@@ -136,7 +136,7 @@ public:
     Cursor(bolt::impl::CursorPtr cursor) : pImpl(cursor){};
     Cursor(const Cursor &) = delete;
     Cursor &operator=(const Cursor &) = delete;
-    operator bool() { return pImpl; }
+    operator bool() { return pImpl && pImpl->get(); }
 private:
     bolt::pimpl<bolt::impl::CursorPtr> pImpl;
 };
