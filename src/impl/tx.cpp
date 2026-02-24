@@ -196,15 +196,22 @@ bolt::ErrorCode Tx::write_v2() {
 
     // Write pages to disk in order.
     for (auto it : pages_iovec(pages)) {
-        std::vector<bolt::bytes> iovecs;
-        iovecs.reserve(it.size());
+        std::vector<std::byte> buf;
+        size_t size = 0;
+        for (auto item : it) {
+            size += int(item->overflow + 1);
+        }
+        buf.reserve(size * dbptr->pageSize);
         auto offset = std::int64_t(it[0]->id) * dbptr->pageSize;
         for (auto item : it) {
-            iovecs.push_back(bolt::bytes{
-                reinterpret_cast<std::byte *>(item),
-                int(item->overflow + 1) * dbptr->pageSize});
+            size = int(item->overflow + 1) * dbptr->pageSize;
+            auto p = std::span{reinterpret_cast<std::byte *>(item), size};
+            std::copy(p.begin(), p.end(), std::back_inserter(buf));
         }
-        auto [written, err] = dbptr->file.WriteAt(std::move(iovecs), offset);
+        if (it.size() > 10000) {
+            fmt::println("buf size: {}, iovec length: {}", buf.size(), it.size());
+        }
+        auto [written, err] = dbptr->file.WriteAt(std::vector<bolt::bytes>{buf}, offset);
         if (err != bolt::Success) {
             return err;
         }
@@ -289,7 +296,7 @@ bolt::ErrorCode Tx::Commit() {
 
     // Write dirty pages to disk.
     startTime = std::chrono::system_clock::now();
-    if (auto err = write_v2(); err != bolt::Success) {
+    if (auto err = write(); err != bolt::Success) {
         rollback();
         return err;
     }
