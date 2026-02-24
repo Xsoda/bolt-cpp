@@ -48,6 +48,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
 
     bolt::ErrorCode writeMeta();
     bolt::ErrorCode write();
+    bolt::ErrorCode write_v2();
 
     bolt::ErrorCode Commit();
     bolt::ErrorCode Rollback();

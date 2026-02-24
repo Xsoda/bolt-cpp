@@ -154,6 +154,79 @@ bolt::ErrorCode Tx::write() {
     return bolt::Success;
 }
 
+static std::vector<std::span<impl::page *>>
+pages_iovec(std::span<impl::page *> pages) {
+    size_t offset = 0, length = 0;
+    std::vector<std::span<impl::page *>> result;
+    while (offset < pages.size()) {
+        auto it = pages[offset];
+        if (length == 0 || pages[offset - 1]->id + 1 == pages[offset]->id) {
+            length++;
+            offset++;
+        } else {
+            result.push_back(std::span<impl::page *>{
+                    pages.data() + offset - length, length});
+            length = 0;
+        }
+    }
+    if (length > 0) {
+            result.push_back(std::span<impl::page *>{
+                pages.data() + offset - length, length});
+    }
+    return result;
+}
+
+bolt::ErrorCode Tx::write_v2() {
+    // Sort pages by id.
+    std::vector<impl::page *> pages;
+    auto dbptr = db.lock();
+    if (!dbptr) {
+        return bolt::ErrorTxClosed;
+    }
+    pages.reserve(this->pages.size());
+    for (auto [key, value] : this->pages) {
+        pages.push_back(value);
+    }
+
+    // Clear out page cache early.
+    this->pages.clear();
+
+    std::sort(pages.begin(), pages.end(),
+              [&](impl::page *a, impl::page *b) { return a->id < b->id; });
+
+    // Write pages to disk in order.
+    for (auto it : pages_iovec(pages)) {
+        std::vector<bolt::bytes> iovecs;
+        iovecs.reserve(it.size());
+        auto offset = std::int64_t(it[0]->id) * dbptr->pageSize;
+        for (auto item : it) {
+            iovecs.push_back(bolt::bytes{
+                reinterpret_cast<std::byte *>(item),
+                int(item->overflow + 1) * dbptr->pageSize});
+        }
+        auto [written, err] = dbptr->file.WriteAt(std::move(iovecs), offset);
+        if (err != bolt::Success) {
+            return err;
+        }
+        // Update statistics.
+        stats.Write++;
+    }
+
+    // Ignore file sync if flag is set on DB.
+    if (!dbptr->NoSync) {
+        auto err = dbptr->file.Fdatasync();
+        if (err != bolt::Success) {
+            return err;
+        }
+    }
+    // Put small pages back to page pool.
+    for (auto it : pages) {
+        dbptr->releasePage(it);
+    }
+
+    return bolt::Success;
+}
+
 // Commit writes all changes to disk and updates the meta page.
 // Returns an error if a disk write error occurs, or if Commit is
 // called on a read-only transaction.
@@ -216,7 +289,7 @@ bolt::ErrorCode Tx::Commit() {
 
     // Write dirty pages to disk.
     startTime = std::chrono::system_clock::now();
-    if (auto err = write(); err != bolt::Success) {
+    if (auto err = write_v2(); err != bolt::Success) {
         rollback();
         return err;
     }
