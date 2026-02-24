@@ -21,8 +21,6 @@ struct FileImpl {
     ~FileImpl();
     std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf,
                                                        std::uint64_t offset);
-    std::tuple<std::uint64_t, bolt::ErrorCode>
-    WriteAt(std::vector<bolt::bytes> &&bufs, std::uint64_t offset);
     std::tuple<std::uint64_t, bolt::ErrorCode> ReadAt(bolt::bytes buf,
                                                       std::uint64_t offset);
     bolt::ErrorCode Fdatasync();
@@ -90,30 +88,6 @@ FileImpl::WriteAt(bolt::bytes buf, std::uint64_t offset) {
         return std::make_tuple(std::uint64_t(written), bolt::Success);
     }
     return std::make_tuple(std::uint64_t(written), bolt::Success);
-}
-
-std::tuple<std::uint64_t, bolt::ErrorCode>
-FileImpl::WriteAt(std::vector<bolt::bytes> &&bufs, std::uint64_t offset) {
-    std::uint64_t total = 0;
-    for (auto it : bufs) {
-        std::uint64_t written, w;
-        bolt::ErrorCode err;
-        written = 0;
-        w = 0;
-        while (written < it.size()) {
-          std::tie(w, err) =
-              WriteAt(bolt::bytes{it.data() + written, it.size() - written}, offset + total + written);
-            written += w;
-            if (err != bolt::Success) {
-                break;
-            }
-        }
-        total += written;
-        if (err != bolt::Success) {
-            return std::make_tuple(std::uint64_t(total), err);
-        }
-    }
-    return std::make_tuple(std::uint64_t(total), bolt::Success);
 }
 
 std::tuple<std::uint64_t, bolt::ErrorCode>
@@ -314,8 +288,6 @@ struct FileImpl {
     ~FileImpl();
     std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf,
                                                        std::uint64_t offset);
-    std::tuple<std::uint64_t, bolt::ErrorCode>
-    WriteAt(std::vector<bolt::bytes> &&bufs, std::uint64_t offset);
     std::tuple<std::uint64_t, bolt::ErrorCode> ReadAt(bolt::bytes buf,
                                                       std::uint64_t offset);
     bolt::ErrorCode Fdatasync();
@@ -361,44 +333,6 @@ FileImpl::WriteAt(bolt::bytes buf, std::uint64_t offset) {
                                    bolt::ErrorSystemCall);
     }
     return std::make_tuple(std::uint64_t(sz), bolt::Success);
-}
-
-std::tuple<std::uint64_t, bolt::ErrorCode>
-FileImpl::WriteAt(std::vector<bolt::bytes> &&bufs, std::uint64_t offset) {
-    std::uint64_t total = 0;
-    std::uint64_t written = 0;
-    size_t length = 0;
-    off_t ret;
-    ssize_t sz;
-    std::vector<struct iovec> vecs;
-    vecs.reserve(IOV_MAX);
-    while (length < bufs.size()) {
-        vecs.clear();
-        written = 0;
-        while (vecs.size() < IOV_MAX && length < bufs.size()) {
-            struct iovec item;
-            item.iov_base = bufs[length].data();
-            item.iov_len = bufs[length].size();
-            written += item.iov_len;
-            vecs.push_back(item);
-            length++;
-        }
-        ret = lseek(fd, offset + total, SEEK_SET);
-        if (ret == -1) {
-            fmt::println("pwritev return {} {}, length: {}, IOV_MAX: {}", sz,
-                         strerror(errno), vecs.size(), IOV_MAX);
-            return std::make_tuple(std::uint64_t(0), bolt::ErrorSystemCall);
-        }
-        sz = pwritev(fd, vecs.data(), vecs.size(), offset + total);
-        if (sz == -1) {
-            return std::make_tuple(std::uint64_t(0), bolt::ErrorSystemCall);
-        } else if (sz < written) {
-            fmt::println("expected written {} bytes, write {}", total, sz);
-            return std::make_tuple(total + written, bolt::ErrorSystemCall);
-        }
-        total += sz;
-    }
-    return std::make_tuple(total, bolt::Success);
 }
 
 std::tuple<std::uint64_t, bolt::ErrorCode>
@@ -537,11 +471,6 @@ File::~File() {
 std::tuple<std::uint64_t, bolt::ErrorCode> File::WriteAt(bolt::bytes buf,
                                                          std::uint64_t offset) {
     return pImpl->WriteAt(buf, offset);
-}
-
-std::tuple<std::uint64_t, bolt::ErrorCode>
-File::WriteAt(std::vector<bolt::bytes> &&bufs, std::uint64_t offset) {
-    return pImpl->WriteAt(std::move(bufs), offset);
 }
 
 std::tuple<std::uint64_t, bolt::ErrorCode> File::ReadAt(bolt::bytes buf,
