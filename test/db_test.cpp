@@ -145,28 +145,28 @@ TestResult TestDB_OpenSize() {
 
     auto pagesize = db->Info().PageSize;
     auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
-      std::string name = "data";
-      auto [b, err] = tx->CreateBucketIfNotExists(to_bytes(name));
-      if (err != bolt::Success) {
-        return err;
-      }
-      std::vector<std::byte> value;
-      value.assign(1000, std::byte(0));
-      for (int i = 0; i < 10000; i++) {
-        std::string key = fmt::format("{:04d}", i);
-        err = b->Put(to_bytes(key), value);
+        std::string name = "data";
+        auto [b, err] = tx->CreateBucketIfNotExists(to_bytes(name));
         if (err != bolt::Success) {
-          return err;
+            return err;
         }
-      }
-      return bolt::Success;
+        std::vector<std::byte> value;
+        value.assign(1000, std::byte(0));
+        for (int i = 0; i < 10000; i++) {
+            std::string key = fmt::format("{:04d}", i);
+            err = b->Put(to_bytes(key), value);
+            if (err != bolt::Success) {
+                return err;
+            }
+        }
+        return bolt::Success;
     });
     if (err != bolt::Success) {
-        return TestResult(false, "database Update fail");
+        return TestResult(false, "database Update fail, {}", err);
     }
     err = db->Close();
     if (err != bolt::Success) {
-        return TestResult(false, "database close fail");
+        return TestResult(false, "database close fail, {}", err);
     }
     fmt::println("database {} closed", path);
 

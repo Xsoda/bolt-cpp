@@ -160,7 +160,7 @@ static const std::vector<Test> tests = {
     {"Test DB Open Check", TestDB_Open_Check},
     {"Test DB Open_FileTooSmall", TestDB_Open_FileTooSmall},
     {"Test DB Open InitialMmapSize", TestDB_Open_InitialMmapSize},
-    {"Test DB Begin ErrDatabaseNotOpen},", TestDB_Begin_ErrDatabaseNotOpen},
+    {"Test DB Begin ErrDatabaseNotOpen", TestDB_Begin_ErrDatabaseNotOpen},
     {"Test DB BeginRW", TestDB_BeginRW},
     {"Test DB BeginRW Closed", TestDB_BeginRW_Closed},
     {"Test DB Close PendingTx RW", TestDB_Close_PendingTx_RW},
