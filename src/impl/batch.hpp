@@ -17,6 +17,7 @@ struct batch;
 struct call {
     std::function<bolt::ErrorCode(std::shared_ptr<impl::Tx>)> fn;
     std::promise<bolt::ErrorCode> err;
+    bool invoked = false;
 
     call() = default;
     call(const call &other) = delete;

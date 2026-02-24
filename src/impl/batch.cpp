@@ -34,6 +34,9 @@ void batch::run() {
         auto err = dbptr->Update([&](impl::TxPtr tx) -> bolt::ErrorCode {
             for (auto it = calls.begin(); it != calls.end(); it++) {
                 bolt::ErrorCode err;
+                if (it->get()->invoked) {
+                    continue;
+                }
                 try {
                     err = it->get()->fn(tx);
                 } catch ([[maybe_unused]] const std::exception &e) {
@@ -43,6 +46,7 @@ void batch::run() {
                     failIdx = std::distance(calls.begin(), it);
                     return err;
                 }
+                it->get()->invoked = true;
             }
             return bolt::Success;
         });
