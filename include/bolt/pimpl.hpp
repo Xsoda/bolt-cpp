@@ -21,6 +21,7 @@ public:
         pImpl = std::move(p.pImpl);
         return *this;
     };
+    pimpl(const pimpl<T> &) = delete;
     pimpl &operator=(const pimpl<T> &) = delete;
     operator bool() { return pImpl != nullptr; };
 protected:
