@@ -28,7 +28,7 @@ class Tx;
 class Cursor;
 class Bucket;
 
-class DB {
+class DB final: private pimpl<impl::DBPtr> {
 public:
     bolt::ErrorCode Open(std::string path, bool readOnly = false);
     bolt::ErrorCode Close();
@@ -44,15 +44,13 @@ public:
     std::string Path();
 
     DB();
-    DB(bolt::impl::DBPtr db) : pImpl(db){};
+    DB(bolt::impl::DBPtr db) : pimpl(db){};
     DB(const DB &) = delete;
     DB &operator=(const DB &) = delete;
-    operator bool() { return pImpl; };
-private:
-    bolt::pimpl<bolt::impl::DBPtr> pImpl;
+    operator bool() { return pimpl<impl::DBPtr>::impl() ? true : false; };
 };
 
-class Tx {
+class Tx final: pimpl<impl::TxPtr> {
 public:
     std::tuple<bolt::Bucket, bolt::ErrorCode>
     CreateBucket(bolt::const_bytes name);
@@ -75,15 +73,13 @@ public:
     std::future<std::vector<std::string>> Check();
 
     Tx() = delete;
-    Tx(bolt::impl::TxPtr tx) : pImpl(tx){};
+    Tx(bolt::impl::TxPtr tx) : pimpl(tx){};
     Tx(const Tx &) = delete;
     Tx &operator=(const Tx &) = delete;
-    operator bool() { return pImpl && pImpl->get(); };
-private:
-    bolt::pimpl<bolt::impl::TxPtr> pImpl;
+    operator bool() { return pimpl<impl::TxPtr>::impl() ? true : false; };
 };
 
-class Bucket {
+class Bucket final: private pimpl<impl::BucketPtr> {
 public:
     std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucket(bolt::const_bytes key);
     std::tuple<bolt::Bucket, bolt::ErrorCode>
@@ -111,15 +107,13 @@ public:
     bolt::BucketStats Stats();
 
     Bucket() = delete;
-    Bucket(bolt::impl::BucketPtr bucket): pImpl(bucket) {};
+    Bucket(bolt::impl::BucketPtr bucket): pimpl(bucket) {};
     Bucket(const Bucket &) = delete;
     Bucket &operator=(const Bucket &) = delete;
-    operator bool() { return pImpl && pImpl->get(); };
-private:
-    bolt::pimpl<bolt::impl::BucketPtr> pImpl;
+    operator bool() { return pimpl<impl::BucketPtr>::impl() ? true : false; };
 };
 
-class Cursor {
+class Cursor final: private pimpl<impl::CursorPtr> {
 public:
     bolt::Bucket Bucket();
     std::tuple<bolt::const_bytes, bolt::const_bytes> First();
@@ -133,12 +127,12 @@ public:
     bolt::ErrorCode Delete();
 
     Cursor() = delete;
-    Cursor(bolt::impl::CursorPtr cursor) : pImpl(cursor){};
+    Cursor(bolt::impl::CursorPtr cursor) : pimpl(cursor){};
     Cursor(const Cursor &) = delete;
     Cursor &operator=(const Cursor &) = delete;
-    operator bool() { return pImpl && pImpl->get(); }
-private:
-    bolt::pimpl<bolt::impl::CursorPtr> pImpl;
+    operator bool() {
+        return pimpl<impl::CursorPtr>::impl() ? true : false;
+    };
 };
 } // namespace bolt
 
