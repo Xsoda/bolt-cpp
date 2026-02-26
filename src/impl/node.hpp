@@ -39,7 +39,7 @@ struct node : public std::enable_shared_from_this<node> {
     std::vector<impl::inode> inodes;
     std::vector<std::byte> memory;
 
-    explicit node(){};
+    explicit node() : isLeaf(false), unbalanced(false), spilled(false), pgid(0) {};
     explicit node(bool isLeaf);
     explicit node(impl::BucketPtr bucket);
     explicit node(impl::BucketPtr bucket, bool isLeaf, impl::node_ptr parent);

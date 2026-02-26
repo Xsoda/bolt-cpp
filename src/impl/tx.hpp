@@ -24,7 +24,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     int WriteFlag;
 
     explicit Tx();
-    explicit Tx(impl::meta meta) : meta(meta), managed(false){};
+    explicit Tx(impl::meta meta) : meta(meta), managed(false), WriteFlag(0), writable(false) {};
     explicit Tx(impl::DBPtr db, impl::meta meta);
     // init initializes the transaction.
     explicit Tx(impl::DBPtr db, bool writable);

@@ -14,10 +14,10 @@
 namespace bolt {
 
 namespace impl {
-class DB;
-class Bucket;
-class Cursor;
-class Tx;
+struct DB;
+struct Bucket;
+struct Cursor;
+struct Tx;
 using DBPtr = std::shared_ptr<DB>;
 using BucketPtr = std::shared_ptr<Bucket>;
 using CursorPtr = std::shared_ptr<Cursor>;

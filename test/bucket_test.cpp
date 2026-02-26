@@ -1301,7 +1301,7 @@ TestResult TestBucket_Stats() {
         branchInuse += 7 * 16;
         branchInuse += 7 * 3;
 
-        auto leafInuse = 7 * 16;
+        size_t leafInuse = 7 * 16;
         leafInuse += 501 * 16;
         leafInuse += 500 * 3 + bigKey.size();
         leafInuse += 1 * 10 + 2 * 90 + 3 * 400 + 10000;

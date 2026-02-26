@@ -15,12 +15,12 @@
 
 namespace bolt::impl {
 
-Tx::Tx(impl::DBPtr db, impl::meta meta) : db(db), meta(meta) {}
+Tx::Tx(impl::DBPtr db, impl::meta meta) : db(db), meta(meta), writable(false), WriteFlag(0), managed(false) {}
 
-Tx::Tx() {}
+Tx::Tx() : writable(false), WriteFlag(0), managed(false) {}
 
 Tx::Tx(std::shared_ptr<impl::DB> db, bool writable)
-    : db(db), writable(writable) {
+    : db(db), writable(writable), WriteFlag(0), managed(false) {
 }
 
 void Tx::init() {

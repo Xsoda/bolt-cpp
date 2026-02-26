@@ -65,6 +65,17 @@ DB::DB() {
     pageSize = 0;
     opened = false;
     readOnly = false;
+#ifndef NDEBUG
+    StrictMode = true;
+#else
+    StrictMode = false;
+#endif
+    NoSync = false;
+    NoGrowSync = false;
+    MaxBatchSize = bolt::DefaultMaxBatchSize;
+    MaxBatchDelay = bolt::DefaultMaxBatchDelay;
+    AllocSize = bolt::DefaultAllocSize;
+    MmapFlags = 0;
 }
 
 DB::~DB() {
@@ -73,17 +84,6 @@ DB::~DB() {
 
 bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
     this->path = path;
-    NoGrowSync = false;
-    MmapFlags = 0;
-    NoSync = false;
-#ifndef NDEBUG
-    StrictMode = true;
-#else
-    StrictMode = false;
-#endif
-    MaxBatchSize = bolt::DefaultMaxBatchSize;
-    MaxBatchDelay = bolt::DefaultMaxBatchDelay;
-    AllocSize = bolt::DefaultAllocSize;
     this->readOnly = readOnly;
     auto err = file.Open(path, readOnly);
     if (err != bolt::ErrorCode::Success) {
