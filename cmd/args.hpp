@@ -4,10 +4,16 @@
 #include "fmt/ranges.h"
 #include <variant>
 #include <string>
+#include <vector>
 #include <algorithm>
 #include <cstring>
 #include <map>
 #include <optional>
+
+#ifdef _MSC_VER
+#define strncasecmp _strnicmp
+#define strcasecmp _stricmp
+#endif
 
 using ArgumentValue = std::variant < std::string, long long, bool, double,
       std::nullptr_t,

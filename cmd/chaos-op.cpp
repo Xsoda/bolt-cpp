@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
         return -1;
     }
     auto cmd = Parse(argc - 1, argv + 1);
-    auto max_op = GetArgument<long long>(cmd, "max-op").value_or(10000);
+    auto max_op = GetArgument<long long>(cmd, "max-op").value_or(100000);
     auto err = db.Update([max_op, &keys](bolt::Tx tx) -> bolt::ErrorCode {
         auto bucket = RandomString(8, 32);
         auto [b, err] = tx.CreateBucketIfNotExists(to_bytes(bucket));
