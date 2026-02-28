@@ -17,8 +17,6 @@ add_library(bolt STATIC)
 
 add_subdirectory(deps/fmt)
 target_include_directories(bolt
-  PUBLIC
-  SYSTEM .
   PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -104,3 +102,17 @@ target_include_directories(bolt-tests
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+add_executable(bolt-cli)
+target_sources(bolt-cli
+  PRIVATE
+  cmd/args.hpp
+  cmd/main.cpp)
+target_link_libraries(bolt-cli PRIVATE fmt::fmt bolt)
+
+add_executable(chaos-op)
+target_sources(chaos-op
+  PRIVATE
+  cmd/args.hpp
+  cmd/chaos-op.cpp)
+target_link_libraries(chaos-op PRIVATE fmt::fmt bolt)

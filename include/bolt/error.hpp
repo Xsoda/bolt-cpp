@@ -6,6 +6,7 @@
 
 #include "fmt/base.h"
 #include "fmt/format.h"
+#include "fmt/ranges.h"
 #include <locale>
 #include <span>
 
@@ -70,6 +71,29 @@ template <> struct formatter<bolt::ErrorCode>: nested_formatter<fmt::string_view
             return fmt::format_to(out, "{}", "impossible error code");
         }
         return fmt::format_to(out, "impossible");
+    });
+  };
+};
+
+template <typename T>
+  requires std::is_same_v<T, std::byte> || std::is_same_v<T, const std::byte>
+struct range_format_kind<std::span<T>, char>
+    : std::integral_constant<range_format, range_format::disabled> {};
+
+template <typename T>
+  requires std::is_same_v<T, std::byte> || std::is_same_v<T, const std::byte>
+struct formatter<std::span<T>> : nested_formatter<fmt::string_view> {
+  auto format(const std::span<T> bytes, format_context &ctx) const
+      -> decltype(ctx.out()) {
+    return write_padded(ctx, [this, bytes](auto out) -> decltype(out) {
+      for (auto it : bytes) {
+        if (std::isprint((char)it, std::locale::classic())) {
+          out = fmt::format_to(out, "{}", (char)it);
+        } else {
+          out = fmt::format_to(out, "\\x{:02x}", (char)it);
+        }
+      }
+      return out;
     });
   };
 };

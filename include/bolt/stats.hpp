@@ -1,8 +1,11 @@
 #pragma once
+#include "fmt/base.h"
 #ifndef BOLT_STATS_HPP
 #define BOLT_STATS_HPP
 
 #include "common.hpp"
+#include "fmt/format.h"
+#include "fmt/std.h"
 
 namespace bolt {
 
@@ -226,4 +229,67 @@ struct Info {
 
 } // namespace bolt
 
+FMT_BEGIN_NAMESPACE
+
+template <>
+struct formatter<bolt::TxStats> : nested_formatter<fmt::string_view> {
+    auto format(bolt::TxStats &stats, format_context &ctx) const
+        -> decltype(ctx.out()) {
+        return write_padded(ctx, [this, &stats](auto out) -> decltype(out) {
+            out = fmt::format_to(out, "PageCount: {}, PageAlloc: {}\n",
+                                 stats.PageCount, stats.PageAlloc);
+            out = fmt::format_to(out, "CursorCount: {}\n", stats.CursorCount);
+            out = fmt::format_to(out, "Rebalance: {}, RebalanceTime: {}\n",
+                                 stats.Rebalance, stats.RebalanceTime);
+            out = fmt::format_to(out, "Split: {}, Spill: {}, SpillTime: {}\n",
+                                 stats.Split, stats.Spill, stats.SpillTime);
+            out = fmt::format_to(out, "Write: {}, WriteTime: {}", stats.Write,
+                                 stats.WriteTime);
+            return out;
+        });
+    };
+};
+
+template <>
+struct formatter<bolt::Stats> : nested_formatter<fmt::string_view> {
+    auto format(bolt::Stats &stats, format_context &ctx) const
+        -> decltype(ctx.out()) {
+        return write_padded(ctx, [this, &stats](auto out) -> decltype(out) {
+            out = fmt::format_to(out, "FreePageN: {}, PendingPageN: {}\n",
+                                 stats.FreePageN, stats.PendingPageN);
+            out = fmt::format_to(out, "FreeAlloc: {}, FreelistInuse: {}\n",
+                                 stats.FreeAlloc, stats.FreelistInuse);
+            out = fmt::format_to(out, "TxN: {}, OpenTxN: {}\n", stats.TxN,
+                                 stats.OpenTxN);
+            out = fmt::format_to(out, "{}", stats.TxStats);
+            return out;
+        });
+    };
+};
+
+template <>
+struct formatter<bolt::BucketStats> : nested_formatter<fmt::string_view> {
+    auto format(bolt::BucketStats &stats, format_context &ctx) const
+        -> decltype(ctx.out()) {
+        return write_padded(ctx, [this, &stats](auto out) -> decltype(out) {
+            out = fmt::format_to(out, "BranchPageN: {}, BranchOverflowN: {}\n",
+                               stats.BranchPageN, stats.BranchOverflowN);
+            out = fmt::format_to(out, "LeafPageN: {}, LeafOverflowN: {}\n",
+                                 stats.LeafPageN, stats.LeafOverflowN);
+            out = fmt::format_to(out, "KeyN: {}\n", stats.KeyN);
+            out = fmt::format_to(out, "Depth: {}\n", stats.Depth);
+            out = fmt::format_to(out, "BranchAlloc: {}, BranchInuse: {}\n",
+                                 stats.BranchAlloc, stats.BranchInuse);
+            out = fmt::format_to(out, "LeafAlloc: {}, LeafInuse: {}\n",
+                                 stats.LeafAlloc, stats.LeafInuse);
+            out = fmt::format_to(out, "BucketN: {}\n", stats.BucketN);
+            out =
+                fmt::format_to(out, "InlineBucketN: {}, InlineBucketInuse: {}",
+                               stats.InlineBucketN, stats.InlineBucketInuse);
+            return out;
+        });
+    }
+};
+
+FMT_END_NAMESPACE
 #endif  // !BOLT_STATS_HPP

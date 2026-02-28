@@ -34,6 +34,8 @@ bool Bucket::Writable() const {
 }
 
 impl::CursorPtr Bucket::Cursor() {
+    auto txptr = tx.lock();
+    txptr->stats.CursorCount++;
     return std::make_shared<impl::Cursor>(shared_from_this());
 }
 
@@ -167,11 +169,8 @@ bolt::ErrorCode Bucket::spill(std::vector<impl::node_ptr> &hold) {
         }
 
         // Update parent node.
-        std::vector<std::byte> key(name.size());
-        std::transform(name.begin(), name.end(), key.begin(),
-                       [](char c) -> std::byte {
-                           return std::byte(c);
-                       });
+        auto key = bolt::const_bytes{
+            reinterpret_cast<const std::byte *>(name.data()), name.size()};
         auto c = Cursor();
         auto [k, v, flags] = c->seek(key);
         if (!std::is_eq(impl::compare_three_way(key, k))) {

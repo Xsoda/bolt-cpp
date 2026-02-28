@@ -11,11 +11,6 @@
 #include <iostream>
 #include <span>
 
-#ifndef NDEBUG
-#include <ranges>
-#include "fmt/format.h"
-#endif
-
 namespace bolt::impl {
 inode::inode() : flags(0), pgid(0) {}
 
@@ -468,7 +463,6 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
             return err;
         }
     }
-
     // We no longger need the child list because it's only used for spill tracking.
     children.clear();
 
