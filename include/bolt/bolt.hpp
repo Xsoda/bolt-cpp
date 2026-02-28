@@ -33,11 +33,11 @@ public:
     bolt::ErrorCode Open(std::string path, bool readOnly = false);
     bolt::ErrorCode Close();
 
-    bolt::ErrorCode Update(std::function<bolt::ErrorCode(Tx)> &&fn);
-    bolt::ErrorCode Batch(std::function<bolt::ErrorCode(Tx)> &&fn);
-    bolt::ErrorCode View(std::function<bolt::ErrorCode(Tx)> &&fn);
+    bolt::ErrorCode Update(std::function<bolt::ErrorCode(bolt::Tx)> &&fn);
+    bolt::ErrorCode Batch(std::function<bolt::ErrorCode(bolt::Tx)> &&fn);
+    bolt::ErrorCode View(std::function<bolt::ErrorCode(bolt::Tx)> &&fn);
 
-    std::tuple<Tx, bolt::ErrorCode> Begin(bool writable);
+    std::tuple<bolt::Tx, bolt::ErrorCode> Begin(bool writable);
     bolt::Info Info();
     bolt::Stats Stats();
     bool IsReadOnly();
@@ -45,8 +45,11 @@ public:
 
     DB();
     DB(bolt::impl::DBPtr db) : pimpl(db){};
-    DB(const DB &) = delete;
-    DB &operator=(const DB &) = delete;
+    DB(const bolt::DB &) = delete;
+    bolt::DB &operator=(const bolt::DB &) = delete;
+    DB(bolt::DB &&) = default;
+    bolt::DB &operator=(bolt::DB &&) = default;
+    ~DB() = default;
     operator bool() { return pimpl<impl::DBPtr>::impl() ? true : false; };
 };
 
@@ -75,7 +78,10 @@ public:
     Tx() = delete;
     Tx(bolt::impl::TxPtr tx) : pimpl(tx){};
     Tx(const Tx &) = delete;
-    Tx &operator=(const Tx &) = delete;
+    bolt::Tx &operator=(const Tx &) = delete;
+    Tx(bolt::Tx &&) = default;
+    bolt::Tx &operator=(bolt::Tx &&) = default;
+    ~Tx() = default;
     operator bool() { return pimpl<impl::TxPtr>::impl() ? true : false; };
 };
 
@@ -108,8 +114,11 @@ public:
 
     Bucket() = delete;
     Bucket(bolt::impl::BucketPtr bucket): pimpl(bucket) {};
-    Bucket(const Bucket &) = delete;
-    Bucket &operator=(const Bucket &) = delete;
+    Bucket(const bolt::Bucket &) = delete;
+    bolt::Bucket &operator=(const bolt::Bucket &) = delete;
+    Bucket(bolt::Bucket &&) = default;
+    bolt::Bucket &operator=(bolt::Bucket &&) = default;
+    ~Bucket() = default;
     operator bool() { return pimpl<impl::BucketPtr>::impl() ? true : false; };
 };
 
@@ -129,7 +138,10 @@ public:
     Cursor() = delete;
     Cursor(bolt::impl::CursorPtr cursor) : pimpl(cursor){};
     Cursor(const Cursor &) = delete;
-    Cursor &operator=(const Cursor &) = delete;
+    bolt::Cursor &operator=(const bolt::Cursor &) = delete;
+    Cursor(bolt::Cursor &&) = default;
+    bolt::Cursor &operator=(bolt::Cursor &&) = default;
+    ~Cursor() = default;
     operator bool() {
         return pimpl<impl::CursorPtr>::impl() ? true : false;
     };

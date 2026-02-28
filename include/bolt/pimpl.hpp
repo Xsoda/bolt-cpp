@@ -17,6 +17,7 @@ public:
     T *operator->() { return pImpl.get(); };
     T &operator*() { return *pImpl.get(); };
     virtual ~pimpl() = default;
+    pimpl(pimpl<T> &&p) { pImpl = std::move(p.pImpl); };
     pimpl &operator=(pimpl<T> &&p) {
         pImpl = std::move(p.pImpl);
         return *this;
