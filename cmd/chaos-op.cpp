@@ -53,6 +53,11 @@ constexpr std::span<const std::byte> to_bytes(const Container &container) {
         container.size());
 }
 
+inline std::span<const std::byte> to_bytes(const char *str) {
+    return std::span<const std::byte>(reinterpret_cast<const std::byte *>(str),
+                                      std::char_traits<char>::length(str));
+}
+
 template <class Container> std::string to_string(const Container &container) {
     return std::string(reinterpret_cast<const char *>(container.data()),
                        container.size());
@@ -86,49 +91,58 @@ int main(int argc, char **argv) {
     }
     auto cmd = Parse(argc - 1, argv + 1);
     auto max_op = GetArgument<long long>(cmd, "max-op").value_or(100000);
-    auto err = db.Update([max_op, &keys](bolt::Tx tx) -> bolt::ErrorCode {
-        auto bucket = RandomString(8, 32);
-        auto [b, err] = tx.CreateBucketIfNotExists(to_bytes(bucket));
-        if (err != bolt::Success) {
+    auto bucket = RandomString(8, 32);
+    auto err = db.Update([max_op, &keys, &bucket](bolt::Tx tx) -> bolt::ErrorCode {
+      auto [b, err] = tx.CreateBucketIfNotExists(to_bytes(bucket));
+      if (err != bolt::Success) {
+        return err;
+      }
+      for (int i = 0; i < max_op; i++) {
+        auto op = GetOP();
+        if (op == OP::Insert) {
+          auto key = RandomString(8, 32);
+          auto val = RandomString(32, 4096);
+          keys.insert(key);
+          fmt::println("{:06} INSERT {}", i, to_bytes(key));
+          err = b.Put(to_bytes(key), to_bytes(val));
+          if (err != bolt::Success) {
             return err;
+          }
+        } else if (op == OP::Update) {
+          auto idx = RandomInt(0, keys.size());
+          auto it = std::next(keys.begin(), idx);
+          auto val = RandomString(32, 4096);
+          auto key = *it;
+          err = b.Put(to_bytes(key), to_bytes(val));
+          fmt::println("{:06} UPDATE {}", i, to_bytes(key));
+          if (err != bolt::Success) {
+            return err;
+          }
+        } else if (op == OP::Delete) {
+          auto idx = RandomInt(0, keys.size());
+          auto it = std::next(keys.begin(), idx);
+          auto key = *it;
+          fmt::println("{:06} DELETE {}", i, to_bytes(key));
+          keys.erase(it);
+          err = b.Delete(to_bytes(key));
+          if (err != bolt::Success) {
+            return err;
+          }
         }
-        for (int i = 0; i < max_op; i++) {
-            auto op = GetOP();
-            if (op == OP::Insert) {
-                auto key = RandomString(8, 32);
-                auto val = RandomString(32, 4096);
-                keys.insert(key);
-                fmt::println("{:06} INSERT {}", i, to_bytes(key));
-                err = b.Put(to_bytes(key), to_bytes(val));
-                if (err != bolt::Success) {
-                    return err;
-                }
-            } else if (op == OP::Update) {
-                auto idx = RandomInt(0, keys.size());
-                auto it = std::next(keys.begin(), idx);
-                auto val = RandomString(32, 4096);
-                auto key = *it;
-                err = b.Put(to_bytes(key), to_bytes(val));
-                fmt::println("{:06} UPDATE {}", i, to_bytes(key));
-                if (err != bolt::Success) {
-                    return err;
-                }
-            } else if (op == OP::Delete) {
-                auto idx = RandomInt(0, keys.size());
-                auto it = std::next(keys.begin(), idx);
-                auto key = *it;
-                fmt::println("{:06} DELETE {}", i, to_bytes(key));
-                keys.erase(it);
-                err = b.Delete(to_bytes(key));
-                if (err != bolt::Success) {
-                    return err;
-                }
-            }
-        }
-        return bolt::Success;
+      }
+      return bolt::Success;
     });
     if (err != bolt::Success) {
         fmt::println("update fail, {}", err);
+    }
+    if (auto err = db.View([&bucket](bolt::Tx tx) -> bolt::ErrorCode {
+          auto b = tx.Bucket(to_bytes(bucket));
+          auto val = b.Get(to_bytes("ZqReP8ryRa5y"));
+          fmt::println("value: {}", val);
+          return bolt::Success;
+    });
+        err != bolt::Success) {
+
     }
     auto stat = db.Stats().TxStats;
     fmt::println("{}", stat);

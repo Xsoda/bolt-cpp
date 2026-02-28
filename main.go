@@ -61,7 +61,7 @@ func GetOP() int {
 
 func main() {
 	var max_op int64
-	flag.Int64Var(&max_op, "max-op", 10000, "default max operate count")
+	flag.Int64Var(&max_op, "max-op", 100000, "default max operate count")
 	flag.Parse()
 	filename := fmt.Sprintf("chaos-golang")
 	os.Remove(filename)
@@ -73,8 +73,8 @@ func main() {
 		fmt.Println(err.Error())
 		return
 	}
+	bucket := RandomString(8, 32)
 	if err := db.Update(func(tx *bolt.Tx) error {
-		bucket := RandomString(8, 32)
 		b, err := tx.CreateBucket([]byte(bucket))
 		if err != nil {
 			return err
@@ -125,6 +125,14 @@ func main() {
 		return nil
 	}); err != nil {
 		fmt.Println(err.Error())
+	}
+	if err := db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucket))
+		val := b.Get([]byte("ZqReP8ryRa5y"))
+		fmt.Printf("value: %s\n", string(val))
+		return nil
+	}); err != nil {
+
 	}
 	stat := db.Stats().TxStats
 	fmt.Printf("PageCount: %d, PageAlloc: %d\n", stat.PageCount, stat.PageAlloc)
