@@ -22,10 +22,11 @@ inode::inode(const inode &other) noexcept {
     this->value =
         bolt::bytes(this->memory.data() + other.key.size(), other.value.size());
     if (memory.empty() && key.size() > 0) {
-        memory.reserve(key.size() + value.size());
-        std::copy(other.key.begin(), other.key.end(), std::back_inserter(memory));
+        memory.resize(key.size() + value.size());
+        std::memcpy(memory.data(), other.key.data(), key.size());
         key = bolt::bytes(memory.data(), key.size());
-        std::copy(other.value.begin(), other.value.end(), std::back_inserter(memory));
+        std::memcpy(memory.data() + key.size(), other.value.data(),
+                    value.size());
         value = bolt::bytes(memory.data() + key.size(), value.size());
     }
 }
@@ -37,10 +38,10 @@ inode::inode(inode &&other) noexcept {
     std::swap(this->key, other.key);
     std::swap(this->value, other.value);
     if (memory.empty() && key.size() > 0) {
-        memory.reserve(key.size() + value.size());
-        std::copy(key.begin(), key.end(), std::back_inserter(memory));
+        memory.resize(key.size() + value.size());
+        std::memcpy(memory.data(), key.data(), key.size());
         key = bolt::bytes(memory.data(), key.size());
-        std::copy(value.begin(), value.end(), std::back_inserter(memory));
+        std::memcpy(memory.data() + key.size(), value.data(), value.size());
         value = bolt::bytes(memory.data() + key.size(), value.size());
     }
 }
@@ -52,10 +53,10 @@ inode &inode::operator=(const inode &other) noexcept {
     this->key = bolt::bytes(this->memory.data(), other.key.size());
     this->value = bolt::bytes(this->memory.data() + other.key.size(), other.value.size());
     if (memory.empty() && key.size() > 0) {
-        memory.reserve(key.size() + value.size());
-        std::copy(other.key.begin(), other.key.end(), std::back_inserter(memory));
+        memory.resize(key.size() + value.size());
+        std::memcpy(memory.data(), other.key.data(), key.size());
         key = bolt::bytes(memory.data(), key.size());
-        std::copy(other.value.begin(), other.value.end(), std::back_inserter(memory));
+        std::memcpy(memory.data() + key.size(), other.value.data(), value.size());
         value = bolt::bytes(memory.data() + key.size(), value.size());
     }
     return *this;
@@ -68,10 +69,10 @@ inode &inode::operator=(inode &&other) noexcept {
     std::swap(this->key, other.key);
     std::swap(this->value, other.value);
     if (memory.empty() && key.size() > 0) {
-        memory.reserve(key.size() + value.size());
-        std::copy(key.begin(), key.end(), std::back_inserter(memory));
+        memory.resize(key.size() + value.size());
+        std::memcpy(memory.data(), key.data(), key.size());
         key = bolt::bytes(memory.data(), key.size());
-        std::copy(value.begin(), value.end(), std::back_inserter(memory));
+        std::memcpy(memory.data() + key.size(), value.data(), value.size());
         value = bolt::bytes(memory.data() + key.size(), value.size());
     }
     return *this;
@@ -258,14 +259,13 @@ void node::put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_b
     impl::inode &inode = inodes[index];
     inode.flags = flags;
 
-    inode.memory.clear();
-    inode.memory.reserve(newKey.size() + value.size());
+    inode.memory.resize(newKey.size() + value.size());
 
-    std::copy(newKey.begin(), newKey.end(), std::back_inserter(inode.memory));
-    inode.key = bolt::bytes(inode.memory.begin(), inode.memory.end());
+    std::memcpy(inode.memory.data(), newKey.data(), newKey.size());
+    inode.key = bolt::bytes(inode.memory.data(), newKey.size());
 
-    std::copy(value.begin(), value.end(), std::back_inserter(inode.memory));
-    inode.value = bolt::bytes(inode.memory.begin() + newKey.size(), inode.memory.end());
+    std::memcpy(inode.memory.data() + inode.key.size(), value.data(), value.size());
+    inode.value = bolt::bytes(inode.memory.data() + newKey.size(), value.size());
 
     inode.pgid = pgid;
     _assert(inode.key.size() > 0, "put: zero-length inode key");
@@ -668,22 +668,20 @@ void node::removeChild(impl::node_ptr target) {
 // pointing to stale data.
 void node::dereference() {
     if (key.size() > 0) {
-        memory.clear();
-        memory.reserve(key.size());
-        std::copy(key.begin(), key.end(), std::back_inserter(memory));
-        key = bolt::bytes(memory.begin(), memory.end());
+        memory.resize(key.size());
+        std::memcpy(memory.data(), key.data(), key.size());
+        key = bolt::bytes(memory.data(), key.size());
         _assert(pgid == 0 || key.size() > 0, "dereference: zero-length node key on existing node");
     }
     for (auto &it : inodes) {
         _assert(it.key.size() > 0, "dereference: zero-length inode key");
-        it.memory.clear();
-        it.memory.reserve(it.key.size() + it.value.size());
+        it.memory.resize(it.key.size() + it.value.size());
 
-        std::copy(it.key.begin(), it.key.end(), std::back_inserter(it.memory));
-        it.key = bolt::bytes(it.memory.begin(), it.memory.end());
+        std::memcpy(it.memory.data(), it.key.data(), it.key.size());
+        it.key = bolt::bytes(it.memory.data(), it.key.size());
 
-        std::copy(it.value.begin(), it.value.end(), std::back_inserter(it.memory));
-        it.value = bolt::bytes(it.memory.begin() + it.key.size(), it.memory.end());
+        std::memcpy(it.memory.data() + it.key.size(), it.value.data(), it.value.size());
+        it.value = bolt::bytes(it.memory.data() + it.key.size(), it.value.size());
     }
 
     // Recursively dereference children.
