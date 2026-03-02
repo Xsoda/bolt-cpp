@@ -64,8 +64,7 @@ func main() {
 	flag.Parse()
 	filename := fmt.Sprintf("chaos-golang")
 	os.Remove(filename)
-	// db, err := bolt.Open(filename, syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IRGRP|syscall.S_IWGRP|syscall.S_IROTH, nil)
-	db, err := bolt.Open(filename, 0x100|0x80|0x20|0x10|0x04, nil)
+	db, err := bolt.Open(filename /*syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IRGRP|syscall.S_IWGRP|syscall.S_IROTH*/, 0664, nil)
 
 	keys := make([]string, 0)
 	// db.StrictMode = true

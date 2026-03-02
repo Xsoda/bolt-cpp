@@ -13,6 +13,18 @@ if(CCACHE_PROGRAM)
   set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
 
+find_program(GOLANG_PROGRAM NAMES "go")
+if(GOLANG_PROGRAM)
+  message(STATUS "Found Golang: ${GOLANG_PROGRAM}")
+  set(GO_BINARY_NAME "go-chaos-op")
+  add_custom_target(${GO_BINARY_NAME} ALL
+    COMMAND ${GOLANG_PROGRAM} build -o ${CMAKE_BINARY_DIR}/${GO_BINARY_NAME}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/golang
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/golang/main.go
+    BYPRODUCTS ${CMAKE_BINARY_DIR}/${GO_BINARY_NAME}
+    COMMENT "Building Go Binary: ${GO_BINARY_NAME}")
+endif()
+
 add_library(bolt STATIC)
 
 add_subdirectory(deps/fmt)
