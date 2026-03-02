@@ -1,4 +1,4 @@
-module bolt-test
+module chaos-op
 
 go 1.25.0
 
