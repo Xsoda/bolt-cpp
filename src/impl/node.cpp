@@ -667,7 +667,7 @@ void node::removeChild(impl::node_ptr target) {
 // heap memory. This is required when the mmap is reallocated so inodes are not
 // pointing to stale data.
 void node::dereference() {
-    if (key.size() > 0) {
+    if (key.size() > 0 && memory.empty()) {
         memory.resize(key.size());
         std::memcpy(memory.data(), key.data(), key.size());
         key = bolt::bytes(memory.data(), key.size());
@@ -675,6 +675,9 @@ void node::dereference() {
     }
     for (auto &it : inodes) {
         _assert(it.key.size() > 0, "dereference: zero-length inode key");
+        if (!it.memory.empty()) {
+            continue;
+        }
         it.memory.resize(it.key.size() + it.value.size());
 
         std::memcpy(it.memory.data(), it.key.data(), it.key.size());
