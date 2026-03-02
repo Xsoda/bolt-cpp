@@ -16,26 +16,16 @@
 
 namespace bolt::impl {
 
-#ifdef WIN32
 bolt::ErrorCode mmap(impl::DB *db, std::uint64_t sz) {
+#ifdef WIN32
     if (!db->readOnly) {
         auto err = db->file.Truncate(sz);
         if (err != bolt::ErrorCode::Success) {
-            return err;
+          return err;
         }
     }
-    auto [ptr, err] = db->file.Mmap(sz);
-    if (err != bolt::ErrorCode::Success) {
-        return err;
-    }
-    db->dataref = ptr;
-    db->datasz = sz;
-    return bolt::ErrorCode::Success;
-}
 #endif
 
-#ifdef __linux__
-bolt::ErrorCode mmap(impl::DB *db, std::uint64_t sz) {
     auto [ptr, err] = db->file.Mmap(sz);
     if (err != bolt::ErrorCode::Success) {
         return err;
@@ -44,7 +34,6 @@ bolt::ErrorCode mmap(impl::DB *db, std::uint64_t sz) {
     db->datasz = sz;
     return bolt::ErrorCode::Success;
 }
-#endif
 
 bolt::ErrorCode munmap(impl::DB *db) {
     if (db->dataref == (std::uintptr_t)NULL) {
