@@ -163,14 +163,6 @@ impl::node_ptr node::childAt(ptrdiff_t index) {
 }
 
 ptrdiff_t node::childIndex(impl::node_ptr child) {
-    // auto it =
-    //     std::find_if(inodes.begin(), inodes.end(), [&](impl::inode &n) ->
-    //     bool {
-    //       auto ret = std::lexicographical_compare_three_way(
-    //           std::begin(n.key), std::end(n.key), std::begin(child->key),
-    //           std::end(child->key));
-    //       return !std::is_lt(ret);
-    //     });
     auto it = impl::upper_bound(
         std::begin(inodes), std::end(inodes), child,
         [](const impl::node_ptr &child, impl::inode &n) -> bool {
@@ -229,21 +221,6 @@ void node::put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_b
     }
 
     // Find insertion index.
-    // auto it = std::find_if(
-    //     inodes.begin(), inodes.end(), [&](impl::inode& item) -> bool {
-    //         auto ret = std::lexicographical_compare_three_way(
-    //             item.key.begin(), item.key.end(), oldKey.begin(), oldKey.end());
-    //         return !std::is_lt(ret);
-    //     });
-    // auto index = (size_t)std::distance(inodes.begin(), it);
-
-    // Add capacity and shift nodes if we don't have an exact match and need to
-    // insert.
-    // auto exact = inodes.size() > 0 && index < inodes.size() &&
-    //     std::is_eq(std::lexicographical_compare_three_way(inodes[index].key.begin(),
-    //                                                       inodes[index].key.end(),
-    //                                                       oldKey.begin(),
-    //                                                       oldKey.end()));
     auto it = impl::upper_bound(
         std::begin(inodes), std::end(inodes), oldKey,
         [](const bolt::const_bytes &key, impl::inode &item) -> bool {
@@ -251,6 +228,8 @@ void node::put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_b
             return !std::is_gt(cmp);
         });
     auto index = std::distance(std::begin(inodes), it);
+    // Add capacity and shift nodes if we don't have an exact match and need to
+    // insert.
     auto exact = inodes.size() > 0 && (size_t)index < inodes.size() &&
                  std::is_eq(impl::compare_three_way(it->key, oldKey));
     if (!exact) {
@@ -274,24 +253,13 @@ void node::put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_b
 // del removes a key from the node.
 void node::del(bolt::const_bytes k) {
     // Find index of key.
-    // auto it = std::find_if(
-    //     inodes.begin(), inodes.end(), [&](impl::inode &item) -> bool {
-    //       auto ret = std::lexicographical_compare_three_way(
-    //           item.key.begin(), item.key.end(), k.begin(), k.end());
-    //       return !std::is_lt(ret);
-    //     });
-    // // Exit if the key isn't found.
-    // if (it == inodes.end() ||
-    //     !std::is_eq(std::lexicographical_compare_three_way(
-    //         it->key.begin(), it->key.end(), k.begin(), k.end()))) {
-    //     return;
-    // }
     auto it = impl::upper_bound(
         std::begin(inodes), std::end(inodes), k,
         [](const bolt::const_bytes &k, impl::inode &item) -> bool {
             auto cmp = impl::compare_three_way(k, item.key);
             return !std::is_gt(cmp);
         });
+    // Exit if the key isn't found.
     if (it == inodes.end() ||
         !std::is_eq(impl::compare_three_way(it->key, k))) {
         return;

@@ -239,6 +239,8 @@ struct formatter<bolt::TxStats> : nested_formatter<fmt::string_view> {
             out = fmt::format_to(out, "PageCount: {}, PageAlloc: {}\n",
                                  stats.PageCount, stats.PageAlloc);
             out = fmt::format_to(out, "CursorCount: {}\n", stats.CursorCount);
+            out = fmt::format_to(out, "NodeCount: {}, NodeDeref: {}\n",
+                                 stats.NodeCount, stats.NodeDeref);
             out = fmt::format_to(out, "Rebalance: {}, RebalanceTime: {}\n",
                                  stats.Rebalance, stats.RebalanceTime);
             out = fmt::format_to(out, "Split: {}, Spill: {}, SpillTime: {}\n",
