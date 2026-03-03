@@ -17,7 +17,7 @@
 namespace bolt::impl {
 
 bolt::ErrorCode mmap(impl::DB *db, std::uint64_t sz) {
-#ifdef WIN32
+#ifdef _MSC_VER
     if (!db->readOnly) {
         auto err = db->file.Truncate(sz);
         if (err != bolt::ErrorCode::Success) {

@@ -6,7 +6,7 @@
 #include <thread>
 #include <iostream>
 
-#ifdef WIN32
+#ifdef _MSC_VER
 #include <windows.h>
 namespace bolt::impl {
 

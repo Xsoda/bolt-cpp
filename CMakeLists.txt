@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(BUILD_TESTS "Build bolt tests" OFF)
+option(BUILD_CXX_CHAOS_TEST "Build cpp chaos test" OFF)
+option(BUILD_GOLANG_CHAOS_TEST "Build golang chaos test" OFF)
+option(BUILD_BOLT_CLI "Build bolt cli program" OFF)
+
 find_program(CCACHE_PROGRAM NAMES "ccache")
 if(CCACHE_PROGRAM)
   message(STATUS "Found ccache: ${CCACHE_PROGRAM}")
@@ -13,16 +18,18 @@ if(CCACHE_PROGRAM)
   set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
 
-find_program(GOLANG_PROGRAM NAMES "go")
-if(GOLANG_PROGRAM)
-  message(STATUS "Found Golang: ${GOLANG_PROGRAM}")
-  set(GO_BINARY_NAME "go-chaos-op")
-  add_custom_target(${GO_BINARY_NAME} ALL
-    COMMAND ${GOLANG_PROGRAM} build -o ${CMAKE_BINARY_DIR}/${GO_BINARY_NAME}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/golang
-    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/golang/main.go
-    BYPRODUCTS ${CMAKE_BINARY_DIR}/${GO_BINARY_NAME}
-    COMMENT "Building Go Binary: ${GO_BINARY_NAME}")
+if(BUILD_GOLANG_CHAOS_TEST)
+  find_program(GOLANG_PROGRAM NAMES "go")
+  if(GOLANG_PROGRAM)
+    message(STATUS "Found Golang: ${GOLANG_PROGRAM}")
+    set(GO_BINARY_NAME "go-chaos-op")
+    add_custom_target(${GO_BINARY_NAME} ALL
+      COMMAND ${GOLANG_PROGRAM} build -o ${CMAKE_BINARY_DIR}/${GO_BINARY_NAME}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/golang
+      SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/golang/main.go
+      BYPRODUCTS ${CMAKE_BINARY_DIR}/${GO_BINARY_NAME}
+      COMMENT "Building Go Binary: ${GO_BINARY_NAME}")
+  endif()
 endif()
 
 add_library(bolt STATIC)
@@ -34,11 +41,11 @@ target_include_directories(bolt
   ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_compile_options(bolt PRIVATE ${PEDANTIC_COMPILE_FLAGS})
-target_link_libraries(bolt fmt::fmt)
+target_link_libraries(bolt PRIVATE fmt::fmt)
 
 if(MSVC)
-  add_compile_definitions(
-    /W3
+  target_compile_definitions(bolt PRIVATE
+    /W4
     /utf-8
     NOMINMAX
     UNICODE
@@ -88,43 +95,49 @@ target_sources(bolt
   src/bolt.cpp
 )
 
-add_executable(bolt-tests)
-target_link_libraries(bolt-tests PRIVATE bolt fmt::fmt)
+if(BUILD_TESTS)
+  add_executable(bolt-tests)
+  target_link_libraries(bolt-tests PRIVATE bolt fmt::fmt)
 
-target_sources(bolt-tests
-  PRIVATE
-  test/main.cpp
-  test/page_test.cpp
-  test/freelist_test.cpp
-  test/node_test.cpp
-  test/db_test.cpp
-  test/cursor_test.cpp
-  test/bucket_test.cpp
-  test/tx_test.cpp
-  test/test.hpp
-  test/quick_check.hpp
-  test/util.hpp
-  test/random.hpp
-  test/random.cpp
-)
+  target_sources(bolt-tests
+    PRIVATE
+    test/main.cpp
+    test/page_test.cpp
+    test/freelist_test.cpp
+    test/node_test.cpp
+    test/db_test.cpp
+    test/cursor_test.cpp
+    test/bucket_test.cpp
+    test/tx_test.cpp
+    test/test.hpp
+    test/quick_check.hpp
+    test/util.hpp
+    test/random.hpp
+    test/random.cpp
+  )
 
-target_include_directories(bolt-tests
-  PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/test
-  ${CMAKE_CURRENT_SOURCE_DIR}/src
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+  target_include_directories(bolt-tests
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/test
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+  )
+endif()
 
-add_executable(bolt-cli)
-target_sources(bolt-cli
-  PRIVATE
-  cmd/args.hpp
-  cmd/main.cpp)
-target_link_libraries(bolt-cli PRIVATE fmt::fmt bolt)
+if(BUILD_BOLT_CLI)
+  add_executable(bolt-cli)
+  target_sources(bolt-cli
+    PRIVATE
+    cmd/args.hpp
+    cmd/main.cpp)
+  target_link_libraries(bolt-cli PRIVATE fmt::fmt bolt)
+endif()
 
-add_executable(chaos-op)
-target_sources(chaos-op
-  PRIVATE
-  cmd/args.hpp
-  cmd/chaos-op.cpp)
-target_link_libraries(chaos-op PRIVATE fmt::fmt bolt)
+if(BUILD_CXX_CHAOS_TEST)
+  add_executable(chaos-op)
+  target_sources(chaos-op
+    PRIVATE
+    cmd/args.hpp
+    cmd/chaos-op.cpp)
+  target_link_libraries(chaos-op PRIVATE fmt::fmt bolt)
+endif()
