@@ -452,15 +452,12 @@ bolt::ErrorCode DB::grow(std::uint64_t sz) {
     // Truncate and fsync to ensure file size metadata is flushed.
     // https://github.com/boltdb/bolt/issues/284
     if (!NoGrowSync && !readOnly) {
-        bolt::ErrorCode err;
 #ifndef WIN32
-        err = file.Truncate(sz);
-        if (err != bolt::ErrorCode::Success) {
+        if (auto err = file.Truncate(sz); err != bolt::ErrorCode::Success) {
             return bolt::ErrorCode::ErrorFileResizeFail;
         }
 #endif
-        err = file.Fsync();
-        if (err != bolt::ErrorCode::Success) {
+        if (auto err = file.Fsync(); err != bolt::ErrorCode::Success) {
             return bolt::ErrorCode::ErrorFileSyncFail;
         }
     }
