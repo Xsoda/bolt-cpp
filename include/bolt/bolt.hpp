@@ -60,9 +60,18 @@ public:
     std::tuple<bolt::Bucket, bolt::ErrorCode>
     CreateBucketIfNotExists(bolt::const_bytes name);
     bolt::ErrorCode DeleteBucket(bolt::const_bytes name);
+
+    std::tuple<bolt::Bucket, bolt::ErrorCode>
+    CreateBucket(const std::string &name);
+    std::tuple<bolt::Bucket, bolt::ErrorCode>
+    CreateBucketIfNotExists(const std::string &name);
+    bolt::ErrorCode DeleteBucket(const std::string &name);
+
     bolt::ErrorCode ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name,
                                                           bolt::Bucket b)> &&fn);
     bolt::Bucket Bucket(bolt::const_bytes name);
+    bolt::Bucket Bucket(const std::string &name);
+
     bolt::Cursor Cursor();
     bolt::ErrorCode Commit();
     bolt::ErrorCode Rollback();
@@ -92,9 +101,29 @@ public:
     CreateBucketIfNotExists(bolt::const_bytes key);
     bolt::ErrorCode DeleteBucket(bolt::const_bytes key);
 
+    std::tuple<bolt::Bucket, bolt::ErrorCode>
+    CreateBucket(const std::string &key);
+    std::tuple<bolt::Bucket, bolt::ErrorCode>
+    CreateBucketIfNotExists(const std::string &key);
+    bolt::ErrorCode DeleteBucket(const std::string &key);
+
+    std::tuple<bolt::Bucket, bolt::ErrorCode>
+    CreateBucket(const char *key, int klen);
+    std::tuple<bolt::Bucket, bolt::ErrorCode>
+    CreateBucketIfNotExists(const char *key, int klen);
+    bolt::ErrorCode DeleteBucket(const char *key, int klen);
+
     bolt::const_bytes Get(bolt::const_bytes key);
     bolt::ErrorCode Put(bolt::const_bytes key, bolt::const_bytes value);
     bolt::ErrorCode Delete(bolt::const_bytes key);
+
+    bolt::const_bytes Get(const std::string &key);
+    bolt::ErrorCode Put(const std::string &key, const std::string &value);
+    bolt::ErrorCode Delete(const std::string &key);
+
+    bolt::const_bytes Get(const char *key, int klen);
+    bolt::ErrorCode Put(const char *key, int klen, const char *value, int vlen);
+    bolt::ErrorCode Delete(const char *key, int klen);
 
     std::uint64_t Sequence();
     bolt::ErrorCode SetSequence(std::uint64_t v);
