@@ -251,15 +251,15 @@ No errors should occur in your database.)";
     if (auto err = db.View([](bolt::Tx tx) -> bolt::ErrorCode {
           bolt::BucketStats s;
           int count = 0;
-          if (auto err = tx.ForEach([&](bolt::const_bytes name,
-                                        bolt::Bucket b) -> bolt::ErrorCode {
-                s += b.Stats();
-                count += 1;
-                return bolt::ErrorCode::Success;
-          });
-              err != bolt::ErrorCode::Success) {
-            return err;
-          }
+		  if (auto err = tx.ForEach([&](bolt::const_bytes name,
+			  bolt::Bucket b) -> bolt::ErrorCode {
+				  s += b.Stats();
+				  count += 1;
+				  return bolt::ErrorCode::Success;
+			  });
+			  err != bolt::ErrorCode::Success) {
+			  return err;
+		  }
           fmt::println("Aggregate statistics for {} buckets", count);
           fmt::println("Page count statistics");
           fmt::println("\tNumber of logical branch pages: {}", s.BranchPageN);

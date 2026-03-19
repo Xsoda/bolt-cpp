@@ -621,8 +621,8 @@ void Bucket::forEachPage(std::function<void(impl::page *, int)> &&fn) {
 }
 bolt::BucketStats Bucket::Stats() {
     bolt::BucketStats subStats, s;
-    auto txptr = tx.lock();
     _assert(!tx.expired(), "tx already closed");
+    auto txptr = tx.lock();
     auto dbptr = txptr->db.lock();
     auto pageSize = dbptr->pageSize;
     s.BucketN += 1;

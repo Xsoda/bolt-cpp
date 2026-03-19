@@ -165,7 +165,7 @@ bolt::ErrorCode Bucket::DeleteBucket(const std::string &key) {
 std::tuple<bolt::Bucket, bolt::ErrorCode> Bucket::CreateBucket(const char *key,
                                                                int klen) {
     if (klen < 0) {
-        klen = std::strlen(key);
+        klen = static_cast<int>(std::strlen(key));
     }
     auto [b, err] = pimpl<impl::BucketPtr>::impl()->CreateBucket(
         bolt::const_bytes{reinterpret_cast<const std::byte *>(key),
@@ -176,7 +176,7 @@ std::tuple<bolt::Bucket, bolt::ErrorCode> Bucket::CreateBucket(const char *key,
 std::tuple<bolt::Bucket, bolt::ErrorCode>
 Bucket::CreateBucketIfNotExists(const char *key, int klen) {
     if (klen < 0) {
-        klen = std::strlen(key);
+        klen = static_cast<int>(std::strlen(key));
     }
     auto [b, err] = pimpl<impl::BucketPtr>::impl()->CreateBucketIfNotExists(
         bolt::const_bytes{reinterpret_cast<const std::byte *>(key),
@@ -186,7 +186,7 @@ Bucket::CreateBucketIfNotExists(const char *key, int klen) {
 
 bolt::ErrorCode Bucket::DeleteBucket(const char *key, int klen) {
     if (klen < 0) {
-        klen = std::strlen(key);
+        klen = static_cast<int>(std::strlen(key));
     }
     return pimpl<impl::BucketPtr>::impl()->DeleteBucket(
         bolt::const_bytes{reinterpret_cast<const std::byte *>(key),
@@ -220,7 +220,7 @@ bolt::ErrorCode Bucket::Put(const std::string &key, const std::string &value) {
 
 bolt::const_bytes Bucket::Get(const char *key, int klen) {
     if (klen < 0) {
-        klen = std::strlen(key);
+        klen = static_cast<int>(std::strlen(key));
     }
     return pimpl<impl::BucketPtr>::impl()->Get(
         bolt::const_bytes{reinterpret_cast<const std::byte *>(key),
@@ -230,10 +230,10 @@ bolt::const_bytes Bucket::Get(const char *key, int klen) {
 bolt::ErrorCode Bucket::Put(const char *key, int klen, const char *value,
                             int vlen) {
     if (klen < 0) {
-        klen = std::strlen(key);
+        klen = static_cast<int>(std::strlen(key));
     }
     if (vlen < 0) {
-        vlen = std::strlen(value);
+        vlen = static_cast<int>(std::strlen(value));
     }
     auto k = bolt::const_bytes{reinterpret_cast<const std::byte *>(key),
                                static_cast<std::size_t>(klen)};
@@ -244,7 +244,7 @@ bolt::ErrorCode Bucket::Put(const char *key, int klen, const char *value,
 
 bolt::ErrorCode Bucket::Delete(const char *key, int klen) {
     if (klen < 0) {
-        klen = std::strlen(key);
+        klen = static_cast<int>(std::strlen(key));
     }
     return pimpl<impl::BucketPtr>::impl()->Delete(
         bolt::const_bytes{reinterpret_cast<const std::byte *>(key),

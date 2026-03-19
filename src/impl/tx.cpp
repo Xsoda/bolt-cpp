@@ -438,7 +438,7 @@ bolt::ErrorCode Tx::ForEach(
     std::function<bolt::ErrorCode(bolt::const_bytes name, impl::BucketPtr b)> &&fn) {
     return root->ForEach(
         [this, fn = std::move(fn)](bolt::const_bytes k, bolt::const_bytes v) -> bolt::ErrorCode {
-            return fn(k, root->RetrieveBucket(v));
+            return fn(k, root->RetrieveBucket(k));
         });
 }
 
