@@ -1,42 +1,40 @@
 #include "args.hpp"
-#include <span>
-#include <locale>
 #include "bolt/bolt.hpp"
-#include "impl/page.hpp"
 #include "impl/file.hpp"
 #include "impl/meta.hpp"
+#include "impl/page.hpp"
+#include <locale>
+#include <span>
 
-std::string hexdump(std::uint64_t offset,
-                    const std::span<const std::byte> bytes) {
+std::string hexdump(std::uint64_t offset, const std::span<const std::byte> bytes) {
     std::string result;
     auto size = 0;
-    result +=
-        "┌────────┬─────────────────────────┬─────────────────────────┬────────"
-        "┬────────┐\n";
+    result += "┌────────┬─────────────────────────┬─────────────────────────┬────────"
+              "┬────────┐\n";
     for (size = 0; size + 16 < bytes.size(); size += 16) {
-      result += fmt::format("│{:08x}│", offset + size);
-      for (int i = 0; i < 16; i++) {
-        if (i == 8) {
-          result += " ┊";
+        result += fmt::format("│{:08x}│", offset + size);
+        for (int i = 0; i < 16; i++) {
+            if (i == 8) {
+                result += " ┊";
+            }
+            result += fmt::format(" {:02x}", bytes[size + i]);
         }
-        result += fmt::format(" {:02x}", bytes[size + i]);
-      }
-      result += " │";
-      for (int i = 0; i < 16; i++) {
-        if (i == 8) {
-          result += "┊";
-        }
-        if (std::isprint((char)bytes[size + i], std::locale::classic())) {
-          result += fmt::format("{}", (char)bytes[size + i]);
-        } else {
-            if (bytes[size + i] == std::byte(0)) {
-                result += "⋄";
+        result += " │";
+        for (int i = 0; i < 16; i++) {
+            if (i == 8) {
+                result += "┊";
+            }
+            if (std::isprint((char)bytes[size + i], std::locale::classic())) {
+                result += fmt::format("{}", (char)bytes[size + i]);
             } else {
-                result += "×";
+                if (bytes[size + i] == std::byte(0)) {
+                    result += "⋄";
+                } else {
+                    result += "×";
+                }
             }
         }
-      }
-      result += fmt::format("{}\n", "│");
+        result += fmt::format("{}\n", "│");
     }
     if (size < bytes.size()) {
         result += fmt::format("│{:08x}│", offset + size);
@@ -56,8 +54,7 @@ std::string hexdump(std::uint64_t offset,
                 result += "┊";
             }
             if (size + i < bytes.size()) {
-                if (std::isprint((char)bytes[size + i],
-                                 std::locale::classic())) {
+                if (std::isprint((char)bytes[size + i], std::locale::classic())) {
                     result += fmt::format("{}", (char)bytes[size + i]);
                 } else {
                     if (bytes[size + i] == std::byte(0)) {
@@ -82,7 +79,8 @@ std::tuple<std::uint32_t, bolt::ErrorCode> ReadPageSize(bolt::impl::File &file) 
     if (auto [s, err] = file.ReadAt(buf, 0); err != bolt::ErrorCode::Success) {
         return {0, err};
     }
-    bolt::impl::meta *meta = reinterpret_cast<bolt::impl::meta *>(buf.data() + bolt::impl::pageHeaderSize);
+    bolt::impl::meta *meta =
+        reinterpret_cast<bolt::impl::meta *>(buf.data() + bolt::impl::pageHeaderSize);
     return {meta->pageSize, bolt::ErrorCode::Success};
 }
 
@@ -94,13 +92,11 @@ ReadPage(bolt::impl::File &file, bolt::impl::pgid pageid) {
         return {nullptr, std::vector<std::byte>(), err};
     }
     result.resize(pageSize);
-    if (auto [n, err] = file.ReadAt(result, pageid * pageSize);
-        err != bolt::ErrorCode::Success) {
+    if (auto [n, err] = file.ReadAt(result, pageid * pageSize); err != bolt::ErrorCode::Success) {
         return {nullptr, std::vector<std::byte>(), err};
     }
-    return {reinterpret_cast<bolt::impl::page*>(result.data()), result, bolt::ErrorCode::Success};
+    return {reinterpret_cast<bolt::impl::page *>(result.data()), result, bolt::ErrorCode::Success};
 }
-
 
 int Help() {
     auto help = R"(Bolt is a tool for inspecting bolt databases.
@@ -247,57 +243,55 @@ No errors should occur in your database.)";
         fmt::println("{}", err);
         return -1;
     }
-    
+
     if (auto err = db.View([](bolt::Tx tx) -> bolt::ErrorCode {
-          bolt::BucketStats s;
-          int count = 0;
-		  if (auto err = tx.ForEach([&](bolt::const_bytes name,
-			  bolt::Bucket b) -> bolt::ErrorCode {
-				  s += b.Stats();
-				  count += 1;
-				  return bolt::ErrorCode::Success;
-			  });
-			  err != bolt::ErrorCode::Success) {
-			  return err;
-		  }
-          fmt::println("Aggregate statistics for {} buckets", count);
-          fmt::println("Page count statistics");
-          fmt::println("\tNumber of logical branch pages: {}", s.BranchPageN);
-          fmt::println("\tNumber of physical branch overflow pages: {}",
-                       s.BranchOverflowN);
-          fmt::println("\tNumber of logical leaf pages: {}", s.LeafPageN);
-          fmt::println("\tNumber of physical leaf overflow pages: {}",
-                       s.LeafOverflowN);
-          fmt::println("Tree statistics");
-          fmt::println("\tNumber of keys/value pairs: {}", s.KeyN);
-          fmt::println("\tNumber of levels in B+tree: {}", s.Depth);
-          fmt::println("Page size utilization");
-          fmt::println("\tBytes allocated for physical branch pages: {}",
-                       s.BranchAlloc);
-          float percentage = 0;
-          if (s.BranchAlloc != 0) {
-            percentage = static_cast<float>(s.BranchInuse) * 100.0 /
-                         static_cast<float>(s.BranchAlloc);
-          }
-          fmt::println("\tBytes actually used for branch data: {} ({:.02}%)",
-                       s.BranchInuse, percentage);
-          fmt::println("Bucket statistics");
-          fmt::println("\tTotal number of buckets: {}", s.BucketN);
-          percentage = 0;
-          if (s.BucketN != 0) {
-            percentage = static_cast<float>(s.InlineBucketN) * 100.0 /
-                         static_cast<float>(s.BucketN);
-          }
-          fmt::println("\tTotal number on inlined buckets: {} ({:.02}%)",
-                       s.InlineBucketN, percentage);
-          percentage = 0;
-          if (s.LeafInuse != 0) {
-            percentage = static_cast<float>(s.InlineBucketInuse) * 100.0 /
-                         static_cast<float>(s.LeafInuse);
-          }
-          fmt::println("\tBytes used for inlined buckets: {} ({:.02}%)", s.InlineBucketInuse, percentage);
-          return bolt::ErrorCode::Success;
-    });
+            bolt::BucketStats s;
+            int count = 0;
+            if (auto err =
+                    tx.ForEach([&](bolt::const_bytes name, bolt::Bucket b) -> bolt::ErrorCode {
+                        s += b.Stats();
+                        count += 1;
+                        return bolt::ErrorCode::Success;
+                    });
+                err != bolt::ErrorCode::Success) {
+                return err;
+            }
+            fmt::println("Aggregate statistics for {} buckets", count);
+            fmt::println("Page count statistics");
+            fmt::println("\tNumber of logical branch pages: {}", s.BranchPageN);
+            fmt::println("\tNumber of physical branch overflow pages: {}", s.BranchOverflowN);
+            fmt::println("\tNumber of logical leaf pages: {}", s.LeafPageN);
+            fmt::println("\tNumber of physical leaf overflow pages: {}", s.LeafOverflowN);
+            fmt::println("Tree statistics");
+            fmt::println("\tNumber of keys/value pairs: {}", s.KeyN);
+            fmt::println("\tNumber of levels in B+tree: {}", s.Depth);
+            fmt::println("Page size utilization");
+            fmt::println("\tBytes allocated for physical branch pages: {}", s.BranchAlloc);
+            float percentage = 0;
+            if (s.BranchAlloc != 0) {
+                percentage =
+                    static_cast<float>(s.BranchInuse) * 100.0 / static_cast<float>(s.BranchAlloc);
+            }
+            fmt::println("\tBytes actually used for branch data: {} ({:.02}%)", s.BranchInuse,
+                         percentage);
+            fmt::println("Bucket statistics");
+            fmt::println("\tTotal number of buckets: {}", s.BucketN);
+            percentage = 0;
+            if (s.BucketN != 0) {
+                percentage =
+                    static_cast<float>(s.InlineBucketN) * 100.0 / static_cast<float>(s.BucketN);
+            }
+            fmt::println("\tTotal number on inlined buckets: {} ({:.02}%)", s.InlineBucketN,
+                         percentage);
+            percentage = 0;
+            if (s.LeafInuse != 0) {
+                percentage = static_cast<float>(s.InlineBucketInuse) * 100.0 /
+                             static_cast<float>(s.LeafInuse);
+            }
+            fmt::println("\tBytes used for inlined buckets: {} ({:.02}%)", s.InlineBucketInuse,
+                         percentage);
+            return bolt::ErrorCode::Success;
+        });
         err != bolt::ErrorCode::Success) {
         fmt::println("{}", err);
         return -1;

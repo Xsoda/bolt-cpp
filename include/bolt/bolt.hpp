@@ -7,9 +7,9 @@
 #include "pimpl.hpp"
 #include "stats.hpp"
 #include <functional>
+#include <future>
 #include <memory>
 #include <tuple>
-#include <future>
 
 namespace bolt {
 
@@ -28,7 +28,7 @@ class Tx;
 class Cursor;
 class Bucket;
 
-class DB final: private pimpl<impl::DBPtr> {
+class DB final : private pimpl<impl::DBPtr> {
 public:
     bolt::ErrorCode Open(std::string path, bool readOnly = false);
     bolt::ErrorCode Close();
@@ -53,22 +53,18 @@ public:
     operator bool() { return pimpl<impl::DBPtr>::impl() ? true : false; };
 };
 
-class Tx final: pimpl<impl::TxPtr> {
+class Tx final : pimpl<impl::TxPtr> {
 public:
-    std::tuple<bolt::Bucket, bolt::ErrorCode>
-    CreateBucket(bolt::const_bytes name);
-    std::tuple<bolt::Bucket, bolt::ErrorCode>
-    CreateBucketIfNotExists(bolt::const_bytes name);
+    std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucket(bolt::const_bytes name);
+    std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucketIfNotExists(bolt::const_bytes name);
     bolt::ErrorCode DeleteBucket(bolt::const_bytes name);
 
-    std::tuple<bolt::Bucket, bolt::ErrorCode>
-    CreateBucket(const std::string &name);
-    std::tuple<bolt::Bucket, bolt::ErrorCode>
-    CreateBucketIfNotExists(const std::string &name);
+    std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucket(const std::string &name);
+    std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucketIfNotExists(const std::string &name);
     bolt::ErrorCode DeleteBucket(const std::string &name);
 
-    bolt::ErrorCode ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name,
-                                                          bolt::Bucket b)> &&fn);
+    bolt::ErrorCode
+    ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name, bolt::Bucket b)> &&fn);
     bolt::Bucket Bucket(bolt::const_bytes name);
     bolt::Bucket Bucket(const std::string &name);
 
@@ -94,23 +90,18 @@ public:
     operator bool() { return pimpl<impl::TxPtr>::impl() ? true : false; };
 };
 
-class Bucket final: private pimpl<impl::BucketPtr> {
+class Bucket final : private pimpl<impl::BucketPtr> {
 public:
     std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucket(bolt::const_bytes key);
-    std::tuple<bolt::Bucket, bolt::ErrorCode>
-    CreateBucketIfNotExists(bolt::const_bytes key);
+    std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucketIfNotExists(bolt::const_bytes key);
     bolt::ErrorCode DeleteBucket(bolt::const_bytes key);
 
-    std::tuple<bolt::Bucket, bolt::ErrorCode>
-    CreateBucket(const std::string &key);
-    std::tuple<bolt::Bucket, bolt::ErrorCode>
-    CreateBucketIfNotExists(const std::string &key);
+    std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucket(const std::string &key);
+    std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucketIfNotExists(const std::string &key);
     bolt::ErrorCode DeleteBucket(const std::string &key);
 
-    std::tuple<bolt::Bucket, bolt::ErrorCode>
-    CreateBucket(const char *key, int klen);
-    std::tuple<bolt::Bucket, bolt::ErrorCode>
-    CreateBucketIfNotExists(const char *key, int klen);
+    std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucket(const char *key, int klen);
+    std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucketIfNotExists(const char *key, int klen);
     bolt::ErrorCode DeleteBucket(const char *key, int klen);
 
     bolt::const_bytes Get(bolt::const_bytes key);
@@ -130,8 +121,7 @@ public:
     std::tuple<std::uint64_t, bolt::ErrorCode> NextSequence();
 
     bolt::ErrorCode
-    ForEach(std::function<bolt::ErrorCode(bolt::const_bytes key,
-                                          bolt::const_bytes val)> &&fn);
+    ForEach(std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &&fn);
 
     bolt::Cursor Cursor();
     bolt::Tx Tx();
@@ -142,7 +132,7 @@ public:
     bolt::BucketStats Stats();
 
     Bucket() = delete;
-    Bucket(bolt::impl::BucketPtr bucket): pimpl(bucket) {};
+    Bucket(bolt::impl::BucketPtr bucket) : pimpl(bucket){};
     Bucket(const bolt::Bucket &) = delete;
     bolt::Bucket &operator=(const bolt::Bucket &) = delete;
     Bucket(bolt::Bucket &&) = default;
@@ -151,7 +141,7 @@ public:
     operator bool() { return pimpl<impl::BucketPtr>::impl() ? true : false; };
 };
 
-class Cursor final: private pimpl<impl::CursorPtr> {
+class Cursor final : private pimpl<impl::CursorPtr> {
 public:
     bolt::Bucket Bucket();
     std::tuple<bolt::const_bytes, bolt::const_bytes> First();
@@ -159,8 +149,7 @@ public:
     std::tuple<bolt::const_bytes, bolt::const_bytes> Next();
     std::tuple<bolt::const_bytes, bolt::const_bytes> Prev();
 
-    std::tuple<bolt::const_bytes, bolt::const_bytes>
-    Seek(bolt::const_bytes seek);
+    std::tuple<bolt::const_bytes, bolt::const_bytes> Seek(bolt::const_bytes seek);
 
     bolt::ErrorCode Delete();
 
@@ -171,10 +160,8 @@ public:
     Cursor(bolt::Cursor &&) = default;
     bolt::Cursor &operator=(bolt::Cursor &&) = default;
     ~Cursor() = default;
-    operator bool() {
-        return pimpl<impl::CursorPtr>::impl() ? true : false;
-    };
+    operator bool() { return pimpl<impl::CursorPtr>::impl() ? true : false; };
 };
 } // namespace bolt
 
-#endif  // !BOLT_HPP
+#endif // !BOLT_HPP
