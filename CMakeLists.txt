@@ -128,9 +128,20 @@ if(BUILD_BOLT_CLI)
   add_executable(bolt-cli)
   target_sources(bolt-cli
     PRIVATE
+    src/impl/page.hpp
+    src/impl/page.cpp
+    src/impl/file.hpp
+    src/impl/file.cpp
+    src/impl/utils.hpp
+    src/impl/meta.hpp
+    src/impl/meta.cpp
     cmd/args.hpp
     cmd/main.cpp)
   target_link_libraries(bolt-cli PRIVATE fmt::fmt bolt)
+  target_include_directories(bolt-cli
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+  )
 endif()
 
 if(BUILD_CXX_CHAOS_TEST)
