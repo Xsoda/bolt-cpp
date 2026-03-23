@@ -8,9 +8,10 @@ Language: Cpp
 Standard: Cpp11
 AccessModifierOffset: -4
 ColumnLimit: 100
+PointerAlignment: Right
 ---
 Language: JavaScript
-IndentWidth: 2
+IndentWidth: 4
 UseTab: Never
 ColumnLimit: 100
 ...
