@@ -3,6 +3,7 @@
 #include "impl/file.hpp"
 #include "impl/meta.hpp"
 #include "impl/page.hpp"
+#include "impl/utils.hpp"
 #include <locale>
 #include <span>
 
@@ -95,7 +96,19 @@ ReadPage(bolt::impl::File &file, bolt::impl::pgid pageid) {
     if (auto [n, err] = file.ReadAt(result, pageid * pageSize); err != bolt::ErrorCode::Success) {
         return {nullptr, std::vector<std::byte>(), err};
     }
-    return {reinterpret_cast<bolt::impl::page *>(result.data()), result, bolt::ErrorCode::Success};
+    auto p = reinterpret_cast<bolt::impl::page *>(result.data());
+    auto overflowN = p->overflow;
+    if (p->id != pageid) {
+        return {p, result, bolt::ErrorCode::Success};
+    }
+    result.resize((overflowN + 1) * pageSize);
+    p = reinterpret_cast<bolt::impl::page *>(result.data());
+    if (auto [n, err] = file.ReadAt(result, pageid * pageSize); err != bolt::ErrorCode::Success) {
+        return {nullptr, std::vector<std::byte>(), err};
+    } else if (n != result.size()) {
+        return {nullptr, std::vector<std::byte>(), bolt::ErrorCode::ErrorDatabaseEOF};
+    }
+    return {p, result, bolt::ErrorCode::Success};
 }
 
 int Help() {
@@ -116,7 +129,7 @@ The commands are:
     stats       iterate over all pages and generate usage stats
 
 Use "bolt [command] --help" for more information about a command.)";
-    fmt::print("{}", help);
+    fmt::println("{}", help);
     return 0;
 }
 
@@ -178,6 +191,99 @@ Page prints one or more pages in human readable format.)";
     if (auto val = GetArgument<std::nullptr_t>(cmd, "help"); val.has_value()) {
         fmt::println("{}", help);
         return 0;
+    }
+    auto path = GetArgument<std::string>(cmd, "path");
+    auto page = GetArgument<long long>(cmd, "page");
+    auto pages = GetArgument<std::vector<long long>>(cmd, "page");
+    if (!path.has_value()) {
+        fmt::println("{}", help);
+        return 0;
+    }
+    if (!page.has_value() && !pages.has_value()) {
+        fmt::println("{}", help);
+        return 0;
+    }
+    std::vector<long long> pageids;
+    if (page.has_value()) {
+        pageids.push_back(*page);
+    }
+    if (pages.has_value()) {
+        std::copy((*pages).begin(), (*pages).end(), std::back_inserter(pageids));
+    }
+    bolt::impl::File file;
+    if (auto err = file.Open(*path, true); err != bolt::ErrorCode::Success) {
+        fmt::println("{}", err);
+        return -1;
+    }
+    for (auto it : pageids) {
+        auto [p, buf, err] = ReadPage(file, it);
+        if (err != bolt::ErrorCode::Success) {
+            fmt::println("{}", err);
+            return -1;
+        }
+        fmt::println("Page ID: {}", p->id);
+        fmt::println("Page Type: {}", p->type());
+        fmt::println("Total Size: {} bytes", buf.size());
+        if (p->type() == "meta") {
+            auto m = reinterpret_cast<bolt::impl::meta *>(&buf[bolt::impl::pageHeaderSize]);
+            fmt::println("Version: {}", m->version);
+            fmt::println("Page Size: {}", m->pageSize);
+            fmt::println("Flags: {:08x}", m->flags);
+            fmt::println("Root: <pgid={}>", m->root.root);
+            fmt::println("Freelist: <pgid={}>", m->freelist);
+            fmt::println("HWM: <pgid={}>", m->pgid);
+            fmt::println("Txn ID: {}", m->txid);
+            fmt::println("Checksum: {:016x}", m->checksum);
+        } else if (p->type() == "leaf") {
+            fmt::println("Item Count: {}", p->count);
+            fmt::println("{}", hexdump(0, {reinterpret_cast<const std::byte *>(p), 128}));
+            for (std::uint16_t i = 0; i < p->count; i++) {
+                auto e = p->leafPageElement(i);
+                fmt::println("{} {}", i, fmt::ptr(e));
+                fmt::println("{}", hexdump(0, {reinterpret_cast<const std::byte *>(e),
+                                               bolt::impl::leafPageElementSize}));
+                fmt::println("- {} {:08x} {} {} {}", i, e->flags, e->pos, e->ksize, e->vsize);
+                // if ((e->flags & bolt::impl::bucketLeafFlag) != 0) {
+                //     fmt::println("{} {:08x} is bucketLeaf", i, e->flags);
+                //     // auto value = e->value();
+                //     // fmt::println("--------, {}", value.size());
+                //     // auto b = reinterpret_cast<bolt::impl::bucket
+                //     *>(e->value().data());
+                //     // fmt::println("{}: <pgid={}, seq={}>", e->key(), b->root,
+                //     b->sequence);
+                // } else {
+                //     fmt::println("-----------");
+                fmt::println(R"("{}": "{}")", e->key(), e->value());
+                fmt::println("{} {}", i, fmt::ptr(e));
+                fmt::println("{}", hexdump(0, {reinterpret_cast<const std::byte *>(e),
+                                               bolt::impl::leafPageElementSize}));
+                fmt::println("- {} {:08x} {} {} {}", i, e->flags, e->pos, e->ksize, e->vsize);
+                break;
+                // }
+            }
+            fmt::println("{}", hexdump(0, {reinterpret_cast<const std::byte *>(p), 128}));
+        } else if (p->type() == "branch") {
+            fmt::println("Item Count: {}", p->count);
+            for (std::uint16_t i = 0; i < p->count; i++) {
+                auto e = p->branchPageElement(i);
+                fmt::println("{}: <pgid={}>", e->key(), e->pgid);
+            }
+        } else if (p->type() == "freelist") {
+            if (p->count != 0xFFFF) {
+                fmt::println("Item Count: {}", p->count);
+                auto ptr = reinterpret_cast<bolt::impl::pgid *>(&p->ptr);
+                for (std::uint16_t i = 0; i < p->count; i++) {
+                    fmt::println("{}", ptr[i]);
+                }
+            } else {
+                auto ptr = reinterpret_cast<bolt::impl::pgid *>(&p->ptr);
+                auto count = ptr[0];
+                for (std::uint64_t i = 1; i < count; i++) {
+                    fmt::println("{}", ptr[i]);
+                }
+            }
+        }
+        fmt::println("==================================");
     }
     return 0;
 }
@@ -324,9 +430,21 @@ Dump prints a hexadecimal dump of a single page.)";
         fmt::println("read page fail, {}", err);
         return -1;
     }
-    std::uint32_t pageSize;
-    std::tie(pageSize, err) = ReadPageSize(file);
-    fmt::println("{}", hexdump(pageSize * (*pageid), buf));
+    if (page->id == *pageid) {
+        auto meta = page->meta();
+        std::uint32_t pageSize = meta->pageSize;
+        fmt::println("Page ID: {}", page->id);
+        fmt::println("Page Type: {}", page->type());
+        fmt::println("Page Size: {}", pageSize);
+        fmt::println("Total Size: {} bytes", buf.size());
+        fmt::println("{}", hexdump(pageSize * (*pageid), buf));
+    } else {
+        std::uint32_t pageSize;
+        std::tie(pageSize, err) = ReadPageSize(file);
+        fmt::println("Page Size: {}", pageSize);
+        fmt::println("Total Size: {} bytes", buf.size());
+        fmt::println("{}", hexdump(pageSize * (*pageid), buf));
+    }
     return 0;
 }
 
@@ -347,6 +465,8 @@ int main(int argc, char **argv) {
             return Stats(argc - 2, argv + 2);
         } else if (command == "dump") {
             return Dump(argc - 2, argv + 2);
+        } else if (command == "page") {
+            return Page(argc - 2, argv + 2);
         } else {
             return Help();
         }
