@@ -85,30 +85,30 @@ std::tuple<std::uint32_t, bolt::ErrorCode> ReadPageSize(bolt::impl::File &file) 
     return {meta->pageSize, bolt::ErrorCode::Success};
 }
 
-std::tuple<bolt::impl::page *, std::vector<std::byte>, bolt::ErrorCode>
+std::tuple<std::vector<std::byte>, bolt::ErrorCode>
 ReadPage(bolt::impl::File &file, bolt::impl::pgid pageid) {
     std::vector<std::byte> result;
     auto [pageSize, err] = ReadPageSize(file);
     if (err != bolt::ErrorCode::Success) {
-        return {nullptr, std::vector<std::byte>(), err};
+        return {std::vector<std::byte>(), err};
     }
     result.resize(pageSize);
     if (auto [n, err] = file.ReadAt(result, pageid * pageSize); err != bolt::ErrorCode::Success) {
-        return {nullptr, std::vector<std::byte>(), err};
+        return {std::vector<std::byte>(), err};
     }
     auto p = reinterpret_cast<bolt::impl::page *>(result.data());
     auto overflowN = p->overflow;
     if (p->id != pageid) {
-        return {p, result, bolt::ErrorCode::Success};
+        return {result, bolt::ErrorCode::Success};
     }
     result.resize((overflowN + 1) * pageSize);
     p = reinterpret_cast<bolt::impl::page *>(result.data());
     if (auto [n, err] = file.ReadAt(result, pageid * pageSize); err != bolt::ErrorCode::Success) {
-        return {nullptr, std::vector<std::byte>(), err};
+        return {std::vector<std::byte>(), err};
     } else if (n != result.size()) {
-        return {nullptr, std::vector<std::byte>(), bolt::ErrorCode::ErrorDatabaseEOF};
+        return {std::vector<std::byte>(), bolt::ErrorCode::ErrorDatabaseEOF};
     }
-    return {p, result, bolt::ErrorCode::Success};
+    return {result, bolt::ErrorCode::Success};
 }
 
 int Help() {
@@ -216,7 +216,8 @@ Page prints one or more pages in human readable format.)";
         return -1;
     }
     for (auto it : pageids) {
-        auto [p, buf, err] = ReadPage(file, it);
+        auto [buf, err] = ReadPage(file, it);
+        auto p = reinterpret_cast<bolt::impl::page *>(buf.data());
         if (err != bolt::ErrorCode::Success) {
             fmt::println("{}", err);
             return -1;
@@ -236,32 +237,15 @@ Page prints one or more pages in human readable format.)";
             fmt::println("Checksum: {:016x}", m->checksum);
         } else if (p->type() == "leaf") {
             fmt::println("Item Count: {}", p->count);
-            fmt::println("{}", hexdump(0, {reinterpret_cast<const std::byte *>(p), 128}));
             for (std::uint16_t i = 0; i < p->count; i++) {
                 auto e = p->leafPageElement(i);
-                fmt::println("{} {}", i, fmt::ptr(e));
-                fmt::println("{}", hexdump(0, {reinterpret_cast<const std::byte *>(e),
-                                               bolt::impl::leafPageElementSize}));
-                fmt::println("- {} {:08x} {} {} {}", i, e->flags, e->pos, e->ksize, e->vsize);
-                // if ((e->flags & bolt::impl::bucketLeafFlag) != 0) {
-                //     fmt::println("{} {:08x} is bucketLeaf", i, e->flags);
-                //     // auto value = e->value();
-                //     // fmt::println("--------, {}", value.size());
-                //     // auto b = reinterpret_cast<bolt::impl::bucket
-                //     *>(e->value().data());
-                //     // fmt::println("{}: <pgid={}, seq={}>", e->key(), b->root,
-                //     b->sequence);
-                // } else {
-                //     fmt::println("-----------");
-                fmt::println(R"("{}": "{}")", e->key(), e->value());
-                fmt::println("{} {}", i, fmt::ptr(e));
-                fmt::println("{}", hexdump(0, {reinterpret_cast<const std::byte *>(e),
-                                               bolt::impl::leafPageElementSize}));
-                fmt::println("- {} {:08x} {} {} {}", i, e->flags, e->pos, e->ksize, e->vsize);
-                break;
-                // }
+                if ((e->flags & bolt::impl::bucketLeafFlag) != 0) {
+                    auto b = reinterpret_cast<bolt::impl::bucket *>(e->value().data());
+                    fmt::println("{}: <pgid={}, seq={}>", e->key(), b->root, b->sequence);
+                } else {
+                    fmt::println(R"("{}": "{}")", e->key(), e->value());
+                }
             }
-            fmt::println("{}", hexdump(0, {reinterpret_cast<const std::byte *>(p), 128}));
         } else if (p->type() == "branch") {
             fmt::println("Item Count: {}", p->count);
             for (std::uint16_t i = 0; i < p->count; i++) {
@@ -425,7 +409,8 @@ Dump prints a hexadecimal dump of a single page.)";
         fmt::println("open file fail, {}", err);
         return -1;
     }
-    auto [page, buf, err] = ReadPage(file, *pageid);
+    auto [buf, err] = ReadPage(file, *pageid);
+    auto page = reinterpret_cast<bolt::impl::page *>(buf.data());
     if (err != bolt::Success) {
         fmt::println("read page fail, {}", err);
         return -1;

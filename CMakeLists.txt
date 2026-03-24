@@ -142,6 +142,19 @@ if(BUILD_BOLT_CLI)
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
   )
+  if(MSVC)
+  target_compile_definitions(bolt-cli PRIVATE
+    /W4
+    /utf-8
+    NOMINMAX
+    UNICODE
+    _UNICODE
+    _CRT_SECURE_NO_WARNINGS
+    _CRT_NONSTDC_NO_WARNINGS
+    $<$<CONFIG:DEBUG>:DEBUG>
+    $<$<CONFIG:DEBUG>:_DEBUG>
+)
+endif()
 endif()
 
 if(BUILD_CXX_CHAOS_TEST)
