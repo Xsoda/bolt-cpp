@@ -4,6 +4,7 @@
 #include "impl/meta.hpp"
 #include "impl/page.hpp"
 #include "impl/utils.hpp"
+#include <iterator>
 #include <locale>
 #include <span>
 
@@ -85,8 +86,8 @@ std::tuple<std::uint32_t, bolt::ErrorCode> ReadPageSize(bolt::impl::File &file) 
     return {meta->pageSize, bolt::ErrorCode::Success};
 }
 
-std::tuple<std::vector<std::byte>, bolt::ErrorCode>
-ReadPage(bolt::impl::File &file, bolt::impl::pgid pageid) {
+std::tuple<std::vector<std::byte>, bolt::ErrorCode> ReadPage(bolt::impl::File &file,
+                                                             bolt::impl::pgid pageid) {
     std::vector<std::byte> result;
     auto [pageSize, err] = ReadPageSize(file);
     if (err != bolt::ErrorCode::Success) {
@@ -121,7 +122,6 @@ Usage:
 The commands are:
 
     check       verifies integrity of bolt database
-    compact     copies a bolt database, compacting it in the process
     info        print basic info
     help        print this screen
     page        prints one or more pages in human readable format
@@ -147,25 +147,32 @@ return after all pages have been checked.)";
         fmt::println("{}", help);
         return 0;
     }
-    return 0;
-}
-int Compact(int argc, char **argv) {
-    auto help = R"(usage: bolt compact [options] --output <DST> --input <SRC>
-
-Compact opens a database at SRC path and walks it recursively, copying keys
-as they are found from all buckets, to a newly created database at DST path.
-
-The original database is left untouched.
-
-Additional options include:
-
-    --tx-max-size NUM
-        Specifies the maximum size of individual transactions.
-        Defaults to 64KB.)";
-    auto cmd = Parse(argc, argv);
-    if (auto val = GetArgument<std::nullptr_t>(cmd, "help"); val.has_value()) {
+    auto path = GetArgument<std::string>(cmd, "path");
+    if (!path.has_value()) {
         fmt::println("{}", help);
         return 0;
+    }
+    bolt::DB db;
+    if (auto err = db.Open(*path, true); err != bolt::ErrorCode::Success) {
+        fmt::println("{}", err);
+        return 0;
+    }
+    if (auto err = db.View([](bolt::Tx tx) -> bolt::ErrorCode {
+            auto future = tx.Check();
+            auto result = future.get();
+            if (result.size() > 0) {
+                fmt::println("{} errors found", result.size());
+                for (auto &it : result) {
+                    fmt::println("  - {}", it);
+                }
+            } else {
+                fmt::println("OK");
+            }
+            return bolt::ErrorCode::Success;
+        });
+        err != bolt::ErrorCode::Success) {
+        fmt::println("{}", err);
+        return -1;
     }
     return 0;
 }
@@ -179,6 +186,18 @@ Info prints basic information about the Bolt database at PATH.)";
         fmt::println("{}", help);
         return 0;
     }
+    auto path = GetArgument<std::string>(cmd, "path");
+    if (!path.has_value()) {
+        fmt::println("{}", help);
+        return 0;
+    }
+    bolt::DB db;
+    if (auto err = db.Open(*path, true); err != bolt::ErrorCode::Success) {
+        fmt::println("{}", err);
+        return 0;
+    }
+    auto info = db.Info();
+    fmt::println("Page Size: {}", info.PageSize);
     return 0;
 }
 
@@ -221,6 +240,10 @@ Page prints one or more pages in human readable format.)";
         if (err != bolt::ErrorCode::Success) {
             fmt::println("{}", err);
             return -1;
+        }
+        if (p->id != it) {
+            fmt::println("page id {} maybe a overflow page", it);
+            continue;
         }
         fmt::println("Page ID: {}", p->id);
         fmt::println("Page Type: {}", p->type());
@@ -415,21 +438,15 @@ Dump prints a hexadecimal dump of a single page.)";
         fmt::println("read page fail, {}", err);
         return -1;
     }
+    std::uint32_t pageSize;
+    std::tie(pageSize, err) = ReadPageSize(file);
     if (page->id == *pageid) {
-        auto meta = page->meta();
-        std::uint32_t pageSize = meta->pageSize;
         fmt::println("Page ID: {}", page->id);
         fmt::println("Page Type: {}", page->type());
-        fmt::println("Page Size: {}", pageSize);
-        fmt::println("Total Size: {} bytes", buf.size());
-        fmt::println("{}", hexdump(pageSize * (*pageid), buf));
-    } else {
-        std::uint32_t pageSize;
-        std::tie(pageSize, err) = ReadPageSize(file);
-        fmt::println("Page Size: {}", pageSize);
-        fmt::println("Total Size: {} bytes", buf.size());
-        fmt::println("{}", hexdump(pageSize * (*pageid), buf));
     }
+    fmt::println("Page Size: {}", pageSize);
+    fmt::println("Total Size: {} bytes", buf.size());
+    fmt::println("{}", hexdump(pageSize * (*pageid), buf));
     return 0;
 }
 
@@ -438,8 +455,6 @@ int main(int argc, char **argv) {
         std::string command = argv[1];
         if (command == "check") {
             return Check(argc - 2, argv + 2);
-        } else if (command == "compact") {
-            return Compact(argc - 2, argv + 2);
         } else if (command == "info") {
             return Info(argc - 2, argv + 2);
         } else if (command == "help") {
