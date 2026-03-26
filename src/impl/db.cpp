@@ -1,11 +1,11 @@
 #include "impl/db.hpp"
 #include "bolt/error.hpp"
+#include "fmt/std.h"
 #include "impl/batch.hpp"
 #include "impl/file.hpp"
 #include "impl/freelist.hpp"
 #include "impl/page.hpp"
 #include "impl/tx.hpp"
-#include "fmt/std.h"
 #include <chrono>
 #include <ctime>
 #include <exception>
@@ -21,7 +21,7 @@ bolt::ErrorCode mmap(impl::DB *db, std::uint64_t sz) {
     if (!db->readOnly) {
         auto err = db->file.Truncate(sz);
         if (err != bolt::ErrorCode::Success) {
-          return err;
+            return err;
         }
     }
 #endif
@@ -67,9 +67,7 @@ DB::DB() {
     MmapFlags = 0;
 }
 
-DB::~DB() {
-    Close();
-}
+DB::~DB() { Close(); }
 
 bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
     this->path = path;
@@ -146,9 +144,7 @@ bolt::ErrorCode DB::Close() {
     return file.Close();
 }
 
-const std::string &DB::Path() const {
-    return path;
-}
+const std::string &DB::Path() const { return path; }
 
 bolt::ErrorCode DB::init() {
     // Set the page size to the OS page size.
@@ -217,21 +213,16 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     std::shared_ptr<impl::call> c = std::make_shared<impl::call>();
     do {
         std::lock_guard<std::mutex> lock(batchMu);
-        if (batch == nullptr || (batch != nullptr
-                                 && batch->calls.size() >= MaxBatchSize)) {
+        if (batch == nullptr || (batch != nullptr && batch->calls.size() >= MaxBatchSize)) {
             batch = std::make_shared<impl::batch>(shared_from_this());
-            batch->AfterFunc(MaxBatchDelay, [b = batch]() {
-                b->trigger();
-            });
+            batch->AfterFunc(MaxBatchDelay, [b = batch]() { b->trigger(); });
             ptr = batch;
         }
         c->fn = std::move(fn);
         batch->calls.emplace_back(c);
         if (batch->calls.size() >= MaxBatchSize) {
             wait_executor = true;
-            executor = std::jthread([b = batch]() {
-                b->trigger();
-            });
+            executor = std::jthread([b = batch]() { b->trigger(); });
         }
     } while (0);
 
@@ -332,9 +323,7 @@ std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginTx() {
     if (!opened) {
         mmaplock.unlock_shared();
         metalock.unlock();
-        return std::make_tuple<impl::TxPtr, bolt::ErrorCode>(
-            nullptr, bolt::ErrorCode::ErrorDatabaseNotOpen);
-
+        return {nullptr, bolt::ErrorCode::ErrorDatabaseNotOpen};
     }
     impl::TxPtr tx = std::make_shared<impl::Tx>(shared_from_this(), false);
     tx->init();
@@ -345,14 +334,13 @@ std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginTx() {
     stats.TxN++;
     stats.OpenTxN = txs.size();
     statlock.unlock();
-    return std::make_tuple(tx, bolt::ErrorCode::Success);
+    return {tx, bolt::ErrorCode::Success};
 }
 
 std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
     // If the database was opened with Options.ReadOnly, return an error.
     if (readOnly) {
-        return std::make_tuple<impl::TxPtr, bolt::ErrorCode>(
-            nullptr, bolt::ErrorCode::ErrorDatabaseReadOnly);
+        return {nullptr, bolt::ErrorCode::ErrorDatabaseReadOnly};
     }
     // Obtain writer lock. This is released by the transaction when it closes.
     // This enforces only one writer transaction at a time.
@@ -365,13 +353,12 @@ std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
     // Exit if the database is not open yet.
     if (!opened) {
         rwlock.unlock();
-        return std::make_tuple<impl::TxPtr, bolt::ErrorCode>(
-            nullptr, bolt::ErrorCode::ErrorDatabaseNotOpen);
+        return std::make_tuple<impl::TxPtr, bolt::ErrorCode>(nullptr,
+                                                             bolt::ErrorCode::ErrorDatabaseNotOpen);
     }
 
     // Create a transaction associated with the database.
-    std::shared_ptr<impl::Tx> tx =
-        std::make_shared<impl::Tx>(shared_from_this(), true);
+    std::shared_ptr<impl::Tx> tx = std::make_shared<impl::Tx>(shared_from_this(), true);
     tx->init();
     rwtx = tx;
 
@@ -385,7 +372,7 @@ std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
     if (minid > 0) {
         freelist->release(minid - 1);
     }
-    return std::make_tuple(tx, bolt::ErrorCode::Success);
+    return {tx, bolt::ErrorCode::Success};
 }
 
 void DB::removeTx(impl::TxPtr tx) {
@@ -432,7 +419,7 @@ impl::page *DB::page(impl::pgid id) {
 }
 
 impl::page *DB::pageInBuffer(bolt::bytes b, impl::pgid id) {
-    return reinterpret_cast<impl::page *>(&b[id *(impl::pgid)pageSize]);
+    return reinterpret_cast<impl::page *>(&b[id * (impl::pgid)pageSize]);
 }
 
 // grow grows the size of the database to the given sz.
@@ -478,7 +465,7 @@ std::tuple<impl::page *, bolt::ErrorCode> DB::allocate(size_t count) {
     p->id = freelist->allocate(count);
     if (p->id != 0) {
         pagePool.insert(std::make_pair(p, std::move(buf)));
-        return std::make_tuple(p, bolt::ErrorCode::Success);
+        return {p, bolt::ErrorCode::Success};
     }
 
     // Resize mmap() if we're at the end.
@@ -487,14 +474,14 @@ std::tuple<impl::page *, bolt::ErrorCode> DB::allocate(size_t count) {
     if (minsz >= datasz) {
         auto err = mmap(minsz);
         if (err != bolt::ErrorCode::Success) {
-            return std::make_tuple(nullptr, err);
+            return {nullptr, err};
         }
     }
 
     // Move the page id high water mark.
     rwtx->meta.pgid += impl::pgid(count);
     pagePool.insert(std::make_pair(p, std::move(buf)));
-    return std::make_tuple(p, bolt::ErrorCode::Success);
+    return {p, bolt::ErrorCode::Success};
 }
 
 void DB::releasePage(impl::page *p) {
@@ -572,13 +559,13 @@ std::tuple<std::uint64_t, bolt::ErrorCode> DB::mmapSize(std::uint64_t size) {
     // Double the size from 32KB until 1GB.
     for (std::uint32_t i = 15; i <= 30; i++) {
         if (size <= std::uint64_t(1) << i) {
-            return std::make_tuple(1 << i, bolt::ErrorCode::Success);
+            return {1 << i, bolt::ErrorCode::Success};
         }
     }
 
     // Verify the requested size is not above the maximum allowed.
     if (size > impl::maxMapSize) {
-        return std::make_tuple(0, bolt::ErrorCode::ErrorMmapTooLarge);
+        return {0, bolt::ErrorCode::ErrorMmapTooLarge};
     }
 
     // Ensure that the mmap size is a multiple of the page size.
@@ -591,7 +578,7 @@ std::tuple<std::uint64_t, bolt::ErrorCode> DB::mmapSize(std::uint64_t size) {
     if (size > impl::maxMapSize) {
         size = impl::maxMapSize;
     }
-    return std::make_tuple(size, bolt::ErrorCode::Success);
+    return {size, bolt::ErrorCode::Success};
 }
 
 bolt::Info DB::Info() const {
@@ -606,4 +593,4 @@ bolt::Stats DB::Stats() {
     return stats;
 }
 
-}
+} // namespace bolt::impl

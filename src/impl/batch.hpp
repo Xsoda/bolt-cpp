@@ -17,7 +17,6 @@ struct batch;
 struct call {
     std::function<bolt::ErrorCode(std::shared_ptr<impl::Tx>)> fn;
     std::promise<bolt::ErrorCode> err;
-    bool invoked = false;
 
     call() = default;
     call(const call &other) = delete;
@@ -37,10 +36,11 @@ struct batch {
     void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn);
 
     ~batch();
+
 private:
     void run();
 };
 
-};
+}; // namespace bolt::impl
 
-#endif  // !__BATCH_HPP__
+#endif // !__BATCH_HPP__

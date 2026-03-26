@@ -2,15 +2,13 @@
 #include "bolt/error.hpp"
 #include "impl/db.hpp"
 #include <chrono>
+#include <iterator>
 #include <mutex>
 #include <thread>
-#include <iterator>
 
 namespace bolt::impl {
 
-void batch::trigger() {
-    std::call_once(start, std::bind(&batch::run, this));
-}
+void batch::trigger() { std::call_once(start, std::bind(&batch::run, this)); }
 
 void batch::run() {
     auto dbptr = db.lock();
@@ -34,9 +32,6 @@ void batch::run() {
         auto err = dbptr->Update([&](impl::TxPtr tx) -> bolt::ErrorCode {
             for (auto it = calls.begin(); it != calls.end(); it++) {
                 bolt::ErrorCode err;
-                if (it->get()->invoked) {
-                    continue;
-                }
                 try {
                     err = it->get()->fn(tx);
                 } catch ([[maybe_unused]] const std::exception &e) {
@@ -46,7 +41,6 @@ void batch::run() {
                     failIdx = std::distance(calls.begin(), it);
                     return err;
                 }
-                it->get()->invoked = true;
             }
             return bolt::Success;
         });
@@ -64,9 +58,7 @@ void batch::run() {
     }
 }
 
-batch::~batch() {
-    db.reset();
-}
+batch::~batch() { db.reset(); }
 
 void batch::wait() {
     _assert(timer.get_id() != std::this_thread::get_id(), "Same thread join self");
@@ -74,8 +66,7 @@ void batch::wait() {
     timer.join();
 }
 
-void batch::AfterFunc(std::chrono::milliseconds delay,
-                      std::function<void()> &&fn) {
+void batch::AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn) {
     timer = std::jthread([delay, fn, this](std::stop_token stoken) {
         auto until = std::chrono::steady_clock::now() + delay;
         do {
@@ -88,4 +79,4 @@ void batch::AfterFunc(std::chrono::milliseconds delay,
     });
 }
 
-}
+} // namespace bolt::impl
