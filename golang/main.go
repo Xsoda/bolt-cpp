@@ -60,13 +60,14 @@ func GetOP() int {
 
 func main() {
 	var max_op int64
+	var tx_op int64
 	flag.Int64Var(&max_op, "max-op", 100000, "default max operate count")
+	flag.Int64Var(&tx_op, "tx-op", 50000, "default operate per transation")
 	flag.Parse()
 	filename := fmt.Sprintf("chaos-golang")
 	os.Remove(filename)
 	db, err := bolt.Open(filename /*syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IRGRP|syscall.S_IWGRP|syscall.S_IROTH*/, 0664, nil)
 
-	keys := make([]string, 0)
 	// db.StrictMode = true
 
 	if err != nil {
@@ -74,57 +75,64 @@ func main() {
 		return
 	}
 	bucket := RandomString(8, 32)
-	if err := db.Update(func(tx *bolt.Tx) error {
-		b, err := tx.CreateBucket([]byte(bucket))
-		if err != nil {
-			return err
-		}
-		for i := 0; int64(i) < max_op; i += 1 {
-			op := GetOP()
-			if op == OP_Insert {
-				key := RandomString(8, 32)
-				val := RandomString(32, 4096)
-				keys = append(keys, key)
-				fmt.Printf("%06d INSERT %s\n", i, key)
-				err = b.Put([]byte(key), []byte(val))
-				if err != nil {
-					return err
+	var i, j int64
+	for i = 0; i < max_op; i += tx_op {
+		keys := make([]string, 0)
+		if err := db.Update(func(tx *bolt.Tx) error {
+			b, err := tx.CreateBucketIfNotExists([]byte(bucket))
+			if err != nil {
+				return err
+			}
+			for j = 0; j < tx_op; j += 1 {
+				op := GetOP()
+				if len(keys) == 0 {
+					op = OP_Insert
 				}
-			} else if op == OP_Update {
-				idx := RandomInt(0, int64(len(keys)))
-				sort.Slice(keys, func(i, j int) bool {
-					return keys[i] < keys[j]
-				})
-				key := keys[idx]
-				val := RandomString(32, 4096)
-				fmt.Printf("%06d UPDATE %s\n", i, key)
-				err = b.Put([]byte(key), []byte(val))
-				if err != nil {
-					return err
-				}
-			} else if op == OP_Delete {
-				idx := RandomInt(0, int64(len(keys)))
-				sort.Slice(keys, func(i, j int) bool {
-					return keys[i] < keys[j]
-				})
-				key := keys[idx]
-				if idx == 0 {
-					keys = keys[1:]
-				} else if idx == int64(len(keys))-1 {
-					keys = keys[:len(keys)-1]
-				} else {
-					keys = append(keys[:idx], keys[idx+1:]...)
-				}
-				fmt.Printf("%06d DELETE %s\n", i, key)
-				err = b.Delete([]byte(key))
-				if err != nil {
-					return err
+				if op == OP_Insert {
+					key := RandomString(8, 32)
+					val := RandomString(32, 4096)
+					keys = append(keys, key)
+					fmt.Printf("%06d INSERT %s\n", i+j, key)
+					err = b.Put([]byte(key), []byte(val))
+					if err != nil {
+						return err
+					}
+				} else if op == OP_Update {
+					idx := RandomInt(0, int64(len(keys)))
+					sort.Slice(keys, func(i, j int) bool {
+						return keys[i] < keys[j]
+					})
+					key := keys[idx]
+					val := RandomString(32, 4096)
+					fmt.Printf("%06d UPDATE %s\n", i+j, key)
+					err = b.Put([]byte(key), []byte(val))
+					if err != nil {
+						return err
+					}
+				} else if op == OP_Delete {
+					idx := RandomInt(0, int64(len(keys)))
+					sort.Slice(keys, func(i, j int) bool {
+						return keys[i] < keys[j]
+					})
+					key := keys[idx]
+					if idx == 0 {
+						keys = keys[1:]
+					} else if idx == int64(len(keys))-1 {
+						keys = keys[:len(keys)-1]
+					} else {
+						keys = append(keys[:idx], keys[idx+1:]...)
+					}
+					fmt.Printf("%06d DELETE %s\n", i+j, key)
+					err = b.Delete([]byte(key))
+					if err != nil {
+						return err
+					}
 				}
 			}
+			return nil
+		}); err != nil {
+			fmt.Println(err.Error())
 		}
-		return nil
-	}); err != nil {
-		fmt.Println(err.Error())
 	}
 	if err := db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucket))
