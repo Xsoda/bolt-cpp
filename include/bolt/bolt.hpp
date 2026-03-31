@@ -120,6 +120,9 @@ public:
     bolt::ErrorCode SetSequence(std::uint64_t v);
     std::tuple<std::uint64_t, bolt::ErrorCode> NextSequence();
 
+    float GetFillPercent();
+    void SetFillPercent(float fill);
+
     bolt::ErrorCode
     ForEach(std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &&fn);
 

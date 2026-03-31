@@ -251,6 +251,10 @@ bool Bucket::Writable() { return pimpl<impl::BucketPtr>::impl()->Writable(); }
 
 bolt::BucketStats Bucket::Stats() { return pimpl<impl::BucketPtr>::impl()->Stats(); }
 
+float Bucket::GetFillPercent() { return pimpl<impl::BucketPtr>::impl()->FillPercent; }
+
+void Bucket::SetFillPercent(float fill) { pimpl<impl::BucketPtr>::impl()->FillPercent = fill; }
+
 // Cursor
 bolt::Bucket Cursor::Bucket() { return pimpl<impl::CursorPtr>::impl()->Bucket(); }
 
