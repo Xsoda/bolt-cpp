@@ -1,6 +1,5 @@
 #pragma once
 
-
 #ifndef __ERROR_HPP__
 #define __ERROR_HPP__
 
@@ -12,92 +11,89 @@
 
 namespace bolt {
 
-#define ERROR_MAP(XX)                                                          \
-  XX(DatabaseNotOpen, "database not open")                                     \
-  XX(DatabaseAlreadyOpen, "database already open")                             \
-  XX(DatabaseInvalid, "invalid database")                                      \
-  XX(VersionMismatch, "version mismatch")                                      \
-  XX(Checksum, "checksum error")                                               \
-  XX(Timeout, "timeout")                                                       \
-  XX(TxNotWritable, "tx not writable")                                         \
-  XX(TxClosed, "tx closed")                                                    \
-  XX(DatabaseReadOnly, "database is in read-only mode")                        \
-  XX(BucketNotFound, "bucket not found")                                       \
-  XX(BucketExists, "bucket already exists")                                    \
-  XX(BucketNameRequired, "bucket name required")                               \
-  XX(KeyRequired, "key required")                                              \
-  XX(KeyTooLarge, "key too large")                                             \
-  XX(ValueTooLarge, "value too large")                                         \
-  XX(IncompatiableValue, "incompatible value")                                 \
-  XX(SystemCall, "system call failure")                                        \
-  XX(TrySolo, "batch function returned an error and should be re-run solo")    \
-  XX(FileResizeFail, "file resize fail")                                       \
-  XX(FileSyncFail, "file sync fail")                                           \
-  XX(FileSizeTooSmall, "file size too small")                                  \
-  XX(MmapTooLarge, "mmap too large")                                           \
-  XX(DatabaseEOF, "database eof")                                              \
-  XX(Unexpected, "unexpected")                                                 \
-  XX(Expected, "expected error")                                               \
-  XX(ExceptionCaptured, "exception captured")                                  \
-  XX(NotImplemented, "not implemented")
-
+#define ERROR_MAP(XX)                                                                              \
+    XX(DatabaseNotOpen, "database not open")                                                       \
+    XX(DatabaseAlreadyOpen, "database already open")                                               \
+    XX(DatabaseInvalid, "invalid database")                                                        \
+    XX(VersionMismatch, "version mismatch")                                                        \
+    XX(Checksum, "checksum error")                                                                 \
+    XX(Timeout, "timeout")                                                                         \
+    XX(TxNotWritable, "tx not writable")                                                           \
+    XX(TxClosed, "tx closed")                                                                      \
+    XX(DatabaseReadOnly, "database is in read-only mode")                                          \
+    XX(BucketNotFound, "bucket not found")                                                         \
+    XX(BucketExists, "bucket already exists")                                                      \
+    XX(BucketNameRequired, "bucket name required")                                                 \
+    XX(KeyRequired, "key required")                                                                \
+    XX(KeyTooLarge, "key too large")                                                               \
+    XX(ValueTooLarge, "value too large")                                                           \
+    XX(IncompatiableValue, "incompatible value")                                                   \
+    XX(SystemCall, "system call failure")                                                          \
+    XX(TrySolo, "batch function returned an error and should be re-run solo")                      \
+    XX(FileResizeFail, "file resize fail")                                                         \
+    XX(FileSyncFail, "file sync fail")                                                             \
+    XX(FileSizeTooSmall, "file size too small")                                                    \
+    XX(MmapTooLarge, "mmap too large")                                                             \
+    XX(DatabaseEOF, "database eof")                                                                \
+    XX(Unexpected, "unexpected")                                                                   \
+    XX(Expected, "expected error")                                                                 \
+    XX(ExceptionCaptured, "exception captured")                                                    \
+    XX(NotImplemented, "not implemented")
 
 typedef enum {
-  Success = 0,
+    Success = 0,
 
-#define XX(name, desc) Error ##name,
-  ERROR_MAP(XX)
+#define XX(name, desc) Error##name,
+    ERROR_MAP(XX)
 #undef XX
 
-  MaxErrorCode,
+        MaxErrorCode,
 } ErrorCode;
 
 } // namespace bolt
 
 FMT_BEGIN_NAMESPACE
-template <> struct formatter<bolt::ErrorCode>: nested_formatter<fmt::string_view> {
-  auto format(bolt::ErrorCode error_code, format_context &ctx) const
-      -> decltype(ctx.out()) {
-    return write_padded(ctx, [this, error_code](auto out) -> decltype(out) {
-        switch (error_code) {
-#define XX(name, desc)                                                         \
-            case bolt::ErrorCode::Error##name:                          \
-                return fmt::format_to(out, "({}) - {}", #name, desc);
-        ERROR_MAP(XX)
+template <> struct formatter<bolt::ErrorCode> : nested_formatter<fmt::string_view> {
+    auto format(bolt::ErrorCode error_code, format_context &ctx) const -> decltype(ctx.out()) {
+        return write_padded(ctx, [this, error_code](auto out) -> decltype(out) {
+            switch (error_code) {
+#define XX(name, desc)                                                                             \
+    case bolt::ErrorCode::Error##name:                                                             \
+        return fmt::format_to(out, "({}) - {}", #name, desc);
+                ERROR_MAP(XX)
 #undef XX
-        case bolt::ErrorCode::Success:
-            return fmt::format_to(out, "({}) - {}", "Success", "operation success");
-        case bolt::ErrorCode::MaxErrorCode:
-            return fmt::format_to(out, "{}", "impossible error code");
-        }
-        return fmt::format_to(out, "impossible");
-    });
-  };
+            case bolt::ErrorCode::Success:
+                return fmt::format_to(out, "({}) - {}", "Success", "operation success");
+            case bolt::ErrorCode::MaxErrorCode:
+                return fmt::format_to(out, "{}", "impossible error code");
+            }
+            return fmt::format_to(out, "impossible");
+        });
+    };
 };
 
 template <typename T>
-  requires std::is_same_v<T, std::byte> || std::is_same_v<T, const std::byte>
+    requires std::is_same_v<T, std::byte> || std::is_same_v<T, const std::byte>
 struct range_format_kind<std::span<T>, char>
     : std::integral_constant<range_format, range_format::disabled> {};
 
 template <typename T>
-  requires std::is_same_v<T, std::byte> || std::is_same_v<T, const std::byte>
+    requires std::is_same_v<T, std::byte> || std::is_same_v<T, const std::byte>
 struct formatter<std::span<T>> : nested_formatter<fmt::string_view> {
-  auto format(const std::span<T> bytes, format_context &ctx) const
-      -> decltype(ctx.out()) {
-    return write_padded(ctx, [this, bytes](auto out) -> decltype(out) {
-      for (auto it : bytes) {
-        if (std::isprint((char)it, std::locale::classic())) {
-          out = fmt::format_to(out, "{}", (char)it);
-        } else {
-          out = fmt::format_to(out, "\\x{:02x}", (char)it);
-        }
-      }
-      return out;
-    });
-  };
+    auto format(const std::span<T> bytes, format_context &ctx) const -> decltype(ctx.out()) {
+        return write_padded(ctx, [this, bytes](auto out) -> decltype(out) {
+            for (auto it : bytes) {
+                if (std::isprint((char)it, std::locale::classic())) {
+                    out = fmt::format_to(out, "{}", (char)it);
+                } else {
+                    out = fmt::format_to(out, "\\x{:02x}", (char)it);
+                }
+            }
+            return out;
+        });
+    };
 };
 
 FMT_END_NAMESPACE
 
-#endif  // !__ERROR_HPP__
+#endif // !__ERROR_HPP__
