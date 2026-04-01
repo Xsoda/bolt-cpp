@@ -2,13 +2,13 @@
 #define __FREELIST_HPP__
 
 #include "impl/utils.hpp"
+#include <map>
 
 namespace bolt::impl {
 
 struct page;
 
-void mergepgids(std::span<impl::pgid> dest, std::span<impl::pgid> a,
-                std::span<impl::pgid> b);
+void mergepgids(std::span<impl::pgid> dest, std::span<impl::pgid> a, std::span<impl::pgid> b);
 
 struct freelist {
     std::vector<impl::pgid> ids;
@@ -30,5 +30,6 @@ struct freelist {
     void reload(impl::page *p);
     void reindex();
 };
-}
-#endif  // !__FREELIST_HPP__
+} // namespace bolt::impl
+
+#endif // !__FREELIST_HPP__

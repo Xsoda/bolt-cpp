@@ -2,8 +2,8 @@
 #define __BUCKET_HPP__
 
 #include "impl/utils.hpp"
+#include <map>
 #include <memory>
-#include <unordered_map>
 
 namespace bolt::impl {
 
@@ -15,12 +15,11 @@ struct node;
 // then its root page can be stored inline in the "value", after the bucket
 // header. In the case of inline buckets, the "root" will be 0.
 struct bucket {
-    impl::pgid root;            // page id of the bucket's root-level page
+    impl::pgid root;        // page id of the bucket's root-level page
     std::uint64_t sequence; // monotonically incrementing, used by NextSequence()
 };
 
-struct Bucket : public bucket,
-                public std::enable_shared_from_this<impl::Bucket> {
+struct Bucket : public bucket, public std::enable_shared_from_this<impl::Bucket> {
     std::weak_ptr<impl::Tx> tx;
     std::map<std::string, impl::BucketPtr> buckets;
     impl::page *page;
@@ -36,8 +35,7 @@ struct Bucket : public bucket,
     impl::BucketPtr RetrieveBucket(bolt::const_bytes name);
     impl::BucketPtr openBucket(bolt::bytes value);
     std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucket(bolt::const_bytes key);
-    std::tuple<impl::BucketPtr, bolt::ErrorCode>
-    CreateBucketIfNotExists(bolt::const_bytes key);
+    std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucketIfNotExists(bolt::const_bytes key);
     bolt::ErrorCode DeleteBucket(bolt::const_bytes key);
     bolt::const_bytes Get(bolt::const_bytes key);
     bolt::ErrorCode Put(bolt::const_bytes key, bolt::const_bytes value);
@@ -49,10 +47,9 @@ struct Bucket : public bucket,
     ForEach(std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &&fn);
     bolt::BucketStats Stats();
     void forEachPage(std::function<void(impl::page *, int)> &&fn);
-    void forEachPageNode(std::function<void(impl::page *, impl::node_ptr , int)> &&fn);
-    void
-    _forEachPageNode(impl::pgid pgid, int depth,
-                     std::function<void(impl::page *, impl::node_ptr, int)> &fn);
+    void forEachPageNode(std::function<void(impl::page *, impl::node_ptr, int)> &&fn);
+    void _forEachPageNode(impl::pgid pgid, int depth,
+                          std::function<void(impl::page *, impl::node_ptr, int)> &fn);
     impl::node_ptr node(impl::pgid pgid, impl::node_ptr parent);
     void rebalance();
     bool inlineable() const;
@@ -70,6 +67,6 @@ constexpr int bucketHeaderSize = sizeof(bucket);
 constexpr float minFillPercent = 0.1f;
 constexpr float maxFillPercent = 1.0f;
 
-}
+} // namespace bolt::impl
 
-#endif  // !__BUCKET_HPP__
+#endif // !__BUCKET_HPP__
