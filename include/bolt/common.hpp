@@ -7,6 +7,10 @@
 #include <limits>
 #include <span>
 
+#define BOLT_MAJOR_VERSION 0
+#define BOLT_MINOR_VERSION 1
+#define BOLT_PATCH_VERSION 1
+
 namespace bolt {
 
 using namespace std::chrono_literals;

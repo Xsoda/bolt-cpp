@@ -165,6 +165,9 @@ public:
     ~Cursor() = default;
     operator bool() { return pimpl<impl::CursorPtr>::impl() ? true : false; };
 };
+
+const char *library_version();
+
 } // namespace bolt
 
 #endif // !BOLT_HPP

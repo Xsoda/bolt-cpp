@@ -40,6 +40,13 @@ target_include_directories(bolt
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
+
+find_program(GIT_PROGRAM NAMES "git")
+if(GIT_PROGRAM)
+  execute_process(COMMAND git log --pretty=format:"git.%h" -1
+    OUTPUT_VARIABLE BOLT_BUILD_VERSION)
+  target_compile_definitions(bolt PRIVATE BOLT_BUILD_VERSION=${BOLT_BUILD_VERSION})
+endif()
 target_compile_options(bolt PRIVATE ${PEDANTIC_COMPILE_FLAGS})
 target_link_libraries(bolt PRIVATE fmt::fmt)
 

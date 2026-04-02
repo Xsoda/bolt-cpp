@@ -4,6 +4,10 @@
 #include "impl/db.hpp"
 #include "impl/tx.hpp"
 
+#ifndef BOLT_BUILD_VERSION
+#define BOLT_BUILD_VERSION "undefined"
+#endif
+
 namespace bolt {
 
 // DB
@@ -280,4 +284,10 @@ std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Seek(bolt::const_bytes 
 
 bolt::ErrorCode Cursor::Delete() { return pimpl<impl::CursorPtr>::impl()->Delete(); }
 
+#define TOSTRING(x) #x
+#define STRINGIFY(x) TOSTRING(x)
+const char *library_version() {
+    return STRINGIFY(BOLT_MAJOR_VERSION) "." STRINGIFY(BOLT_MINOR_VERSION) "." STRINGIFY(BOLT_PATCH_VERSION) "+" BOLT_BUILD_VERSION;
+}
+    
 } // namespace bolt
