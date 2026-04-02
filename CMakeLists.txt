@@ -104,10 +104,13 @@ target_sources(bolt
 
 if(BUILD_TESTS)
   add_executable(bolt-tests)
-  target_link_libraries(bolt-tests PRIVATE bolt fmt::fmt)
+  target_link_libraries(bolt-tests PRIVATE fmt::fmt)
+  
+  get_target_property(BOLT_SOURCES bolt SOURCES)
 
   target_sources(bolt-tests
     PRIVATE
+    ${BOLT_SOURCES}
     test/main.cpp
     test/page_test.cpp
     test/freelist_test.cpp
@@ -129,6 +132,17 @@ if(BUILD_TESTS)
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/include
   )
+  
+  if(ENABLE_COVERAGE)
+    # use make coverage generate html report
+    include(CodeCoverage.cmake)
+    append_coverage_compiler_flags_to_target(bolt-tests)
+    setup_target_for_coverage_lcov(
+      NAME coverage
+      EXECUTABLE "${CMAKE_BINARY_DIR}/bolt-tests"
+      BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+      EXCLUDE "test/*" "deps/*" "/usr/include/*")
+  endif()
 endif()
 
 if(BUILD_BOLT_CLI)
