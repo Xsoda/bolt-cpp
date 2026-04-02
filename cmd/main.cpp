@@ -1,5 +1,6 @@
 #include "args.hpp"
 #include "bolt/bolt.hpp"
+#include "bolt/common.hpp"
 #include "impl/file.hpp"
 #include "impl/meta.hpp"
 #include "impl/page.hpp"
@@ -127,6 +128,7 @@ The commands are:
     page        prints one or more pages in human readable format
     pages       print list of pages with their types
     stats       iterate over all pages and generate usage stats
+    version     print bolt-cpp library version
 
 Use "bolt [command] --help" for more information about a command.)";
     fmt::println("{}", help);
@@ -467,6 +469,8 @@ int main(int argc, char **argv) {
             return Dump(argc - 2, argv + 2);
         } else if (command == "page") {
             return Page(argc - 2, argv + 2);
+        } else if (command == "version") {
+            fmt::println("{}", bolt::library_version());
         } else {
             return Help();
         }
