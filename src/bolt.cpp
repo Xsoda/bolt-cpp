@@ -111,6 +111,14 @@ bolt::DB Tx::DB() { return pimpl<impl::TxPtr>::impl()->DB(); }
 
 bolt::TxStats Tx::Stats() { return pimpl<impl::TxPtr>::impl()->Stats(); }
 
+std::tuple<bolt::Bucket, bolt::ErrorCode> Tx::CreateBucketWithPath(const std::string &path) {
+    return pimpl<impl::TxPtr>::impl()->CreateBucketWithPath(path);
+}
+
+std::tuple<bolt::Bucket, bolt::ErrorCode> Tx::RetrieveBucketWithPath(const std::string &path) {
+    return pimpl<impl::TxPtr>::impl()->RetrieveBucketWithPath(path);
+}
+
 // Bucket
 std::tuple<bolt::Bucket, bolt::ErrorCode> Bucket::CreateBucket(bolt::const_bytes key) {
     auto [b, err] = pimpl<impl::BucketPtr>::impl()->CreateBucket(key);

@@ -58,6 +58,33 @@ void __log(const std::source_location &location, fmt::format_string<Args...> fmt
     fmt::println(fmt, std::forward<Args>(args)...);
 }
 
+inline std::vector<std::string> string_split(const std::string &str, const std::string &delimiter) {
+    std::vector<std::string> result;
+    std::size_t start = 0;
+    while (true) {
+        std::size_t pos = str.find(delimiter, start);
+        if (pos == std::string::npos) {
+            result.push_back(str.substr(start));
+            break;
+        }
+        result.push_back(str.substr(start, pos - start));
+        start = pos + delimiter.size();
+    }
+    return result;
+}
+
+inline std::string string_join(const std::vector<std::string> &source,
+                               const std::string &delimiter) {
+    std::string result;
+    for (auto i = 0; i < source.size(); i++) {
+        if (i > 0) {
+            result += delimiter;
+        }
+        result += source[i];
+    }
+    return result;
+}
+
 } // namespace bolt::impl
 
 #define _assert(condition, format, ...)                                                            \

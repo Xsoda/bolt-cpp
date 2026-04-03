@@ -63,6 +63,10 @@ public:
     std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucketIfNotExists(const std::string &name);
     bolt::ErrorCode DeleteBucket(const std::string &name);
 
+    // <bucket>/<bucket>/.../<last-bucket>
+    std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucketWithPath(const std::string &path);
+    std::tuple<bolt::Bucket, bolt::ErrorCode> RetrieveBucketWithPath(const std::string &path);
+
     bolt::ErrorCode
     ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name, bolt::Bucket b)> &&fn);
     bolt::Bucket Bucket(bolt::const_bytes name);

@@ -3,8 +3,8 @@
 
 #include "impl/bucket.hpp"
 #include "impl/meta.hpp"
-#include "impl/utils.hpp"
 #include "impl/page.hpp"
+#include "impl/utils.hpp"
 #include <functional>
 #include <future>
 #include <memory>
@@ -24,7 +24,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     int WriteFlag;
 
     explicit Tx();
-    explicit Tx(impl::meta meta) : meta(meta), managed(false), WriteFlag(0), writable(false) {};
+    explicit Tx(impl::meta meta) : meta(meta), managed(false), WriteFlag(0), writable(false){};
     explicit Tx(impl::DBPtr db, impl::meta meta);
     // init initializes the transaction.
     explicit Tx(impl::DBPtr db, bool writable);
@@ -55,24 +55,21 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     void close();
     std::tuple<impl::page *, bolt::ErrorCode> allocate(size_t count);
     std::future<std::vector<std::string>> Check();
-    void checkBucket(impl::BucketPtr bucket,
-                     std::map<impl::pgid, impl::page *> &reachable,
-                     std::map<impl::pgid, bool> &freed,
-                     std::vector<std::string> &errors);
-    void forEachPage(impl::pgid pgid, int depth,
-                     std::function<void(impl::page *, int)> &&fn);
+    void checkBucket(impl::BucketPtr bucket, std::map<impl::pgid, impl::page *> &reachable,
+                     std::map<impl::pgid, bool> &freed, std::vector<std::string> &errors);
+    void forEachPage(impl::pgid pgid, int depth, std::function<void(impl::page *, int)> &&fn);
 
-    std::tuple<impl::BucketPtr, bolt::ErrorCode>
-    CreateBucket(bolt::const_bytes name);
-    std::tuple<impl::BucketPtr, bolt::ErrorCode>
-    CreateBucketIfNotExists(bolt::const_bytes name);
+    std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucket(bolt::const_bytes name);
+    std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucketIfNotExists(bolt::const_bytes name);
     bolt::ErrorCode DeleteBucket(bolt::const_bytes name);
-    bolt::ErrorCode ForEach(
-        std::function<bolt::ErrorCode(bolt::const_bytes name, impl::BucketPtr b)>
-        &&fn);
+    bolt::ErrorCode
+    ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name, impl::BucketPtr b)> &&fn);
     impl::BucketPtr Bucket(bolt::const_bytes name);
     impl::CursorPtr Cursor();
     std::tuple<std::optional<impl::PageInfo>, bolt::ErrorCode> Page(int id);
+
+    std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucketWithPath(const std::string &path);
+    std::tuple<impl::BucketPtr, bolt::ErrorCode> RetrieveBucketWithPath(const std::string &path);
 };
 
 } // namespace bolt::impl

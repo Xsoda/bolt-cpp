@@ -1,27 +1,27 @@
 #include "impl/tx.hpp"
 #include "bolt/error.hpp"
-#include "impl/page.hpp"
 #include "impl/bucket.hpp"
 #include "impl/db.hpp"
-#include "impl/meta.hpp"
 #include "impl/freelist.hpp"
+#include "impl/meta.hpp"
+#include "impl/page.hpp"
 #include "impl/utils.hpp"
 #include <algorithm>
 #include <chrono>
-#include <mutex>
-#include <fmt/format.h>
 #include <fmt/chrono.h>
+#include <fmt/format.h>
 #include <inttypes.h>
+#include <mutex>
 
 namespace bolt::impl {
 
-Tx::Tx(impl::DBPtr db, impl::meta meta) : db(db), meta(meta), writable(false), WriteFlag(0), managed(false) {}
+Tx::Tx(impl::DBPtr db, impl::meta meta)
+    : db(db), meta(meta), writable(false), WriteFlag(0), managed(false) {}
 
 Tx::Tx() : writable(false), WriteFlag(0), managed(false) {}
 
 Tx::Tx(std::shared_ptr<impl::DB> db, bool writable)
-    : db(db), writable(writable), WriteFlag(0), managed(false) {
-}
+    : db(db), writable(writable), WriteFlag(0), managed(false) {}
 
 void Tx::init() {
     auto dbptr = db.lock();
@@ -73,8 +73,7 @@ bolt::ErrorCode Tx::writeMeta() {
 
     impl::page *p = dbptr->pageInBuffer(bolt::bytes{buf}, 0);
     meta.write(p);
-    auto [_, err] = dbptr->file.WriteAt(bolt::bytes{buf},
-                                        (std::int64_t)p->id * dbptr->pageSize);
+    auto [_, err] = dbptr->file.WriteAt(bolt::bytes{buf}, (std::int64_t)p->id * dbptr->pageSize);
     if (err != bolt::Success) {
         return err;
     }
@@ -170,8 +169,8 @@ bolt::ErrorCode Tx::Commit() {
     // Rebalance nodes which have had deletions.
     auto startTime = std::chrono::system_clock::now();
     auto since = [](std::chrono::time_point<std::chrono::system_clock> start) {
-      return std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::system_clock::now() - start);
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now() - start);
     };
     root->rebalance();
     if (stats.Rebalance > 0) {
@@ -208,8 +207,7 @@ bolt::ErrorCode Tx::Commit() {
 
     // If the high water mark has moved up then attempt to grow the database.
     if (meta.pgid > opgid) {
-        if (auto err = dbptr->grow((meta.pgid + 1) * dbptr->pageSize);
-            err != bolt::Success) {
+        if (auto err = dbptr->grow((meta.pgid + 1) * dbptr->pageSize); err != bolt::Success) {
             return err;
         }
     }
@@ -356,10 +354,8 @@ std::future<std::vector<std::string>> Tx::Check() {
     return std::async(fn);
 }
 
-void Tx::checkBucket(impl::BucketPtr bucket,
-                     std::map<impl::pgid, impl::page *> &reachable,
-                     std::map<impl::pgid, bool> &freed,
-                     std::vector<std::string> &errors) {
+void Tx::checkBucket(impl::BucketPtr bucket, std::map<impl::pgid, impl::page *> &reachable,
+                     std::map<impl::pgid, bool> &freed, std::vector<std::string> &errors) {
     // Ignore inline buckets.
     if (bucket->root == 0) {
         return;
@@ -369,30 +365,28 @@ void Tx::checkBucket(impl::BucketPtr bucket,
         return;
     }
     // Check every page used by this bucket.
-    txptr->forEachPage(
-        bucket->root, 0, [&](impl::page *p, int depth) {
-            if (p->id > txptr->meta.pgid) {
-                errors.push_back(fmt::format("page {}: out of bounds: {}", p->id, txptr->meta.pgid));
+    txptr->forEachPage(bucket->root, 0, [&](impl::page *p, int depth) {
+        if (p->id > txptr->meta.pgid) {
+            errors.push_back(fmt::format("page {}: out of bounds: {}", p->id, txptr->meta.pgid));
+        }
+        // Ensure each page is only referenced once.
+        for (impl::pgid i = 0; i <= p->overflow; i++) {
+            auto id = p->id + i;
+            auto it = reachable.find(id);
+            if (it != reachable.end()) {
+                errors.push_back(fmt::format("page {}: multiple references", id));
             }
-            // Ensure each page is only referenced once.
-            for (impl::pgid i = 0; i <= p->overflow; i++) {
-                auto id = p->id + i;
-                auto it = reachable.find(id);
-                if (it != reachable.end()) {
-                    errors.push_back(fmt::format("page {}: multiple references", id));
-                }
-                reachable[id] = p;
-            }
+            reachable[id] = p;
+        }
 
-            // We should only encounter un-freed leaf and branch pages.
-            auto it = freed.find(p->id);
-            if (it != freed.end()) {
-                errors.push_back(fmt::format("page {}: reachable freed", p->id));
-            } else if ((p->flags & impl::branchPageFlag) == 0 &&
-                       (p->flags & impl::leafPageFlag) == 0) {
-                errors.push_back(fmt::format("page {}: invalid type: {}", p->id, p->type()));
-            }
-        });
+        // We should only encounter un-freed leaf and branch pages.
+        auto it = freed.find(p->id);
+        if (it != freed.end()) {
+            errors.push_back(fmt::format("page {}: reachable freed", p->id));
+        } else if ((p->flags & impl::branchPageFlag) == 0 && (p->flags & impl::leafPageFlag) == 0) {
+            errors.push_back(fmt::format("page {}: invalid type: {}", p->id, p->type()));
+        }
+    });
 
     // Check each bucket within this bucket.
     bucket->ForEach([&](bolt::const_bytes key, bolt::const_bytes val) -> bolt::ErrorCode {
@@ -404,8 +398,7 @@ void Tx::checkBucket(impl::BucketPtr bucket,
     });
 }
 
-void Tx::forEachPage(impl::pgid pgid, int depth,
-                     std::function<void(impl::page *, int)> &&fn) {
+void Tx::forEachPage(impl::pgid pgid, int depth, std::function<void(impl::page *, int)> &&fn) {
     auto p = page(pgid);
 
     // Execute function.
@@ -420,31 +413,25 @@ void Tx::forEachPage(impl::pgid pgid, int depth,
     }
 }
 
-std::tuple<impl::BucketPtr, bolt::ErrorCode>
-Tx::CreateBucket(bolt::const_bytes name) {
+std::tuple<impl::BucketPtr, bolt::ErrorCode> Tx::CreateBucket(bolt::const_bytes name) {
     return root->CreateBucket(name);
 }
 
-std::tuple<impl::BucketPtr, bolt::ErrorCode>
-Tx::CreateBucketIfNotExists(bolt::const_bytes name) {
+std::tuple<impl::BucketPtr, bolt::ErrorCode> Tx::CreateBucketIfNotExists(bolt::const_bytes name) {
     return root->CreateBucketIfNotExists(name);
 }
 
-bolt::ErrorCode Tx::DeleteBucket(bolt::const_bytes name) {
-    return root->DeleteBucket(name);
-}
+bolt::ErrorCode Tx::DeleteBucket(bolt::const_bytes name) { return root->DeleteBucket(name); }
 
-bolt::ErrorCode Tx::ForEach(
-    std::function<bolt::ErrorCode(bolt::const_bytes name, impl::BucketPtr b)> &&fn) {
+bolt::ErrorCode
+Tx::ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name, impl::BucketPtr b)> &&fn) {
     return root->ForEach(
         [this, fn = std::move(fn)](bolt::const_bytes k, bolt::const_bytes v) -> bolt::ErrorCode {
             return fn(k, root->RetrieveBucket(k));
         });
 }
 
-impl::BucketPtr Tx::Bucket(bolt::const_bytes name) {
-    return root->RetrieveBucket(name);
-}
+impl::BucketPtr Tx::Bucket(bolt::const_bytes name) { return root->RetrieveBucket(name); }
 
 impl::CursorPtr Tx::Cursor() { return root->Cursor(); }
 
@@ -469,4 +456,39 @@ std::tuple<std::optional<impl::PageInfo>, bolt::ErrorCode> Tx::Page(int id) {
     return std::make_tuple(info, bolt::Success);
 }
 
+std::tuple<impl::BucketPtr, bolt::ErrorCode> Tx::CreateBucketWithPath(const std::string &path) {
+    impl::BucketPtr bktptr;
+    bolt::ErrorCode err;
+    auto names = impl::string_split(path, "/");
+    for (auto &it : names) {
+        auto key = bolt::const_bytes(reinterpret_cast<const std::byte *>(it.data()), it.size());
+        if (bktptr) {
+            std::tie(bktptr, err) = bktptr->CreateBucketIfNotExists(key);
+        } else {
+            std::tie(bktptr, err) = CreateBucketIfNotExists(key);
+        }
+        if (err != bolt::ErrorCode::Success) {
+            return {nullptr, err};
+        }
+    }
+    return {bktptr, err};
 }
+
+std::tuple<impl::BucketPtr, bolt::ErrorCode> Tx::RetrieveBucketWithPath(const std::string &path) {
+    impl::BucketPtr bktptr;
+    auto names = impl::string_split(path, "/");
+    for (auto &it : names) {
+        auto key = bolt::const_bytes(reinterpret_cast<const std::byte *>(it.data()), it.size());
+        if (bktptr) {
+            bktptr = bktptr->RetrieveBucket(key);
+        } else {
+            bktptr = Bucket(key);
+        }
+        if (!bktptr) {
+            return {nullptr, bolt::ErrorCode::ErrorBucketNotFound};
+        }
+    }
+    return {bktptr, bolt::ErrorCode::Success};
+}
+
+} // namespace bolt::impl

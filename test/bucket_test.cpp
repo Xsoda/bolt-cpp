@@ -50,7 +50,7 @@ TestResult TestBucket_Get_FromNode() {
     return true;
 }
 
-TestResult TestBUcket_Get_IncompatibleValue() {
+TestResult TestBucket_Get_IncompatibleValue() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
@@ -222,7 +222,7 @@ TestResult TestBucket_Put_VeryLarge() {
     return true;
 }
 
-TestResult TestBUcket_Put_IncompatibleValue() {
+TestResult TestBucket_Put_IncompatibleValue() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";

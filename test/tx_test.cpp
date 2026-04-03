@@ -518,3 +518,54 @@ TestResult TestTx_OnCommit_Rollback() {
     MustCloseDB(std::move(db));
     return true;
 }
+
+TestResult TestTx_BucketWithPath() {
+    auto db = MustOpenDB();
+    auto path = "aaa/bbb/ccc/ddd";
+    if (auto err = db->Update([path](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+            auto [bucket, err] = tx->CreateBucketWithPath(path);
+            if (err != bolt::ErrorCode::Success) {
+                return err;
+            }
+            return bucket->Put(to_bytes("foo"), to_bytes("bar"));
+        });
+        err != bolt::Success) {
+        return TestResult(false, "CreateBucketWithPath fail");
+    }
+    if (auto err = db->View([path](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+            auto [bucket, err] = tx->RetrieveBucketWithPath(path);
+            if (err != bolt::ErrorCode::Success) {
+                return err;
+            }
+            auto val = bucket->Get(to_bytes("foo"));
+            if (!Equal(val, to_bytes("bar"))) {
+                return bolt::ErrorUnexpected;
+            }
+            return bolt::Success;
+        });
+        err != bolt::Success) {
+        return TestResult(false, "RetrieveBucketWithPath fail");
+    }
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+            auto [bucket, err] = tx->CreateBucketWithPath("/aaa/bbb/ccc/ddd");
+            if (err != bolt::Success) {
+                return err;
+            }
+            return bolt::Success;
+        });
+        err != bolt::ErrorCode::ErrorBucketNameRequired) {
+        return TestResult(false, "Unexpected error, {}", err);
+    }
+    if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+            auto [bucket, err] = tx->RetrieveBucketWithPath("aaa/bbb/ccc/ddd/eee");
+            if (err != bolt::ErrorCode::Success) {
+                return err;
+            }
+            return bolt::Success;
+        });
+        err != bolt::ErrorCode::ErrorBucketNotFound) {
+        return TestResult(false, "Unexcepted error, {}", err);
+    }
+    MustCloseDB(std::move(db));
+    return true;
+}

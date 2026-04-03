@@ -1,6 +1,6 @@
+#include "bolt/error.hpp"
 #include "fmt/base.h"
 #include "impl/bsearch.hpp"
-#include "bolt/error.hpp"
 #include "test.hpp"
 #include "util.hpp"
 #include <algorithm>
@@ -90,15 +90,16 @@ TestResult TestTx_ForEach_WithError();
 TestResult TestTx_OnCommit();
 TestResult TestTx_OnCommit_Rollback();
 TestResult TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired();
+TestResult TestTx_BucketWithPath();
 TestResult TestBucket_Get_NonExistent();
 TestResult TestBucket_Get_FromNode();
-TestResult TestBUcket_Get_IncompatibleValue();
+TestResult TestBucket_Get_IncompatibleValue();
 TestResult TestBucket_Get_Capacity();
 TestResult TestBucket_Put();
 TestResult TestBucket_Put_Repeat();
 TestResult TestBucket_Put_Large();
 TestResult TestBucket_Put_VeryLarge();
-TestResult TestBUcket_Put_IncompatibleValue();
+TestResult TestBucket_Put_IncompatibleValue();
 TestResult TestBucket_Put_Closed();
 TestResult TestBucket_Put_ReadOnly();
 TestResult TestBucket_Delete();
@@ -194,14 +195,12 @@ static const std::vector<Test> tests = {
     {"Test Cursor QuickCheck", TestCursor_QuickCheck},
     {"Test Cursor QuickCheck Reverse", TestCursor_QuickCheck_Reverse},
     {"Test Cursor QuickCheck BucketsOnly", TestCursor_QuickCheck_BucketsOnly},
-    {"Test Cursor QuickCheck BucketsOnly Reverse",
-     TestCursor_QuickCheck_BucketsOnly_Reverse},
+    {"Test Cursor QuickCheck BucketsOnly Reverse", TestCursor_QuickCheck_BucketsOnly_Reverse},
     {"Test Tx Commit ErrorTxClosed", TestTx_Commit_ErrorTxClosed},
     {"Test Tx Rollback ErrorTxClosed", TestTx_Rollback_ErrorTxClosed},
     {"Test Tx Commit ErrorTxNotWritable", TestTx_Commit_ErrorTxNotWritable},
     {"Test Tx Cursor", TestTx_Cursor},
-    {"Test Tx CreateBucket ErrorTxNotWritable",
-     TestTx_CreateBucket_ErrorTxNotWritable},
+    {"Test Tx CreateBucket ErrorTxNotWritable", TestTx_CreateBucket_ErrorTxNotWritable},
     {"Test Tx CreateBucket ErrorTxClosed", TestTx_CreateBucket_ErrorTxClosed},
     {"Test Tx Bucket", TestTx_Bucket},
     {"Test Tx Get NotFound", TestTx_Get_NotFound},
@@ -209,8 +208,7 @@ static const std::vector<Test> tests = {
     {"Test Tx CreateBucketIfNotExists", TestTx_CreateBucketIfNotExists},
     {"Test Tx CreateBucketIfNotExists ErrorBucketNameRequired",
      TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired},
-    {"Test Tx CreateBucket ErrorBucketExists",
-     TestTx_CreateBucket_ErrorBucketExists},
+    {"Test Tx CreateBucket ErrorBucketExists", TestTx_CreateBucket_ErrorBucketExists},
     {"Test Tx CreateBucket ErrorBucketNameRequired",
      TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired},
     {"Test Tx DeleteBucket", TestTx_DeleteBucket},
@@ -221,15 +219,16 @@ static const std::vector<Test> tests = {
     {"Test Tx ForEach WithError", TestTx_ForEach_WithError},
     {"Test Tx OnCommit", TestTx_OnCommit},
     {"Test Tx OnCommit Rollback", TestTx_OnCommit_Rollback},
+    {"Test Tx BucketWithPath", TestTx_BucketWithPath},
     {"Test Bucket Get NonExistent", TestBucket_Get_NonExistent},
     {"Test Bucket Get FromNode", TestBucket_Get_FromNode},
-    {"Test BUcket Get IncompatibleValue", TestBUcket_Get_IncompatibleValue},
+    {"Test Bucket Get IncompatibleValue", TestBucket_Get_IncompatibleValue},
     {"Test Bucket Get Capacity", TestBucket_Get_Capacity},
     {"Test Bucket Put", TestBucket_Put},
     {"Test Bucket Put Repeat", TestBucket_Put_Repeat},
     {"Test Bucket Put Large", TestBucket_Put_Large},
     {"Test Bucket Put VeryLarge", TestBucket_Put_VeryLarge},
-    {"Test BUcket Put IncompatibleValue", TestBUcket_Put_IncompatibleValue},
+    {"Test Bucket Put IncompatibleValue", TestBucket_Put_IncompatibleValue},
     {"Test Bucket Put Closed", TestBucket_Put_Closed},
     {"Test Bucket Put ReadOnly", TestBucket_Put_ReadOnly},
     {"Test Bucket Delete", TestBucket_Delete},
@@ -242,12 +241,9 @@ static const std::vector<Test> tests = {
     {"Test Bucket DeleteBucket Nested", TestBucket_DeleteBucket_Nested},
     {"Test Bucket DeleteBucket Nested2", TestBucket_DeleteBucket_Nested2},
     {"Test Bucket DeleteBucket Large", TestBucket_DeleteBucket_Large},
-    {"Test Bucket Bucket IncompatibleValue",
-     TestBucket_Bucket_IncompatibleValue},
-    {"Test Bucket CreateBucket IncompatibleValue",
-     TestBucket_CreateBucket_IncompatibleValue},
-    {"Test Bucket DeleteBucket IncompatibleValue",
-     TestBucket_DeleteBucket_IncompatibleValue},
+    {"Test Bucket Bucket IncompatibleValue", TestBucket_Bucket_IncompatibleValue},
+    {"Test Bucket CreateBucket IncompatibleValue", TestBucket_CreateBucket_IncompatibleValue},
+    {"Test Bucket DeleteBucket IncompatibleValue", TestBucket_DeleteBucket_IncompatibleValue},
     {"Test Bucket Sequence", TestBucket_Sequence},
     {"Test Bucket NextSequence", TestBucket_NextSequence},
     {"Test Bucket NextSequence Persist", TestBucket_NextSequence_Persist},
@@ -271,26 +267,24 @@ static const std::vector<Test> tests = {
 };
 
 int main(int argc, char **argv) {
-  int success_tests = 0;
-  int failed_tests = 0;
-  std::chrono::steady_clock::time_point startTime, endTime;
-  startTime = std::chrono::steady_clock::now();
-  for (auto test : tests) {
-    auto res = test.run();
-    if (res.success) {
-      success_tests++;
-    } else {
-      failed_tests++;
+    int success_tests = 0;
+    int failed_tests = 0;
+    std::chrono::steady_clock::time_point startTime, endTime;
+    startTime = std::chrono::steady_clock::now();
+    for (auto test : tests) {
+        auto res = test.run();
+        if (res.success) {
+            success_tests++;
+        } else {
+            failed_tests++;
+        }
     }
-  }
-  endTime = std::chrono::steady_clock::now();
+    endTime = std::chrono::steady_clock::now();
 
-  auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-      endTime - startTime);
-  auto durationS =
-      std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime);
-  fmt::println("Finished {} tests in {}s ({}ms). Succeed: {}. Failed: {}.",
-               success_tests + failed_tests, durationS.count(),
-               durationMs.count(), success_tests, failed_tests);
-  return 0;
+    auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+    auto durationS = std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime);
+    fmt::println("Finished {} tests in {}s ({}ms). Succeed: {}. Failed: {}.",
+                 success_tests + failed_tests, durationS.count(), durationMs.count(), success_tests,
+                 failed_tests);
+    return 0;
 }
