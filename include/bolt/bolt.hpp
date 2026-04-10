@@ -53,7 +53,7 @@ public:
     operator bool() { return pimpl<impl::DBPtr>::impl() ? true : false; };
 };
 
-class Tx final : pimpl<impl::TxPtr> {
+class Tx final : private pimpl<impl::TxPtr> {
 public:
     std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucket(bolt::const_bytes name);
     std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucketIfNotExists(bolt::const_bytes name);
