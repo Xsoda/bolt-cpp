@@ -1,5 +1,6 @@
 #include "impl/tx.hpp"
 #include "bolt/error.hpp"
+#include "fmt/format.h"
 #include "impl/bucket.hpp"
 #include "impl/db.hpp"
 #include "impl/freelist.hpp"
@@ -8,8 +9,6 @@
 #include "impl/utils.hpp"
 #include <algorithm>
 #include <chrono>
-#include <fmt/chrono.h>
-#include <fmt/format.h>
 #include <inttypes.h>
 #include <mutex>
 

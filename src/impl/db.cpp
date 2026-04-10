@@ -1,11 +1,11 @@
 #include "impl/db.hpp"
 #include "bolt/error.hpp"
-#include "fmt/std.h"
 #include "impl/batch.hpp"
 #include "impl/file.hpp"
 #include "impl/freelist.hpp"
 #include "impl/page.hpp"
 #include "impl/tx.hpp"
+#include "impl/utils.hpp"
 #include <chrono>
 #include <ctime>
 #include <exception>
@@ -208,7 +208,6 @@ bolt::ErrorCode DB::init() {
 // Batch is only useful when there are multiple goroutines calling it.
 bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     std::jthread executor;
-    bool wait_executor = false;
     std::shared_ptr<impl::batch> ptr;
     std::shared_ptr<impl::call> c = std::make_shared<impl::call>();
     do {
@@ -221,7 +220,6 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
         c->fn = std::move(fn);
         batch->calls.emplace_back(c);
         if (batch->calls.size() >= MaxBatchSize) {
-            wait_executor = true;
             executor = std::jthread([b = batch]() { b->trigger(); });
         }
     } while (0);
@@ -232,7 +230,7 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     if (ptr) {
         ptr->wait();
     }
-    if (wait_executor) {
+    if (executor.joinable()) {
         executor.join();
     }
 
@@ -260,7 +258,7 @@ bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     try {
         err = fn(tx);
     } catch (const std::exception &e) {
-        fmt::println(stderr, "exception: {}", e.what());
+        log_debug("exception: {}", e.what());
         err = bolt::ErrorExceptionCaptured;
     }
     tx->managed = false;
@@ -290,7 +288,7 @@ bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     try {
         err = fn(tx);
     } catch (const std::exception &e) {
-        fmt::println(stderr, "exception: {}", e.what());
+        log_debug("exception: {}", e.what());
         err = bolt::ErrorExceptionCaptured;
     }
     tx->managed = false;
