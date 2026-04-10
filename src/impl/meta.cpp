@@ -1,8 +1,8 @@
 #include "impl/meta.hpp"
-#include "impl/page.hpp"
 #include "impl/fnv64.hpp"
-#include <source_location>
+#include "impl/page.hpp"
 #include <cassert>
+#include <source_location>
 
 namespace bolt::impl {
 
@@ -32,17 +32,14 @@ meta::meta(impl::pgid id) {
     checksum = 0;
 }
 
-void meta::copy(impl::meta *dest) const {
-    *dest = *this;
-}
+void meta::copy(impl::meta *dest) const { *dest = *this; }
 
 void meta::write(impl::page *p) {
     if (this->root.root >= pgid) {
-      _assert(false, "root bucket pgid ({}) above high water mark ({})",
-              this->root.root, this->pgid);
+        _assert(false, "root bucket pgid ({}) above high water mark ({})", this->root.root,
+                this->pgid);
     } else if (this->freelist >= pgid) {
-        _assert(false, "freelist pgid ({}) above high water mark ({})",
-                this->freelist, this->pgid);
+        _assert(false, "freelist pgid ({}) above high water mark ({})", this->freelist, this->pgid);
     }
 
     p->id = this->txid % 2;
@@ -71,4 +68,4 @@ bolt::ErrorCode meta::validate() {
     return bolt::ErrorCode::Success;
 }
 
-}
+} // namespace bolt::impl

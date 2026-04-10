@@ -39,111 +39,109 @@
 #include <cstdint>
 #include <string>
 
-namespace fnv64
-{
-	namespace internal
-	{
-		static constexpr std::uint64_t shift_sum(std::uint64_t hashval)
-		{
-			return (hashval << 1) + (hashval << 4) + (hashval << 5) +
-				(hashval << 7) + (hashval << 8) + (hashval << 40);
-		}
-	}
-
-	static const std::uint64_t FNV1_64_INIT = 0xcbf29ce484222325ULL;
-	static const std::uint64_t FNV1A_64_INIT = FNV1_64_INIT;
-
-	//FNV-1 hash
-	static std::uint64_t fnv1_hash(void* buf, std::size_t size, std::uint64_t hashval = FNV1_64_INIT)
-	{
-		unsigned char* first = reinterpret_cast<unsigned char*>(buf);
-		unsigned char* last = first + size;
-		while (first < last)
-		{
-			hashval += internal::shift_sum(hashval);
-			hashval ^= static_cast<std::uint64_t>(*first++);
-		}
-		return hashval;
-	}
-
-	//FNV-1 hash
-	static inline std::uint64_t fnv1_hash(std::size_t n, void* buf, std::size_t size, std::uint64_t hashval = FNV1_64_INIT)
-	{
-		for (std::size_t i = 0; i < n; ++i) hashval = fnv1_hash(buf, size, hashval);
-		return hashval;
-	}
-
-	//FNV-1 hash
-	static inline std::uint64_t fnv1_hash(const char* buf, std::size_t size, std::uint64_t hashval = FNV1_64_INIT)
-	{
-		return fnv1_hash(reinterpret_cast<void*>(const_cast<char*>(buf)), size, hashval);
-	}
-
-	//FNV-1 hash
-	static inline std::uint64_t fnv1_hash(std::size_t n, const char* buf, std::size_t size, std::uint64_t hashval = FNV1_64_INIT)
-	{
-		for (std::size_t i = 0; i < n; ++i) hashval = fnv1_hash(reinterpret_cast<void*>(const_cast<char*>(buf)), size, hashval);
-		return hashval;
-	}
-
-	//FNV-1 hash
-	static inline std::uint64_t fnv1_hash(const std::string& s, std::uint64_t hashval = FNV1_64_INIT)
-	{
-		return fnv1_hash(s.c_str(), s.size(), hashval);
-	}
-
-	//FNV-1 hash
-	static inline std::uint64_t fnv1_hash(std::size_t n, const std::string& s, std::uint64_t hashval = FNV1_64_INIT)
-	{
-		for (std::size_t i = 0; i < n; ++i) hashval = fnv1_hash(s.c_str(), s.size(), hashval);
-		return hashval;
-	}
-
-	//FNV-1a hash
-	static std::uint64_t fnv1a_hash(void* buf, std::size_t size, std::uint64_t hashval = FNV1A_64_INIT)
-	{
-		unsigned char* first = reinterpret_cast<unsigned char*>(buf);
-		unsigned char* last = first + size;
-		while (first < last)
-		{
-			hashval ^= static_cast<std::uint64_t>(*first++);
-			hashval += internal::shift_sum(hashval);
-		}
-		return hashval;
-	}
-
-	//FNV-1a hash
-	static inline std::uint64_t fnv1a_hash(std::size_t n, void* buf, std::size_t size, std::uint64_t hashval = FNV1_64_INIT)
-	{
-		for (std::size_t i = 0; i < n; ++i) hashval = fnv1a_hash(buf, size, hashval);
-		return hashval;
-	}
-
-	//FNV-1a hash
-	static inline std::uint64_t fnv1a_hash(const char* buf, std::size_t size, std::uint64_t hashval = FNV1A_64_INIT)
-	{
-		return fnv1a_hash(reinterpret_cast<void*>(const_cast<char*>(buf)), size, hashval);
-	}
-
-	//FNV-1a hash
-	static inline std::uint64_t fnv1a_hash(std::size_t n, const char* buf, std::size_t size, std::uint64_t hashval = FNV1A_64_INIT)
-	{
-		for (std::size_t i = 0; i < n; ++i) hashval = fnv1a_hash(buf, size, hashval);
-		return hashval;
-	}
-
-	//FNV-1a hash
-	static inline std::uint64_t fnv1a_hash(const std::string& s, std::uint64_t hashval = FNV1_64_INIT)
-	{
-		return fnv1a_hash(s.c_str(), s.size(), hashval);
-	}
-
-	//FNV-1a hash
-	static inline std::uint64_t fnv1a_hash(std::size_t n, const std::string& s, std::uint64_t hashval = FNV1_64_INIT)
-	{
-		for (std::size_t i = 0; i < n; ++i) hashval = fnv1a_hash(s, hashval);
-		return hashval;
-	}
+namespace fnv64 {
+namespace internal {
+static constexpr std::uint64_t shift_sum(std::uint64_t hashval) {
+    return (hashval << 1) + (hashval << 4) + (hashval << 5) + (hashval << 7) + (hashval << 8) +
+           (hashval << 40);
 }
+} // namespace internal
+
+static const std::uint64_t FNV1_64_INIT = 0xcbf29ce484222325ULL;
+static const std::uint64_t FNV1A_64_INIT = FNV1_64_INIT;
+
+// FNV-1 hash
+static std::uint64_t fnv1_hash(void *buf, std::size_t size, std::uint64_t hashval = FNV1_64_INIT) {
+    unsigned char *first = reinterpret_cast<unsigned char *>(buf);
+    unsigned char *last = first + size;
+    while (first < last) {
+        hashval += internal::shift_sum(hashval);
+        hashval ^= static_cast<std::uint64_t>(*first++);
+    }
+    return hashval;
+}
+
+// FNV-1 hash
+static inline std::uint64_t fnv1_hash(std::size_t n, void *buf, std::size_t size,
+                                      std::uint64_t hashval = FNV1_64_INIT) {
+    for (std::size_t i = 0; i < n; ++i)
+        hashval = fnv1_hash(buf, size, hashval);
+    return hashval;
+}
+
+// FNV-1 hash
+static inline std::uint64_t fnv1_hash(const char *buf, std::size_t size,
+                                      std::uint64_t hashval = FNV1_64_INIT) {
+    return fnv1_hash(reinterpret_cast<void *>(const_cast<char *>(buf)), size, hashval);
+}
+
+// FNV-1 hash
+static inline std::uint64_t fnv1_hash(std::size_t n, const char *buf, std::size_t size,
+                                      std::uint64_t hashval = FNV1_64_INIT) {
+    for (std::size_t i = 0; i < n; ++i)
+        hashval = fnv1_hash(reinterpret_cast<void *>(const_cast<char *>(buf)), size, hashval);
+    return hashval;
+}
+
+// FNV-1 hash
+static inline std::uint64_t fnv1_hash(const std::string &s, std::uint64_t hashval = FNV1_64_INIT) {
+    return fnv1_hash(s.c_str(), s.size(), hashval);
+}
+
+// FNV-1 hash
+static inline std::uint64_t fnv1_hash(std::size_t n, const std::string &s,
+                                      std::uint64_t hashval = FNV1_64_INIT) {
+    for (std::size_t i = 0; i < n; ++i)
+        hashval = fnv1_hash(s.c_str(), s.size(), hashval);
+    return hashval;
+}
+
+// FNV-1a hash
+static std::uint64_t fnv1a_hash(void *buf, std::size_t size,
+                                std::uint64_t hashval = FNV1A_64_INIT) {
+    unsigned char *first = reinterpret_cast<unsigned char *>(buf);
+    unsigned char *last = first + size;
+    while (first < last) {
+        hashval ^= static_cast<std::uint64_t>(*first++);
+        hashval += internal::shift_sum(hashval);
+    }
+    return hashval;
+}
+
+// FNV-1a hash
+static inline std::uint64_t fnv1a_hash(std::size_t n, void *buf, std::size_t size,
+                                       std::uint64_t hashval = FNV1_64_INIT) {
+    for (std::size_t i = 0; i < n; ++i)
+        hashval = fnv1a_hash(buf, size, hashval);
+    return hashval;
+}
+
+// FNV-1a hash
+static inline std::uint64_t fnv1a_hash(const char *buf, std::size_t size,
+                                       std::uint64_t hashval = FNV1A_64_INIT) {
+    return fnv1a_hash(reinterpret_cast<void *>(const_cast<char *>(buf)), size, hashval);
+}
+
+// FNV-1a hash
+static inline std::uint64_t fnv1a_hash(std::size_t n, const char *buf, std::size_t size,
+                                       std::uint64_t hashval = FNV1A_64_INIT) {
+    for (std::size_t i = 0; i < n; ++i)
+        hashval = fnv1a_hash(buf, size, hashval);
+    return hashval;
+}
+
+// FNV-1a hash
+static inline std::uint64_t fnv1a_hash(const std::string &s, std::uint64_t hashval = FNV1_64_INIT) {
+    return fnv1a_hash(s.c_str(), s.size(), hashval);
+}
+
+// FNV-1a hash
+static inline std::uint64_t fnv1a_hash(std::size_t n, const std::string &s,
+                                       std::uint64_t hashval = FNV1_64_INIT) {
+    for (std::size_t i = 0; i < n; ++i)
+        hashval = fnv1a_hash(s, hashval);
+    return hashval;
+}
+} // namespace fnv64
 
 #endif /* FNV64_HPP */

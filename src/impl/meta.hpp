@@ -27,6 +27,6 @@ struct meta {
     bolt::ErrorCode validate();
 };
 
-}
+} // namespace bolt::impl
 
-#endif  // !__META_HPP__
+#endif // !__META_HPP__

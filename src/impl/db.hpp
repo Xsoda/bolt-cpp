@@ -1,10 +1,10 @@
 #ifndef __DB_HPP__
 #define __DB_HPP__
 
-#include "impl/tx.hpp"
+#include "impl/batch.hpp"
 #include "impl/file.hpp"
 #include "impl/freelist.hpp"
-#include "impl/batch.hpp"
+#include "impl/tx.hpp"
 #include "impl/utils.hpp"
 #include <memory>
 #include <mutex>
@@ -49,7 +49,7 @@ struct DB : public std::enable_shared_from_this<DB> {
 
     std::uintptr_t dataref;
     std::uint64_t datasz;
-    std::uint64_t filesz;                 // current on dist file size
+    std::uint64_t filesz; // current on dist file size
     impl::File file;
     impl::meta *meta0;
     impl::meta *meta1;
@@ -82,7 +82,7 @@ struct DB : public std::enable_shared_from_this<DB> {
     ~DB();
     bolt::ErrorCode init();
     const std::string &Path() const;
-    bolt::ErrorCode Open(std::string path, bool readOnly=false);
+    bolt::ErrorCode Open(std::string path, bool readOnly = false);
     bolt::ErrorCode Close();
     void Sync();
     impl::meta *meta();
@@ -111,6 +111,6 @@ struct DB : public std::enable_shared_from_this<DB> {
     bolt::ErrorCode View(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn);
 };
 
-}
+} // namespace bolt::impl
 
-#endif  // !__DB_HPP__
+#endif // !__DB_HPP__

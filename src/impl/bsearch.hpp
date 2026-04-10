@@ -7,11 +7,9 @@
 
 namespace bolt::impl {
 
-template <class ForwardIt,
-          class T = typename std::iterator_traits<ForwardIt>::value_type,
+template <class ForwardIt, class T = typename std::iterator_traits<ForwardIt>::value_type,
           class Compare>
-ForwardIt upper_bound(ForwardIt first, ForwardIt last, const T &value,
-                      Compare comp) {
+ForwardIt upper_bound(ForwardIt first, ForwardIt last, const T &value, Compare comp) {
     ForwardIt it;
     typename std::iterator_traits<ForwardIt>::difference_type count, step;
     count = std::distance(first, last);
@@ -31,11 +29,9 @@ ForwardIt upper_bound(ForwardIt first, ForwardIt last, const T &value,
     return first;
 }
 
-template <class ForwardIt,
-          class T = typename std::iterator_traits<ForwardIt>::value_type,
+template <class ForwardIt, class T = typename std::iterator_traits<ForwardIt>::value_type,
           class Compare>
-ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T &value,
-                      Compare comp) {
+ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T &value, Compare comp) {
     ForwardIt it;
     typename std::iterator_traits<ForwardIt>::difference_type count, step;
     count = std::distance(first, last);
@@ -57,9 +53,9 @@ ForwardIt lower_bound(ForwardIt first, ForwardIt last, const T &value,
 
 template <class ContainerA, class ContainerB>
 constexpr auto compare_three_way(ContainerA a, ContainerB b) {
-    return std::lexicographical_compare_three_way(std::begin(a), std::end(a),
-                                                  std::begin(b), std::end(b));
+    return std::lexicographical_compare_three_way(std::begin(a), std::end(a), std::begin(b),
+                                                  std::end(b));
 }
 
-}
-#endif  // !__BSEARCH_HPP__
+} // namespace bolt::impl
+#endif // !__BSEARCH_HPP__

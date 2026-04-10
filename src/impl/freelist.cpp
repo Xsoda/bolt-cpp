@@ -13,13 +13,9 @@ size_t freelist::size() {
     return impl::pageHeaderSize + sizeof(impl::pgid) * n;
 }
 
-size_t freelist::count() {
-    return this->free_count() + this->pending_count();
-}
+size_t freelist::count() { return this->free_count() + this->pending_count(); }
 
-size_t freelist::free_count() {
-    return this->ids.size();
-}
+size_t freelist::free_count() { return this->ids.size(); }
 
 size_t freelist::pending_count() {
     size_t count = 0;
@@ -51,9 +47,8 @@ void mergepgids(std::span<impl::pgid> dest, std::span<impl::pgid> a, std::span<i
     }
 
     while (lead.size() > 0) {
-        auto it = std::find_if(lead.begin(), lead.end(), [&](impl::pgid &item) -> bool {
-            return item > follow[0];
-        });
+        auto it = std::find_if(lead.begin(), lead.end(),
+                               [&](impl::pgid &item) -> bool { return item > follow[0]; });
         std::copy(lead.begin(), it, dest.begin() + length);
         length += std::distance(lead.begin(), it);
 
@@ -88,7 +83,7 @@ impl::pgid freelist::allocate(size_t n) {
             _assert(false, "invalid page allocation: {}", id);
         }
         // Reset initial page if this is not contiguous.
-        if (previd == 0 || id - previd != 1){
+        if (previd == 0 || id - previd != 1) {
             initial = id;
         }
 
@@ -185,12 +180,12 @@ void freelist::read(impl::page *p) {
     int count = (int)p->count;
     if (count == 0xFFFF) {
         idx = 1;
-        count = (int)reinterpret_cast<impl::pgid*>(&p->ptr)[0];
+        count = (int)reinterpret_cast<impl::pgid *>(&p->ptr)[0];
     }
 
     ids.clear();
     if (count > 0) {
-        impl::pgid *ptr = reinterpret_cast<impl::pgid*>(&p->ptr);
+        impl::pgid *ptr = reinterpret_cast<impl::pgid *>(&p->ptr);
         std::span<impl::pgid> s(&ptr[idx], count);
         ids.assign(count, 0);
         std::copy(s.begin(), s.end(), ids.begin());
@@ -206,13 +201,13 @@ bolt::ErrorCode freelist::write(impl::page *p) {
     if (lenids == 0) {
         p->count = (std::uint16_t)lenids;
     } else if (lenids < 0xFFFF) {
-        impl::pgid *ptr = reinterpret_cast<impl::pgid*>(&p->ptr);
+        impl::pgid *ptr = reinterpret_cast<impl::pgid *>(&p->ptr);
         p->count = (std::uint16_t)lenids;
         std::span<impl::pgid> s(ptr, lenids);
         copyall(s);
     } else {
         p->count = 0xFFFF;
-        impl::pgid *ptr = reinterpret_cast<impl::pgid*>(&p->ptr);
+        impl::pgid *ptr = reinterpret_cast<impl::pgid *>(&p->ptr);
         ptr[0] = (impl::pgid)lenids;
         std::span<impl::pgid> s(&ptr[1], lenids);
         copyall(s);
@@ -250,4 +245,4 @@ void freelist::reindex() {
     }
 }
 
-}
+} // namespace bolt::impl

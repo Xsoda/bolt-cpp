@@ -1,9 +1,9 @@
 #ifndef __NODE_HPP__
 #define __NODE_HPP__
 
-#include "impl/utils.hpp"
 #include "impl/bucket.hpp"
 #include "impl/page.hpp"
+#include "impl/utils.hpp"
 #include <initializer_list>
 #include <memory>
 
@@ -39,7 +39,7 @@ struct node : public std::enable_shared_from_this<node> {
     std::vector<impl::inode> inodes;
     std::vector<std::byte> memory;
 
-    explicit node() : isLeaf(false), unbalanced(false), spilled(false), pgid(0) {};
+    explicit node() : isLeaf(false), unbalanced(false), spilled(false), pgid(0){};
     explicit node(bool isLeaf);
     explicit node(impl::BucketPtr bucket);
     explicit node(impl::BucketPtr bucket, bool isLeaf, impl::node_ptr parent);
@@ -78,7 +78,8 @@ struct node : public std::enable_shared_from_this<node> {
     impl::node_ptr prevSibling();
 
     // put inserts a key/value.
-    void put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_bytes value, impl::pgid pgid, std::uint32_t flags);
+    void put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_bytes value,
+             impl::pgid pgid, std::uint32_t flags);
 
     // del removes a key from the node.
     void del(bolt::const_bytes key);
@@ -97,7 +98,8 @@ struct node : public std::enable_shared_from_this<node> {
     // splitTwo breaks up a node into two smaller nodes, if appropriate.
     // This should only be called from the split() function.
     // extra return parent pointer used hook std::weak_ptr
-    std::tuple<impl::node_ptr, impl::node_ptr> splitTwo(size_t pageSize, std::vector<impl::node_ptr> &hold);
+    std::tuple<impl::node_ptr, impl::node_ptr> splitTwo(size_t pageSize,
+                                                        std::vector<impl::node_ptr> &hold);
 
     // splitIndex finds the position where a page will fill a given threshold.
     // It returns the index as well as the size of the first page.
@@ -126,6 +128,6 @@ struct node : public std::enable_shared_from_this<node> {
     void dump();
 };
 
-}
+} // namespace bolt::impl
 
-#endif  // !__NODE_HPP__
+#endif // !__NODE_HPP__

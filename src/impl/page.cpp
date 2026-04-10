@@ -17,23 +17,20 @@ std::string page::type() const {
     }
 }
 
-page::page(impl::pgid id)
-    : id(id), flags(0), count(0), overflow(0), ptr(0){};
+page::page(impl::pgid id) : id(id), flags(0), count(0), overflow(0), ptr(0){};
 
 page::page(impl::pgid id, std::uint32_t overflow)
     : id(id), overflow(overflow), flags(0), count(0), ptr(0){};
 
-impl::meta *page::meta() {
-    return reinterpret_cast<impl::meta*>(&this->ptr);
-}
+impl::meta *page::meta() { return reinterpret_cast<impl::meta *>(&this->ptr); }
 
 impl::leafPageElement *page::leafPageElement(std::uint16_t index) {
-    impl::leafPageElement *array = reinterpret_cast<impl::leafPageElement*>(&this->ptr);
+    impl::leafPageElement *array = reinterpret_cast<impl::leafPageElement *>(&this->ptr);
     return &array[index];
 }
 
 std::span<impl::leafPageElement> page::leafPageElements() {
-    impl::leafPageElement *array = reinterpret_cast<impl::leafPageElement*>(&this->ptr);
+    impl::leafPageElement *array = reinterpret_cast<impl::leafPageElement *>(&this->ptr);
     if (this->count == 0) {
         return std::span<impl::leafPageElement>{};
     }
@@ -41,12 +38,12 @@ std::span<impl::leafPageElement> page::leafPageElements() {
 }
 
 impl::branchPageElement *page::branchPageElement(std::uint16_t index) {
-    impl::branchPageElement *array = reinterpret_cast<impl::branchPageElement*>(&this->ptr);
+    impl::branchPageElement *array = reinterpret_cast<impl::branchPageElement *>(&this->ptr);
     return &array[index];
 }
 
 std::span<impl::branchPageElement> page::branchPageElements() {
-    impl::branchPageElement *array = reinterpret_cast<impl::branchPageElement*>(&this->ptr);
+    impl::branchPageElement *array = reinterpret_cast<impl::branchPageElement *>(&this->ptr);
     if (this->count == 0) {
         return std::span<impl::branchPageElement>{};
     }
@@ -68,4 +65,4 @@ bolt::bytes leafPageElement::value() {
     return bolt::bytes(&buf[this->pos + this->ksize], this->vsize);
 }
 
-}
+} // namespace bolt::impl

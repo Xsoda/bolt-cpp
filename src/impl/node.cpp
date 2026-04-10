@@ -1,14 +1,14 @@
 #include "impl/node.hpp"
-#include "impl/db.hpp"
-#include "impl/tx.hpp"
-#include "impl/freelist.hpp"
-#include "impl/utils.hpp"
 #include "impl/bsearch.hpp"
+#include "impl/db.hpp"
+#include "impl/freelist.hpp"
+#include "impl/tx.hpp"
+#include "impl/utils.hpp"
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
-#include <iterator>
 #include <iostream>
+#include <iterator>
 #include <span>
 
 namespace bolt::impl {
@@ -19,14 +19,12 @@ inode::inode(const inode &other) noexcept {
     this->pgid = other.pgid;
     this->memory = other.memory;
     this->key = bolt::bytes(this->memory.data(), other.key.size());
-    this->value =
-        bolt::bytes(this->memory.data() + other.key.size(), other.value.size());
+    this->value = bolt::bytes(this->memory.data() + other.key.size(), other.value.size());
     if (memory.empty() && key.size() > 0) {
         memory.resize(key.size() + value.size());
         std::memcpy(memory.data(), other.key.data(), key.size());
         key = bolt::bytes(memory.data(), key.size());
-        std::memcpy(memory.data() + key.size(), other.value.data(),
-                    value.size());
+        std::memcpy(memory.data() + key.size(), other.value.data(), value.size());
         value = bolt::bytes(memory.data() + key.size(), value.size());
     }
 }
@@ -78,7 +76,7 @@ inode &inode::operator=(inode &&other) noexcept {
     return *this;
 }
 
-node::node(impl::BucketPtr bucket, std::initializer_list<impl::node_ptr> children): pgid(0) {
+node::node(impl::BucketPtr bucket, std::initializer_list<impl::node_ptr> children) : pgid(0) {
     this->bucket = bucket;
     this->children = children;
     isLeaf = false;
@@ -86,8 +84,7 @@ node::node(impl::BucketPtr bucket, std::initializer_list<impl::node_ptr> childre
     spilled = false;
 }
 
-node::node(impl::BucketPtr bucket, bool isLeaf, impl::node_ptr parent)
-    : pgid(0) {
+node::node(impl::BucketPtr bucket, bool isLeaf, impl::node_ptr parent) : pgid(0) {
     this->bucket = bucket;
     this->parent = parent;
     this->isLeaf = isLeaf;
@@ -138,7 +135,7 @@ bool node::sizeLessThan(size_t v, size_t off) const {
         auto &item = inodes[i];
         sz += elsz + item.key.size() + item.value.size();
         if (sz >= v) {
-                return false;
+            return false;
         }
     }
     return true;
@@ -163,18 +160,15 @@ impl::node_ptr node::childAt(ptrdiff_t index) {
 }
 
 ptrdiff_t node::childIndex(impl::node_ptr child) {
-    auto it = impl::upper_bound(
-        std::begin(inodes), std::end(inodes), child,
-        [](const impl::node_ptr &child, impl::inode &n) -> bool {
-            auto cmp = impl::compare_three_way(child->key, n.key);
-            return !std::is_gt(cmp);
-        });
+    auto it = impl::upper_bound(std::begin(inodes), std::end(inodes), child,
+                                [](const impl::node_ptr &child, impl::inode &n) -> bool {
+                                    auto cmp = impl::compare_three_way(child->key, n.key);
+                                    return !std::is_gt(cmp);
+                                });
     return std::distance(inodes.begin(), it);
 }
 
-size_t node::numChildren() const {
-    return inodes.size();
-}
+size_t node::numChildren() const { return inodes.size(); }
 
 impl::node_ptr node::nextSibling() {
     if (parent.expired()) {
@@ -201,7 +195,7 @@ impl::node_ptr node::prevSibling() {
 }
 
 void node::put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_bytes value,
-    impl::pgid pgid, std::uint32_t flags) {
+               impl::pgid pgid, std::uint32_t flags) {
     auto bktptr = bucket.lock();
     if (!bktptr) {
         _assert(false, "bucket invalid");
@@ -212,21 +206,18 @@ void node::put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_b
     }
     if (pgid >= txptr->meta.pgid) {
         _assert(false, "pgid ({}) above high water mark ({})", pgid, txptr->meta.pgid);
-    }
-    else if (oldKey.size() <= 0) {
+    } else if (oldKey.size() <= 0) {
         _assert(false, "put: zero-length old key");
-    }
-    else if (newKey.size() <= 0) {
+    } else if (newKey.size() <= 0) {
         _assert(false, "put: zero-length new key");
     }
 
     // Find insertion index.
-    auto it = impl::upper_bound(
-        std::begin(inodes), std::end(inodes), oldKey,
-        [](const bolt::const_bytes &key, impl::inode &item) -> bool {
-            auto cmp = impl::compare_three_way(key, item.key);
-            return !std::is_gt(cmp);
-        });
+    auto it = impl::upper_bound(std::begin(inodes), std::end(inodes), oldKey,
+                                [](const bolt::const_bytes &key, impl::inode &item) -> bool {
+                                    auto cmp = impl::compare_three_way(key, item.key);
+                                    return !std::is_gt(cmp);
+                                });
     auto index = std::distance(std::begin(inodes), it);
     // Add capacity and shift nodes if we don't have an exact match and need to
     // insert.
@@ -253,15 +244,13 @@ void node::put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_b
 // del removes a key from the node.
 void node::del(bolt::const_bytes k) {
     // Find index of key.
-    auto it = impl::upper_bound(
-        std::begin(inodes), std::end(inodes), k,
-        [](const bolt::const_bytes &k, impl::inode &item) -> bool {
-            auto cmp = impl::compare_three_way(k, item.key);
-            return !std::is_gt(cmp);
-        });
+    auto it = impl::upper_bound(std::begin(inodes), std::end(inodes), k,
+                                [](const bolt::const_bytes &k, impl::inode &item) -> bool {
+                                    auto cmp = impl::compare_three_way(k, item.key);
+                                    return !std::is_gt(cmp);
+                                });
     // Exit if the key isn't found.
-    if (it == inodes.end() ||
-        !std::is_eq(impl::compare_three_way(it->key, k))) {
+    if (it == inodes.end() || !std::is_eq(impl::compare_three_way(it->key, k))) {
         return;
     }
     // Delete inode from the node.
@@ -316,24 +305,23 @@ void node::write(impl::page *p) {
     }
 
     // Loop over each item and write it to the page.
-    std::byte *buf = &reinterpret_cast<std::byte *>(
-        &p->ptr)[pageElementSize() * inodes.size()];
+    std::byte *buf = &reinterpret_cast<std::byte *>(&p->ptr)[pageElementSize() * inodes.size()];
     for (size_t i = 0; i < inodes.size(); i++) {
         auto &item = inodes[i];
         _assert(item.key.size() > 0, "write: zero-length inode key");
         // Write the page element.
         if (isLeaf) {
             auto elem = p->leafPageElement((uint16_t)i);
-            elem->pos = (uint32_t)(buf - reinterpret_cast<std::byte*>(elem));
+            elem->pos = (uint32_t)(buf - reinterpret_cast<std::byte *>(elem));
             elem->flags = item.flags;
             elem->ksize = (uint32_t)item.key.size();
             elem->vsize = (uint32_t)item.value.size();
         } else {
             auto elem = p->branchPageElement((uint16_t)i);
-            elem->pos = (uint32_t)(buf - reinterpret_cast<std::byte*>(elem));
+            elem->pos = (uint32_t)(buf - reinterpret_cast<std::byte *>(elem));
             elem->ksize = (uint32_t)item.key.size();
             elem->pgid = item.pgid;
-            _assert(elem->pgid != p->id , "write: circular dependency occurred");
+            _assert(elem->pgid != p->id, "write: circular dependency occurred");
         }
 
         std::memcpy(buf, item.key.data(), item.key.size());
@@ -345,12 +333,11 @@ void node::write(impl::page *p) {
 
 // splitTwo breaks up a node into two smaller nodes, if appropriate.
 // This should only be called from the split() function.
-std::tuple<impl::node_ptr, impl::node_ptr>
-node::splitTwo(size_t pageSize, std::vector<impl::node_ptr> &hold) {
+std::tuple<impl::node_ptr, impl::node_ptr> node::splitTwo(size_t pageSize,
+                                                          std::vector<impl::node_ptr> &hold) {
     // Ignore the split if the page doesn't have at least enough nodes for
     // two pages or if the nodes can fit in a single page.
-    if (inodes.size() <= impl::minKeysPerPage * 2
-        || sizeLessThan(pageSize)) {
+    if (inodes.size() <= impl::minKeysPerPage * 2 || sizeLessThan(pageSize)) {
         return std::make_tuple(shared_from_this(), nullptr);
     }
     auto bptr = bucket.lock();
@@ -372,8 +359,8 @@ node::splitTwo(size_t pageSize, std::vector<impl::node_ptr> &hold) {
     // If there's no parent then we'll need to create one.
     auto pptr = parent.lock();
     if (!pptr) {
-        pptr = std::make_shared<node>(
-            bptr, std::initializer_list<impl::node_ptr>({shared_from_this()}));
+        pptr = std::make_shared<node>(bptr,
+                                      std::initializer_list<impl::node_ptr>({shared_from_this()}));
 
         hold.push_back(pptr); // hold std::shared_ptr
     }
@@ -384,8 +371,7 @@ node::splitTwo(size_t pageSize, std::vector<impl::node_ptr> &hold) {
     pptr->children.push_back(next);
 
     // Split inodes across two nodes.
-    std::move(std::next(inodes.begin(), splitIdx), inodes.end(),
-              std::back_inserter(next->inodes));
+    std::move(std::next(inodes.begin(), splitIdx), inodes.end(), std::back_inserter(next->inodes));
     inodes.erase(std::next(inodes.begin(), splitIdx), inodes.end());
 
     tptr->stats.Split++;
@@ -421,11 +407,10 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
     // Spill child nodes first. Child nodes can meterialize sibling nodes in
     // the case of split-merge so we cannot use a range loop. We have to check
     // the children size on every loop iteration
-    std::sort(children.begin(), children.end(),
-              [](impl::node_ptr &a, impl::node_ptr &b) -> bool {
-                  auto ret = impl::compare_three_way(a->key, b->key);
-                  return std::is_lt(ret);
-              });
+    std::sort(children.begin(), children.end(), [](impl::node_ptr &a, impl::node_ptr &b) -> bool {
+        auto ret = impl::compare_three_way(a->key, b->key);
+        return std::is_lt(ret);
+    });
     for (size_t i = 0; i < children.size(); i++) {
         auto err = children[i]->spill(hold);
         if (err != bolt::ErrorCode::Success) {
@@ -509,8 +494,7 @@ void node::rebalance() {
         // If root node is a branch and only has one node then collapse it.
         if (!isLeaf && inodes.size() == 1) {
             // Move root's child up.
-            impl::node_ptr child =
-                bktptr->node(inodes.front().pgid, shared_from_this());
+            impl::node_ptr child = bktptr->node(inodes.front().pgid, shared_from_this());
             isLeaf = child->isLeaf;
             inodes = child->inodes;
             children = child->children;
@@ -565,8 +549,7 @@ void node::rebalance() {
     if (useNextSibling) {
         // Reparent all child nodes being moved.
         for (auto &item : target->inodes) {
-            if (auto it = bktptr->nodes.find(item.pgid);
-                it != bktptr->nodes.end()) {
+            if (auto it = bktptr->nodes.find(item.pgid); it != bktptr->nodes.end()) {
                 impl::node_ptr child = it->second;
                 auto cp = child->parent.lock();
                 cp->removeChild(child);
@@ -577,8 +560,7 @@ void node::rebalance() {
         }
 
         // Copy over inodes from target and remove target.
-        std::move(target->inodes.begin(), target->inodes.end(),
-                  std::back_inserter(inodes));
+        std::move(target->inodes.begin(), target->inodes.end(), std::back_inserter(inodes));
         pptr->del(target->key);
         pptr->removeChild(target);
         auto it = bktptr->nodes.find(target->pgid);
@@ -602,8 +584,7 @@ void node::rebalance() {
 
         // Copy over inodes to target and remove node.
         impl::node_ptr self = shared_from_this();
-        std::move(inodes.begin(), inodes.end(),
-                  std::back_inserter(target->inodes));
+        std::move(inodes.begin(), inodes.end(), std::back_inserter(target->inodes));
         pptr->del(key);
         pptr->removeChild(self);
         auto it = bktptr->nodes.find(pgid);
@@ -620,9 +601,8 @@ void node::rebalance() {
 // removes a node from the list of in-memory children.
 // This does not affect the inodes.
 void node::removeChild(impl::node_ptr target) {
-    auto it =
-        std::remove_if(children.begin(), children.end(),
-                       [&](impl::node_ptr item) { return item == target; });
+    auto it = std::remove_if(children.begin(), children.end(),
+                             [&](impl::node_ptr item) { return item == target; });
     if (it != children.end()) {
         children.erase(it);
     } else {
@@ -693,8 +673,7 @@ std::vector<impl::node_ptr> node::split(size_t pageSize, std::vector<impl::node_
     return nodes;
 }
 
-std::vector<impl::node_ptr> node::split_v2(size_t pageSize,
-                                           std::vector<impl::node_ptr> &hold) {
+std::vector<impl::node_ptr> node::split_v2(size_t pageSize, std::vector<impl::node_ptr> &hold) {
     std::vector<impl::node_ptr> nodes;
     std::vector<std::span<impl::inode>> split_result;
     auto bktptr = bucket.lock();
@@ -710,11 +689,10 @@ std::vector<impl::node_ptr> node::split_v2(size_t pageSize,
     size_t splitIdx, offset = 0;
 
     do {
-        if (inodes.size() - offset <= impl::minKeysPerPage * 2 ||
-            sizeLessThan(pageSize, offset)) {
+        if (inodes.size() - offset <= impl::minKeysPerPage * 2 || sizeLessThan(pageSize, offset)) {
 
-            split_result.emplace_back(std::span<impl::inode>(
-                inodes.begin() + offset, inodes.size() - offset));
+            split_result.emplace_back(
+                std::span<impl::inode>(inodes.begin() + offset, inodes.size() - offset));
             break;
         }
         std::tie(splitIdx, std::ignore) = splitIndex(threshold, offset);
@@ -730,7 +708,8 @@ std::vector<impl::node_ptr> node::split_v2(size_t pageSize,
 
     auto pptr = parent.lock();
     if (!pptr) {
-        pptr = std::make_shared<impl::node>(bktptr, std::initializer_list<impl::node_ptr>({shared_from_this()}));
+        pptr = std::make_shared<impl::node>(
+            bktptr, std::initializer_list<impl::node_ptr>({shared_from_this()}));
         hold.push_back(pptr);
     }
     parent = pptr;
@@ -770,4 +749,5 @@ void node::dump() {
     log_debug("");
 #endif
 }
-}
+
+} // namespace bolt::impl

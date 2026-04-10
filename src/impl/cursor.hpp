@@ -15,8 +15,7 @@ struct elemRef {
     std::weak_ptr<impl::node> node;
     int index;
 
-    elemRef(impl::page *page, impl::node_ptr node)
-        : page(page), node(node), index(0){};
+    elemRef(impl::page *page, impl::node_ptr node) : page(page), node(node), index(0){};
     elemRef(impl::page *page, impl::node_ptr node, int index)
         : page(page), node(node), index(index){};
     bool isLeaf() const;
@@ -27,7 +26,7 @@ struct Cursor : public std::enable_shared_from_this<Cursor> {
     std::weak_ptr<impl::Bucket> bucket;
     std::vector<impl::elemRef> stack;
 
-    explicit Cursor(impl::BucketPtr bucket): bucket(bucket) {};
+    explicit Cursor(impl::BucketPtr bucket) : bucket(bucket){};
     impl::BucketPtr Bucket();
     std::tuple<bolt::const_bytes, bolt::const_bytes> First();
     std::tuple<bolt::const_bytes, bolt::const_bytes> Last();
@@ -49,5 +48,5 @@ struct Cursor : public std::enable_shared_from_this<Cursor> {
     impl::node_ptr node() const;
 };
 
-}
-#endif  // !__CURSOR_HPP
+} // namespace bolt::impl
+#endif // !__CURSOR_HPP

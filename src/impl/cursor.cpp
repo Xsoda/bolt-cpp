@@ -1,10 +1,10 @@
-#include "impl/tx.hpp"
 #include "impl/cursor.hpp"
+#include "impl/bsearch.hpp"
+#include "impl/bucket.hpp"
 #include "impl/node.hpp"
 #include "impl/page.hpp"
-#include "impl/bucket.hpp"
+#include "impl/tx.hpp"
 #include "impl/utils.hpp"
-#include "impl/bsearch.hpp"
 #include <algorithm>
 #include <compare>
 #include <iterator>
@@ -50,9 +50,7 @@ impl::node_ptr Cursor::node() const {
     return n->shared_from_this();
 }
 
-impl::BucketPtr Cursor::Bucket() {
-    return bucket.lock();
-}
+impl::BucketPtr Cursor::Bucket() { return bucket.lock(); }
 
 // First moves the cursor to the first item in the bucket and returns its key
 // and value. If the bucket is empty then a nil key and value are returned. The
@@ -130,8 +128,7 @@ std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Prev() {
 
     // Attempt to move back one element until we're successful.
     // Move up the stack as we hit the beginning of each page in our stack.
-    for (auto elem = stack.rbegin();
-         elem != stack.rend();) {
+    for (auto elem = stack.rbegin(); elem != stack.rend();) {
         if (elem->index > 0) {
             elem->index--;
             break;
@@ -200,7 +197,8 @@ bolt::ErrorCode Cursor::Delete() {
 std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::keyValue() {
     auto &ref = stack.back();
     if (ref.count() == 0 || ref.index >= ref.count()) {
-        return std::make_tuple<bolt::bytes, bolt::bytes, std::uint32_t>(bolt::bytes(), bolt::bytes(), 0);
+        return std::make_tuple<bolt::bytes, bolt::bytes, std::uint32_t>(bolt::bytes(),
+                                                                        bolt::bytes(), 0);
     }
     if (auto n = ref.node.lock()) {
         auto &inode = n->inodes.at(ref.index);
@@ -211,8 +209,7 @@ std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::keyValue() {
     return std::make_tuple(elem->key(), elem->value(), elem->flags);
 }
 
-std::tuple<bolt::bytes, bolt::bytes, std::uint32_t>
-Cursor::seek(bolt::const_bytes k) {
+std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::seek(bolt::const_bytes k) {
     _assert(!bucket.expired(), "Bucket already expired in Cursor");
     auto b = bucket.lock();
     _assert(!b->tx.expired(), "tx closed");
@@ -277,6 +274,7 @@ void Cursor::last() {
         }
     }
 }
+
 // next moves to the next leaf element and returns the key and value.
 // If the cursor is at the last leaf element then it stays there and returns
 // nil.
@@ -338,15 +336,14 @@ void Cursor::search(bolt::const_bytes key, impl::pgid pgid) {
 
 void Cursor::searchNode(bolt::const_bytes key, impl::node_ptr n) {
     bool exact = false;
-    auto it = impl::upper_bound(
-        std::begin(n->inodes), std::end(n->inodes), key,
-        [&](const bolt::const_bytes &key, impl::inode &item) -> bool {
-          auto cmp = impl::compare_three_way(key, item.key);
-          if (std::is_eq(cmp)) {
-              exact = true;
-          }
-          return !std::is_gt(cmp);
-        });
+    auto it = impl::upper_bound(std::begin(n->inodes), std::end(n->inodes), key,
+                                [&](const bolt::const_bytes &key, impl::inode &item) -> bool {
+                                    auto cmp = impl::compare_three_way(key, item.key);
+                                    if (std::is_eq(cmp)) {
+                                        exact = true;
+                                    }
+                                    return !std::is_gt(cmp);
+                                });
     auto index = std::distance(std::begin(n->inodes), it);
     if (!exact && index > 0) {
         index--;
@@ -361,17 +358,16 @@ void Cursor::searchPage(bolt::const_bytes key, impl::page *p) {
     // Binary search for the correct range.
     auto inodes = p->branchPageElements();
     bool exact = false;
-    auto it = impl::upper_bound(
-        std::begin(inodes), std::end(inodes), key,
-        [&](const bolt::const_bytes &key,
-           impl::branchPageElement &item) -> bool {
-            auto k = item.key();
-            auto cmp = impl::compare_three_way(key, k);
-            if (std::is_eq(cmp)) {
-                exact = true;
-            }
-            return !std::is_gt(cmp);
-        });
+    auto it =
+        impl::upper_bound(std::begin(inodes), std::end(inodes), key,
+                          [&](const bolt::const_bytes &key, impl::branchPageElement &item) -> bool {
+                              auto k = item.key();
+                              auto cmp = impl::compare_three_way(key, k);
+                              if (std::is_eq(cmp)) {
+                                  exact = true;
+                              }
+                              return !std::is_gt(cmp);
+                          });
     auto index = std::distance(std::begin(inodes), it);
     if (!exact && index > 0) {
         index--;
@@ -389,27 +385,26 @@ void Cursor::nsearch(bolt::const_bytes key) {
     // If we have a node then search its inodes.
     if (!n.expired()) {
         auto nptr = n.lock();
-        auto it = impl::upper_bound(
-            std::begin(nptr->inodes), std::end(nptr->inodes), key,
-            [](const bolt::const_bytes &key, impl::inode &item) -> bool {
-                auto cmp = impl::compare_three_way(key, item.key);
-                return !std::is_gt(cmp);
-            });
+        auto it = impl::upper_bound(std::begin(nptr->inodes), std::end(nptr->inodes), key,
+                                    [](const bolt::const_bytes &key, impl::inode &item) -> bool {
+                                        auto cmp = impl::compare_three_way(key, item.key);
+                                        return !std::is_gt(cmp);
+                                    });
         auto index = std::distance(std::begin(nptr->inodes), it);
         e.index = static_cast<int>(index);
         return;
     }
     // If we have a page then search its leaf elements.
     auto inodes = p->leafPageElements();
-    auto it = impl::upper_bound(
-        std::begin(inodes), std::end(inodes), key,
-        [](const bolt::const_bytes &key, impl::leafPageElement &item) -> bool {
-            auto k = item.key();
-            auto cmp = impl::compare_three_way(key, k);
-            return !std::is_gt(cmp);
-        });
+    auto it =
+        impl::upper_bound(std::begin(inodes), std::end(inodes), key,
+                          [](const bolt::const_bytes &key, impl::leafPageElement &item) -> bool {
+                              auto k = item.key();
+                              auto cmp = impl::compare_three_way(key, k);
+                              return !std::is_gt(cmp);
+                          });
     auto index = std::distance(std::begin(inodes), it);
     e.index = static_cast<int>(index);
 }
 
-} // namespace bolt
+} // namespace bolt::impl

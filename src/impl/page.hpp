@@ -44,7 +44,6 @@ struct page {
     std::span<impl::branchPageElement> branchPageElements();
 };
 
-
 struct PageInfo {
     int ID;
     std::string Type;
@@ -58,6 +57,6 @@ constexpr size_t branchPageElementSize = sizeof(branchPageElement);
 constexpr size_t leafPageElementSize = sizeof(leafPageElement);
 constexpr size_t pageHeaderSize = offsetof(page, ptr);
 
-}
+} // namespace bolt::impl
 
-#endif  // !__PAGE_HPP__
+#endif // !__PAGE_HPP__

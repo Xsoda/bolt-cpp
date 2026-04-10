@@ -1,10 +1,10 @@
 #include "impl/bucket.hpp"
-#include "impl/page.hpp"
-#include "impl/db.hpp"
-#include "impl/node.hpp"
-#include "impl/cursor.hpp"
-#include "impl/meta.hpp"
 #include "impl/bsearch.hpp"
+#include "impl/cursor.hpp"
+#include "impl/db.hpp"
+#include "impl/meta.hpp"
+#include "impl/node.hpp"
+#include "impl/page.hpp"
 #include "impl/utils.hpp"
 #include <algorithm>
 
@@ -17,13 +17,9 @@ Bucket::Bucket(impl::TxPtr tx) : tx(tx) {
     FillPercent = bolt::DefaultFillPercent;
 }
 
-impl::TxPtr Bucket::Tx() const {
-    return tx.lock();
-}
+impl::TxPtr Bucket::Tx() const { return tx.lock(); }
 
-impl::pgid Bucket::Root() const {
-    return root;
-}
+impl::pgid Bucket::Root() const { return root; }
 
 bool Bucket::Writable() const {
     if (auto t = tx.lock()) {
@@ -71,8 +67,8 @@ impl::node_ptr Bucket::node(impl::pgid pgid, impl::node_ptr parent) {
 // If the provided function returns an error then the iteration is stopped and
 // the error is returned to the caller. The provided function must not modify
 // the bucket; this will result in undefined behavior.
-bolt::ErrorCode Bucket::ForEach(
-    std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &&fn) {
+bolt::ErrorCode
+Bucket::ForEach(std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &&fn) {
     auto txptr = tx.lock();
     if (!txptr || txptr->db.expired()) {
         return bolt::ErrorCode::ErrorTxClosed;
@@ -128,8 +124,7 @@ bool Bucket::inlineable() const {
     // our threshold for inline bucket size.
     auto size = impl::pageHeaderSize;
     for (auto &inode : n->inodes) {
-        size +=
-            impl::leafPageElementSize + inode.key.size() + inode.value.size();
+        size += impl::leafPageElementSize + inode.key.size() + inode.value.size();
         if ((inode.flags & impl::bucketLeafFlag) != 0) {
             return false;
         } else if (size > maxInlineBucketSize()) {
@@ -169,8 +164,7 @@ bolt::ErrorCode Bucket::spill(std::vector<impl::node_ptr> &hold) {
         }
 
         // Update parent node.
-        auto key = bolt::const_bytes{
-            reinterpret_cast<const std::byte *>(name.data()), name.size()};
+        auto key = bolt::const_bytes{reinterpret_cast<const std::byte *>(name.data()), name.size()};
         auto c = Cursor();
         auto [k, v, flags] = c->seek(key);
         if (!std::is_eq(impl::compare_three_way(key, k))) {
@@ -230,14 +224,13 @@ void Bucket::free() {
         _assert(false, "dbptr invalid");
         return;
     }
-    forEachPageNode(
-        [dbptr, txptr](bolt::impl::page *p, bolt::impl::node_ptr n, int _) {
-            if (p != nullptr) {
-                dbptr->freelist->free(txptr->meta.txid, p);
-            } else {
-                n->free();
-            }
-        });
+    forEachPageNode([dbptr, txptr](bolt::impl::page *p, bolt::impl::node_ptr n, int _) {
+        if (p != nullptr) {
+            dbptr->freelist->free(txptr->meta.txid, p);
+        } else {
+            n->free();
+        }
+    });
     root = 0;
 }
 
@@ -254,8 +247,7 @@ std::vector<std::byte> Bucket::write() {
     b->sequence = sequence;
 
     // Convert byte slice to a fake page and write the root node
-    auto p = reinterpret_cast<bolt::impl::page *>(value.data() +
-                                                  bolt::impl::bucketHeaderSize);
+    auto p = reinterpret_cast<bolt::impl::page *>(value.data() + bolt::impl::bucketHeaderSize);
     n->write(p);
     return value;
 }
@@ -289,7 +281,7 @@ std::tuple<impl::page *, impl::node_ptr> Bucket::pageNode(impl::pgid id) {
 // Returns nil if the bucket does not exist.
 // The bucket instance is only valid for the lifetime of the transaction.
 impl::BucketPtr Bucket::RetrieveBucket(bolt::const_bytes name) {
-    std::string key{reinterpret_cast<const char*>(name.data()), name.size()};
+    std::string key{reinterpret_cast<const char *>(name.data()), name.size()};
     auto it = buckets.find(key);
     if (it != buckets.end()) {
         return it->second;
@@ -326,7 +318,8 @@ impl::BucketPtr Bucket::openBucket(bolt::bytes value) {
 
     // Save a reference to the inline page if the bucket is inline.
     if (child->root == 0) {
-        child->page = reinterpret_cast<bolt::impl::page*>(value.data() + bolt::impl::bucketHeaderSize);
+        child->page =
+            reinterpret_cast<bolt::impl::page *>(value.data() + bolt::impl::bucketHeaderSize);
     }
     return child;
 }
@@ -335,8 +328,7 @@ impl::BucketPtr Bucket::openBucket(bolt::bytes value) {
 // bucket. Returns an error if the key already exists, if the bucket name is
 // blank, or if the bucket name is too long. The bucket instance is only valid
 // for the lifetime of the transaction.
-std::tuple<impl::BucketPtr, bolt::ErrorCode>
-Bucket::CreateBucket(bolt::const_bytes key) {
+std::tuple<impl::BucketPtr, bolt::ErrorCode> Bucket::CreateBucket(bolt::const_bytes key) {
     if (tx.expired()) {
         return std::make_tuple(nullptr, bolt::ErrorCode::ErrorTxClosed);
     }
@@ -378,8 +370,7 @@ Bucket::CreateBucket(bolt::const_bytes key) {
 
 // forEachPageNode iterates over every page (or node) in a bucket.
 // This also includes inline pages.
-void Bucket::forEachPageNode(
-    std::function<void(impl::page *, impl::node_ptr, int)> &&fn) {
+void Bucket::forEachPageNode(std::function<void(impl::page *, impl::node_ptr, int)> &&fn) {
     // If we have an inline page or root node then just use that.
     if (page != nullptr) {
         fn(page, nullptr, 0);
@@ -388,9 +379,8 @@ void Bucket::forEachPageNode(
     return _forEachPageNode(root, 0, fn);
 }
 
-void Bucket::_forEachPageNode(
-    impl::pgid pgid, int depth,
-    std::function<void(impl::page *, impl::node_ptr, int)> &fn) {
+void Bucket::_forEachPageNode(impl::pgid pgid, int depth,
+                              std::function<void(impl::page *, impl::node_ptr, int)> &fn) {
     auto [p, n] = pageNode(pgid);
 
     // Execute function.
@@ -401,13 +391,13 @@ void Bucket::_forEachPageNode(
         if ((p->flags & bolt::impl::branchPageFlag) != 0) {
             for (size_t i = 0; i < p->count; i++) {
                 auto elem = p->branchPageElement(std::uint16_t(i));
-                _forEachPageNode(elem->pgid, depth+1, fn);
+                _forEachPageNode(elem->pgid, depth + 1, fn);
             }
         }
     } else {
         if (!n->isLeaf) {
             for (auto &inode : n->inodes) {
-                _forEachPageNode(inode.pgid, depth+1, fn);
+                _forEachPageNode(inode.pgid, depth + 1, fn);
             }
         }
     }
@@ -452,23 +442,20 @@ bolt::ErrorCode Bucket::DeleteBucket(bolt::const_bytes key) {
 
     // Recursively delete all child buckets.
     auto child = RetrieveBucket(key);
-    auto err =
-        child->ForEach([&](bolt::const_bytes ck, bolt::const_bytes cv) -> bolt::ErrorCode {
-          if (cv.empty()) {
-            auto err = child->DeleteBucket(ck);
-            if (err != bolt::ErrorCode::Success) {
-              return err;
+    auto err = child->ForEach([&](bolt::const_bytes ck, bolt::const_bytes cv) -> bolt::ErrorCode {
+        if (cv.empty()) {
+            if (auto err = child->DeleteBucket(ck); err != bolt::ErrorCode::Success) {
+                return err;
             }
-          }
-          return bolt::ErrorCode::Success;
-        });
+        }
+        return bolt::ErrorCode::Success;
+    });
     if (err != bolt::ErrorCode::Success) {
         return err;
     }
 
     // Remove cached copy.
-    auto it = buckets.find(
-        std::string(reinterpret_cast<const char *>(key.data()), key.size()));
+    auto it = buckets.find(std::string(reinterpret_cast<const char *>(key.data()), key.size()));
     if (it != buckets.end()) {
         buckets.erase(it);
     }
@@ -531,8 +518,7 @@ bolt::ErrorCode Bucket::Put(bolt::const_bytes key, bolt::const_bytes value) {
     auto [k, v, flags] = c->seek(key);
 
     // Return an error if there is an existing key with a bucket value.
-    if (std::is_eq(impl::compare_three_way(key, k)) &&
-        (flags & bolt::impl::bucketLeafFlag) != 0) {
+    if (std::is_eq(impl::compare_three_way(key, k)) && (flags & bolt::impl::bucketLeafFlag) != 0) {
         return bolt::ErrorCode::ErrorIncompatiableValue;
     }
 
@@ -590,11 +576,11 @@ bolt::ErrorCode Bucket::SetSequence(std::uint64_t v) {
 // NextSequence returns an autoincrementing integer for the bucket.
 std::tuple<std::uint64_t, bolt::ErrorCode> Bucket::NextSequence() {
     if (tx.expired()) {
-        return std::make_tuple(0,bolt::ErrorCode::ErrorTxClosed);
+        return std::make_tuple(0, bolt::ErrorCode::ErrorTxClosed);
     } else if (auto txptr = tx.lock(); txptr->db.expired()) {
         return std::make_tuple(0, bolt::ErrorCode::ErrorTxClosed);
     } else if (!Writable()) {
-        return std::make_tuple(0,bolt::ErrorCode::ErrorTxNotWritable);
+        return std::make_tuple(0, bolt::ErrorCode::ErrorTxNotWritable);
     }
 
     // Materialize the root node if it hasn't been already so that the
@@ -619,6 +605,7 @@ void Bucket::forEachPage(std::function<void(impl::page *, int)> &&fn) {
     auto txptr = tx.lock();
     txptr->forEachPage(root, 0, std::forward<decltype(fn)>(fn));
 }
+
 bolt::BucketStats Bucket::Stats() {
     bolt::BucketStats subStats, s;
     _assert(!tx.expired(), "tx already closed");
@@ -629,65 +616,62 @@ bolt::BucketStats Bucket::Stats() {
     if (root == 0) {
         s.InlineBucketN += 1;
     }
-    forEachPage(
-        [&](impl::page *p, int depth) {
-            if ((p->flags & impl::leafPageFlag) != 0) {
-                s.KeyN += int(p->count);
-                // used totals the used bytes for the page
-                auto used = impl::pageHeaderSize;
-                if (p->count != 0) {
-                    // If page has any elements, add all element headers.
-                    used += impl::leafPageElementSize * int(p->count - 1);
-                    // Add all element key, value sizes.
-                    // The computation takes advantage of the fact that the position
-                    // of the last element's key/value equals to the total of the
-                    // sizes of all previous elements' keys and values. It also
-                    // includes the last element's header.
-                    auto lastElement = p->leafPageElement(p->count - 1);
-                    used += int(lastElement->pos + lastElement->ksize +
-                                lastElement->vsize);
-                }
-                if (root == 0) {
-                    // For inlined bucket just update the inline stats
-                    s.InlineBucketInuse += (int)used;
-                } else {
-                    // For non-inlined bucket update all the leaf stats
-                    s.LeafPageN++;
-                    s.LeafInuse += (int)used;
-                    s.LeafOverflowN += int(p->overflow);
+    forEachPage([&](impl::page *p, int depth) {
+        if ((p->flags & impl::leafPageFlag) != 0) {
+            s.KeyN += int(p->count);
+            // used totals the used bytes for the page
+            auto used = impl::pageHeaderSize;
+            if (p->count != 0) {
+                // If page has any elements, add all element headers.
+                used += impl::leafPageElementSize * int(p->count - 1);
+                // Add all element key, value sizes.
+                // The computation takes advantage of the fact that the position
+                // of the last element's key/value equals to the total of the
+                // sizes of all previous elements' keys and values. It also
+                // includes the last element's header.
+                auto lastElement = p->leafPageElement(p->count - 1);
+                used += int(lastElement->pos + lastElement->ksize + lastElement->vsize);
+            }
+            if (root == 0) {
+                // For inlined bucket just update the inline stats
+                s.InlineBucketInuse += (int)used;
+            } else {
+                // For non-inlined bucket update all the leaf stats
+                s.LeafPageN++;
+                s.LeafInuse += (int)used;
+                s.LeafOverflowN += int(p->overflow);
 
-                    // Collect stats from sub-buckets.
-                    // Do that by iterating over all element headers
-                    // looking for the ones with the bucketLeafFlag.
-                    for (auto i = std::uint16_t(0); i < p->count; i++) {
-                        auto e = p->leafPageElement(i);
-                        if ((e->flags & impl::bucketLeafFlag) != 0) {
-                            // For any bucket element, open the element
-                            // value and recursively call Stats on the
-                            // contained bucket.
-                            subStats += openBucket(e->value())->Stats();
-                        }
+                // Collect stats from sub-buckets.
+                // Do that by iterating over all element headers
+                // looking for the ones with the bucketLeafFlag.
+                for (auto i = std::uint16_t(0); i < p->count; i++) {
+                    auto e = p->leafPageElement(i);
+                    if ((e->flags & impl::bucketLeafFlag) != 0) {
+                        // For any bucket element, open the element
+                        // value and recursively call Stats on the
+                        // contained bucket.
+                        subStats += openBucket(e->value())->Stats();
                     }
                 }
-            } else if ((p->flags & impl::branchPageFlag) != 0) {
-                s.BranchPageN++;
-                auto lastElement = p->branchPageElement(p->count - 1);
-                // used totals the used bytes for the page
-                // Add header and all element headers.
-                auto used = impl::pageHeaderSize +
-                    (impl::branchPageElementSize * int(p->count - 1));
-                // Add size of all keys and values.
-                // Again, use the fact that last element's position equals to
-                // the total of key, value sizes of all previous elements.
-                used += int(lastElement->pos + lastElement->ksize);
-                s.BranchInuse += (int)used;
-                s.BranchOverflowN += int(p->overflow);
             }
-            // Keep track of maximum page depth.
-            if (depth + 1 > s.Depth) {
-                s.Depth = depth + 1;
-            }
-        });
+        } else if ((p->flags & impl::branchPageFlag) != 0) {
+            s.BranchPageN++;
+            auto lastElement = p->branchPageElement(p->count - 1);
+            // used totals the used bytes for the page
+            // Add header and all element headers.
+            auto used = impl::pageHeaderSize + (impl::branchPageElementSize * int(p->count - 1));
+            // Add size of all keys and values.
+            // Again, use the fact that last element's position equals to
+            // the total of key, value sizes of all previous elements.
+            used += int(lastElement->pos + lastElement->ksize);
+            s.BranchInuse += (int)used;
+            s.BranchOverflowN += int(p->overflow);
+        }
+        // Keep track of maximum page depth.
+        if (depth + 1 > s.Depth) {
+            s.Depth = depth + 1;
+        }
+    });
     // Alloc stats can be computed from page counts and pageSize.
     s.BranchAlloc = (s.BranchPageN + s.BranchOverflowN) * pageSize;
     s.LeafAlloc = (s.LeafPageN + s.LeafOverflowN) * pageSize;
@@ -705,4 +689,4 @@ void Bucket::dump() {
         rootNode->dump();
     }
 }
-}
+} // namespace bolt::impl
