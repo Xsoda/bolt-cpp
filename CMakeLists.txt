@@ -133,6 +133,20 @@ if(BUILD_TESTS)
     ${CMAKE_CURRENT_SOURCE_DIR}/include
   )
   
+  if(MSVC)
+  target_compile_definitions(bolt-tests PRIVATE
+    /W4
+    /utf-8
+    NOMINMAX
+    UNICODE
+    _UNICODE
+    _CRT_SECURE_NO_WARNINGS
+    _CRT_NONSTDC_NO_WARNINGS
+    $<$<CONFIG:DEBUG>:DEBUG>
+    $<$<CONFIG:DEBUG>:_DEBUG>
+  )
+  endif()
+
   if(ENABLE_COVERAGE)
     # use make coverage generate html report
     include(CodeCoverage.cmake)
