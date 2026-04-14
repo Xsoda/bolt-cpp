@@ -95,15 +95,16 @@ bolt::ErrorCode Tx::write() {
         return bolt::ErrorTxClosed;
     }
     pages.reserve(this->pages.size());
-    for (auto [key, value] : this->pages) {
+    for (auto &[key, value] : this->pages) {
         pages.push_back(value);
     }
 
     // Clear out page cache early.
     this->pages.clear();
 
-    std::sort(pages.begin(), pages.end(),
-              [&](impl::page *a, impl::page *b) { return a->id < b->id; });
+    // sort pages not need, because std::map already ordered by key (pgid).
+    // std::sort(pages.begin(), pages.end(),
+    //          [&](impl::page *a, impl::page *b) { return a->id < b->id; });
 
     // Write pages to disk in order.
     for (auto it : pages) {

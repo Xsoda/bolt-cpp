@@ -404,13 +404,15 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
     if (spilled) {
         return bolt::ErrorCode::Success;
     }
-    // Spill child nodes first. Child nodes can meterialize sibling nodes in
+    // Spill child nodes first. Child nodes can materialize sibling nodes in
     // the case of split-merge so we cannot use a range loop. We have to check
-    // the children size on every loop iteration
-    std::sort(children.begin(), children.end(), [](impl::node_ptr &a, impl::node_ptr &b) -> bool {
-        auto ret = impl::compare_three_way(a->key, b->key);
-        return std::is_lt(ret);
-    });
+    // the children size on every loop iteration.
+    if (children.size() > 1) {
+        std::sort(children.begin(), children.end(), [](impl::node_ptr &a, impl::node_ptr &b) -> bool {
+            auto ret = impl::compare_three_way(a->key, b->key);
+            return std::is_lt(ret);
+        });
+    }
     for (size_t i = 0; i < children.size(); i++) {
         auto err = children[i]->spill(hold);
         if (err != bolt::ErrorCode::Success) {
