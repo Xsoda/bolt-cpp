@@ -1,47 +1,50 @@
 #pragma once
+#include "bolt/error.hpp"
 #include "fmt/base.h"
 #include "impl/bsearch.hpp"
-#include "bolt/error.hpp"
-#include "impl/file.hpp"
 #include "impl/db.hpp"
+#include "impl/file.hpp"
 #include "impl/tx.hpp"
+#include "random.hpp"
 #include <algorithm>
 #include <bit>
 #include <cassert>
+#include <filesystem>
 #include <span>
 #include <string>
-#include <filesystem>
-#include "random.hpp"
 
-template <class ContainerA, class ContainerB>
-constexpr bool Equal(ContainerA a, ContainerB b) {
+template <class ContainerA, class ContainerB> constexpr bool Equal(ContainerA a, ContainerB b) {
     return std::is_eq(bolt::impl::compare_three_way(a, b));
 }
 
-template <typename Container>
-constexpr std::span<const std::byte> to_bytes(const Container &container) {
-    return std::span<const std::byte>(reinterpret_cast<const std::byte*>(container.data()), container.size());
+template <typename T> constexpr std::span<const std::byte> to_bytes(const T &val) {
+    if constexpr (requires {
+                      val.data();
+                      val.size();
+                  }) {
+        return std::span<const std::byte>(reinterpret_cast<const std::byte *>(val.data()),
+                                          val.size());
+    }
+    if constexpr (std::is_convertible_v<T, const char *>) {
+        return std::span<const std::byte>(reinterpret_cast<const std::byte *>(val),
+                                          std::char_traits<char>::length(val));
+    }
 }
 
-inline std::span<const std::byte> to_bytes(const char *str) {
-    return std::span<const std::byte>(reinterpret_cast<const std::byte*>(str), std::char_traits<char>::length(str));
-}
-
-template <class Container>
-std::string to_string(const Container &container) {
-    return std::string(reinterpret_cast<const char*>(container.data()), container.size());
+template <class Container> std::string to_string(const Container &container) {
+    return std::string(reinterpret_cast<const char *>(container.data()), container.size());
 }
 
 template <std::integral T> constexpr T byteswap(T value) noexcept {
     union {
-      T val;
-      char ptr[sizeof(T)];
+        T val;
+        char ptr[sizeof(T)];
     } s;
     s.val = value;
     for (int i = 0; i < sizeof(T) / 2; i++) {
-      auto tmp = s.ptr[i];
-      s.ptr[i] = s.ptr[sizeof(T) - i - 1];
-      s.ptr[sizeof(T) - i - 1] = tmp;
+        auto tmp = s.ptr[i];
+        s.ptr[i] = s.ptr[sizeof(T) - i - 1];
+        s.ptr[sizeof(T) - i - 1] = tmp;
     }
     return s.val;
 }
@@ -87,14 +90,14 @@ inline void MustCloseDB(bolt::impl::DBPtr &&db) {
 
 inline void MustCheck(bolt::impl::DBPtr db) {
     auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
-            auto f = tx->Check();
-            auto errors = f.get();
-            if (errors.size() > 0) {
-                fmt::println("Database {} Check Result", db->Path());
-                for (auto &item : errors) {
-                    fmt::println("  - {}", item);
-                }
+        auto f = tx->Check();
+        auto errors = f.get();
+        if (errors.size() > 0) {
+            fmt::println("Database {} Check Result", db->Path());
+            for (auto &item : errors) {
+                fmt::println("  - {}", item);
             }
-            return bolt::Success;
+        }
+        return bolt::Success;
     });
 }
