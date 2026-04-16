@@ -304,6 +304,9 @@ std::tuple<impl::page *, bolt::ErrorCode> Tx::allocate(size_t count) {
         return std::make_tuple(nullptr, bolt::ErrorTxClosed);
     }
     auto [p, err] = dbptr->allocate(count);
+    if (err != bolt::Success) {
+        return {nullptr, err};
+    }
     pages[p->id] = p;
     stats.PageCount++;
     stats.PageAlloc += count * dbptr->pageSize;
