@@ -45,7 +45,9 @@ bolt::ErrorCode munmap(impl::DB *db) {
     return err;
 }
 
-DB::DB() {
+DB::DB()
+    : opts({.max_blocks_per_chunk = 8 * 1024, .largest_required_pool_block = 1 * 1024 * 1024}),
+      pool(opts) {
     dataref = (std::uintptr_t)NULL;
     datasz = 0;
     filesz = 0;
@@ -453,16 +455,13 @@ bolt::ErrorCode DB::grow(std::uint64_t sz) {
 // allocate returns a contiguous block of memory starting at a given page.
 std::tuple<impl::page *, bolt::ErrorCode> DB::allocate(size_t count) {
     // Allocate a temporary buffer for the page.
-    std::lock_guard<std::mutex> lock(poolMutex);
-    auto buf = std::make_unique<std::vector<std::byte>>();
-    buf->assign(count * pageSize, std::byte(0));
-    impl::page *p = reinterpret_cast<impl::page *>(&(*buf)[0]);
+    impl::page *p = static_cast<impl::page *>(pool.allocate(count * pageSize));
+    std::memset(p, 0, count * pageSize);
     p->overflow = std::uint32_t(count - 1);
 
     // Use pages from the freelist if they are available.
     p->id = freelist->allocate(count);
     if (p->id != 0) {
-        pagePool.insert(std::make_pair(p, std::move(buf)));
         return {p, bolt::ErrorCode::Success};
     }
 
@@ -472,22 +471,19 @@ std::tuple<impl::page *, bolt::ErrorCode> DB::allocate(size_t count) {
     if (minsz >= datasz) {
         auto err = mmap(minsz);
         if (err != bolt::ErrorCode::Success) {
+            pool.deallocate(p, count * pageSize);
             return {nullptr, err};
         }
     }
 
     // Move the page id high water mark.
     rwtx->meta.pgid += impl::pgid(count);
-    pagePool.insert(std::make_pair(p, std::move(buf)));
     return {p, bolt::ErrorCode::Success};
 }
 
 void DB::releasePage(impl::page *p) {
-    std::lock_guard<std::mutex> lock(poolMutex);
-    auto it = pagePool.find(p);
-    if (it != pagePool.end()) {
-        pagePool.erase(it);
-    }
+    size_t count = p->overflow + 1;
+    pool.deallocate(p, count * pageSize);
 }
 
 bolt::ErrorCode DB::mmap(std::uint64_t minsz) {

@@ -7,6 +7,7 @@
 #include "impl/tx.hpp"
 #include "impl/utils.hpp"
 #include <memory>
+#include <memory_resource>
 #include <mutex>
 #include <shared_mutex>
 
@@ -59,9 +60,9 @@ struct DB : public std::enable_shared_from_this<DB> {
     std::vector<impl::TxPtr> txs;
     std::unique_ptr<impl::freelist> freelist;
 
-    // temporary save tx page, page pointer is std::vector::data()
-    std::map<impl::page *, std::unique_ptr<std::vector<std::byte>>> pagePool;
-    std::mutex poolMutex;
+    // temporary save tx page
+    std::pmr::pool_options opts;
+    std::pmr::synchronized_pool_resource pool;
 
     bolt::Stats stats;
 
