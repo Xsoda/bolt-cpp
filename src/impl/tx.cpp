@@ -464,7 +464,7 @@ std::tuple<impl::BucketPtr, bolt::ErrorCode> Tx::CreateBucketWithPath(const std:
     bolt::ErrorCode err = bolt::ErrorCode::ErrorBucketNameRequired;
     auto names = impl::string_split(path, "/");
     for (auto &it : names) {
-        auto key = bolt::const_bytes(reinterpret_cast<const std::byte *>(it.data()), it.size());
+        auto key = bolt::to_bytes(it);
         if (bktptr) {
             std::tie(bktptr, err) = bktptr->CreateBucketIfNotExists(key);
         } else {
@@ -481,7 +481,7 @@ std::tuple<impl::BucketPtr, bolt::ErrorCode> Tx::RetrieveBucketWithPath(const st
     impl::BucketPtr bktptr;
     auto names = impl::string_split(path, "/");
     for (auto &it : names) {
-        auto key = bolt::const_bytes(reinterpret_cast<const std::byte *>(it.data()), it.size());
+        auto key = bolt::to_bytes(it);
         if (bktptr) {
             bktptr = bktptr->RetrieveBucket(key);
         } else {

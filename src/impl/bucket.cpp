@@ -164,7 +164,7 @@ bolt::ErrorCode Bucket::spill(std::vector<impl::node_ptr> &hold) {
         }
 
         // Update parent node.
-        auto key = bolt::const_bytes{reinterpret_cast<const std::byte *>(name.data()), name.size()};
+        auto key = bolt::to_bytes(name);
         auto c = Cursor();
         auto [k, v, flags] = c->seek(key);
         if (!std::is_eq(impl::compare_three_way(key, k))) {

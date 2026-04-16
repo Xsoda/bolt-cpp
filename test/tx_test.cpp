@@ -19,7 +19,7 @@ TestResult TestTx_Commit_ErrorTxClosed() {
     if (err != bolt::Success) {
         return TestResult(false, "Begin Tx failed");
     }
-    std::tie(std::ignore, err) = tx->CreateBucket(to_bytes(foo));
+    std::tie(std::ignore, err) = tx->CreateBucket(bolt::to_bytes(foo));
     if (err != bolt::Success) {
         return TestResult(false, "CreateBucket failed");
     }
@@ -64,15 +64,15 @@ TestResult TestTx_Cursor() {
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
             std::string woojits = "woojits";
-            if (auto [b, err] = tx->CreateBucket(to_bytes(widgets)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
                 return err;
             }
-            if (auto [b, err] = tx->CreateBucket(to_bytes(woojits)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(woojits)); err != bolt::Success) {
                 return err;
             }
 
             auto c = tx->Cursor();
-            if (auto [k, v] = c->First(); !Equal(k, to_bytes(widgets))) {
+            if (auto [k, v] = c->First(); !Equal(k, bolt::to_bytes(widgets))) {
                 fmt::println("unexpected key: {}", k);
                 return bolt::ErrorUnexpected;
             } else if (!v.empty()) {
@@ -80,7 +80,7 @@ TestResult TestTx_Cursor() {
                 return bolt::ErrorUnexpected;
             }
 
-            if (auto [k, v] = c->Next(); !Equal(k, to_bytes(woojits))) {
+            if (auto [k, v] = c->Next(); !Equal(k, bolt::to_bytes(woojits))) {
                 fmt::println("unexpected key: {}", k);
                 return bolt::ErrorUnexpected;
             } else if (!v.empty()) {
@@ -108,7 +108,8 @@ TestResult TestTx_CreateBucket_ErrorTxNotWritable() {
     auto db = MustOpenDB();
     if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string foo = "foo";
-            if (auto [b, err] = tx->CreateBucket(to_bytes(foo)); err != bolt::ErrorTxNotWritable) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(foo));
+                err != bolt::ErrorTxNotWritable) {
                 return bolt::ErrorUnexpected;
             }
             return bolt::Success;
@@ -130,7 +131,8 @@ TestResult TestTx_CreateBucket_ErrorTxClosed() {
     if (err = tx->Commit(); err != bolt::Success) {
         return TestResult(false, "Commit Tx fail: {}", err);
     }
-    if (std::tie(std::ignore, err) = tx->CreateBucket(to_bytes(foo)); err != bolt::ErrorTxClosed) {
+    if (std::tie(std::ignore, err) = tx->CreateBucket(bolt::to_bytes(foo));
+        err != bolt::ErrorTxClosed) {
         return TestResult(false, "unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
@@ -141,10 +143,10 @@ TestResult TestTx_Bucket() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
-            if (auto [b, err] = tx->CreateBucket(to_bytes(widgets)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
                 return bolt::ErrorUnexpected;
             }
-            if (auto b = tx->Bucket(to_bytes(widgets)); b == nullptr) {
+            if (auto b = tx->Bucket(bolt::to_bytes(widgets)); b == nullptr) {
                 fmt::println("expected bucket");
                 return bolt::ErrorUnexpected;
             }
@@ -164,14 +166,14 @@ TestResult TestTx_Get_NotFound() {
             std::string foo = "foo";
             std::string bar = "bar";
             std::string no_such_key = "no_such_key";
-            auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+            auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
             if (err != bolt::Success) {
                 return err;
             }
-            if (auto err = b->Put(to_bytes(foo), to_bytes(bar)); err != bolt::Success) {
+            if (auto err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::Success) {
                 return err;
             }
-            if (auto v = b->Get(to_bytes(no_such_key)); !v.empty()) {
+            if (auto v = b->Get(bolt::to_bytes(no_such_key)); !v.empty()) {
                 fmt::println("expected empty value");
                 return bolt::ErrorUnexpected;
             }
@@ -188,7 +190,7 @@ TestResult TestTx_CreateBucket() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
-            auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+            auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
             if (err != bolt::Success) {
                 return err;
             } else if (b == nullptr) {
@@ -203,7 +205,7 @@ TestResult TestTx_CreateBucket() {
 
     if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
-            if (tx->Bucket(to_bytes(widgets)) == nullptr) {
+            if (tx->Bucket(bolt::to_bytes(widgets)) == nullptr) {
                 fmt::println("expected bucket in View");
                 return bolt::ErrorUnexpected;
             }
@@ -220,7 +222,7 @@ TestResult TestTx_CreateBucketIfNotExists() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
-            auto [b, err] = tx->CreateBucketIfNotExists(to_bytes(widgets));
+            auto [b, err] = tx->CreateBucketIfNotExists(bolt::to_bytes(widgets));
             if (err != bolt::Success) {
                 return err;
             } else if (b == nullptr) {
@@ -235,7 +237,7 @@ TestResult TestTx_CreateBucketIfNotExists() {
 
     if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
-            if (tx->Bucket(to_bytes(widgets)) == nullptr) {
+            if (tx->Bucket(bolt::to_bytes(widgets)) == nullptr) {
                 fmt::println("expected bucket in View");
                 return bolt::ErrorUnexpected;
             }
@@ -252,7 +254,7 @@ TestResult TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string name = "";
-            if (auto [b, err] = tx->CreateBucketIfNotExists(to_bytes(name));
+            if (auto [b, err] = tx->CreateBucketIfNotExists(bolt::to_bytes(name));
                 err != bolt::ErrorBucketNameRequired) {
                 return bolt::ErrorUnexpected;
             }
@@ -273,7 +275,7 @@ TestResult TestTx_CreateBucket_ErrorBucketExists() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
-            if (auto [b, err] = tx->CreateBucket(to_bytes(widgets)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
                 return bolt::ErrorUnexpected;
             }
             return bolt::Success;
@@ -284,7 +286,7 @@ TestResult TestTx_CreateBucket_ErrorBucketExists() {
 
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
-            if (auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
                 err != bolt::ErrorBucketExists) {
                 return bolt::ErrorUnexpected;
             }
@@ -319,11 +321,11 @@ TestResult TestTx_DeleteBucket() {
             std::string widgets = "widgets";
             std::string foo = "foo";
             std::string bar = "bar";
-            auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+            auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
             if (err != bolt::Success) {
                 return err;
             }
-            if (auto err = b->Put(to_bytes(foo), to_bytes(bar)); err != bolt::Success) {
+            if (auto err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::Success) {
                 return err;
             }
             return bolt::Success;
@@ -333,10 +335,10 @@ TestResult TestTx_DeleteBucket() {
     }
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
-            if (auto err = tx->DeleteBucket(to_bytes(widgets)); err != bolt::Success) {
+            if (auto err = tx->DeleteBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
                 return err;
             }
-            if (auto b = tx->Bucket(to_bytes(widgets)); b != nullptr) {
+            if (auto b = tx->Bucket(bolt::to_bytes(widgets)); b != nullptr) {
                 return bolt::ErrorUnexpected;
             }
             return bolt::Success;
@@ -347,11 +349,11 @@ TestResult TestTx_DeleteBucket() {
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
             std::string foo = "foo";
-            auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+            auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
             if (err != bolt::Success) {
                 return err;
             }
-            if (auto v = b->Get(to_bytes(foo)); !v.empty()) {
+            if (auto v = b->Get(bolt::to_bytes(foo)); !v.empty()) {
                 return bolt::ErrorUnexpected;
             }
             return bolt::Success;
@@ -373,7 +375,7 @@ TestResult TestTx_DeleteBucket_ErrorTxClosed() {
     if (auto err = tx->Commit(); err != bolt::Success) {
         return TestResult(false, "Commit Tx fail");
     }
-    if (auto err = tx->DeleteBucket(to_bytes(foo)); err != bolt::ErrorTxClosed) {
+    if (auto err = tx->DeleteBucket(bolt::to_bytes(foo)); err != bolt::ErrorTxClosed) {
         return TestResult(false, "Unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
@@ -384,7 +386,7 @@ TestResult TestTx_DeleteBucket_ReadOnly() {
     auto db = MustOpenDB();
     if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string foo = "foo";
-            if (auto err = tx->DeleteBucket(to_bytes(foo)); err != bolt::ErrorTxNotWritable) {
+            if (auto err = tx->DeleteBucket(bolt::to_bytes(foo)); err != bolt::ErrorTxNotWritable) {
                 fmt::println("unexpected error: {}", err);
                 return bolt::ErrorUnexpected;
             }
@@ -401,7 +403,8 @@ TestResult TestTx_DeleteBucket_NotFound() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
-            if (auto err = tx->DeleteBucket(to_bytes(widgets)); err != bolt::ErrorBucketNotFound) {
+            if (auto err = tx->DeleteBucket(bolt::to_bytes(widgets));
+                err != bolt::ErrorBucketNotFound) {
                 return err;
             }
             return bolt::Success;
@@ -419,11 +422,11 @@ TestResult TestTx_ForEach_NoError() {
             std::string widgets = "widgets";
             std::string foo = "foo";
             std::string bar = "bar";
-            auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+            auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
             if (err != bolt::Success) {
                 return err;
             }
-            if (auto err = b->Put(to_bytes(foo), to_bytes(bar)); err != bolt::Success) {
+            if (auto err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::Success) {
                 return err;
             }
             if (auto err = tx->ForEach(
@@ -451,11 +454,11 @@ TestResult TestTx_ForEach_WithError() {
             std::string widgets = "widgets";
             std::string foo = "foo";
             std::string bar = "bar";
-            auto [b, err] = tx->CreateBucket(to_bytes(widgets));
+            auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
             if (err != bolt::Success) {
                 return err;
             }
-            if (auto err = b->Put(to_bytes(foo), to_bytes(bar)); err != bolt::Success) {
+            if (auto err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::Success) {
                 return err;
             }
             if (auto err = tx->ForEach(
@@ -484,7 +487,7 @@ TestResult TestTx_OnCommit() {
             std::string widgets = "widgets";
             tx->OnCommit([&x]() { x += 1; });
             tx->OnCommit([&x]() { x += 2; });
-            if (auto [b, err] = tx->CreateBucket(to_bytes(widgets)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
                 return err;
             }
             return bolt::Success;
@@ -505,7 +508,7 @@ TestResult TestTx_OnCommit_Rollback() {
             std::string widgets = "widgets";
             tx->OnCommit([&x]() { x += 1; });
             tx->OnCommit([&x]() { x += 2; });
-            if (auto [b, err] = tx->CreateBucket(to_bytes(widgets)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
                 return err;
             }
             return bolt::ErrorExpected; // rollback this commit
@@ -527,7 +530,7 @@ TestResult TestTx_BucketWithPath() {
             if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bucket->Put(to_bytes("foo"), to_bytes("bar"));
+            return bucket->Put(bolt::to_bytes("foo"), bolt::to_bytes("bar"));
         });
         err != bolt::Success) {
         return TestResult(false, "CreateBucketWithPath fail");
@@ -537,8 +540,8 @@ TestResult TestTx_BucketWithPath() {
             if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            auto val = bucket->Get(to_bytes("foo"));
-            if (!Equal(val, to_bytes("bar"))) {
+            auto val = bucket->Get(bolt::to_bytes("foo"));
+            if (!Equal(val, bolt::to_bytes("bar"))) {
                 return bolt::ErrorUnexpected;
             }
             return bolt::Success;

@@ -1,11 +1,11 @@
+#include "bolt/error.hpp"
 #include "impl/bucket.hpp"
 #include "impl/db.hpp"
-#include "impl/tx.hpp"
-#include "impl/node.hpp"
 #include "impl/meta.hpp"
-#include "bolt/error.hpp"
-#include "test.hpp"
+#include "impl/node.hpp"
+#include "impl/tx.hpp"
 #include "impl/utils.hpp"
+#include "test.hpp"
 #include "util.hpp"
 #include <memory>
 
@@ -55,12 +55,13 @@ TestResult TestNode_put() {
 TestResult TestNode_read_LeafPage() {
     std::vector<std::byte> buf;
     buf.assign(4096, std::byte(0));
-    bolt::impl::page *page = reinterpret_cast<bolt::impl::page*>(buf.data());
+    bolt::impl::page *page = reinterpret_cast<bolt::impl::page *>(buf.data());
     page->flags = bolt::impl::leafPageFlag;
     page->count = 2;
 
     // Insert 2 elements at the beginning. sizeof(leafPageElement) == 16
-    bolt::impl::leafPageElement *nodes = reinterpret_cast<bolt::impl::leafPageElement*>(&page->ptr);
+    bolt::impl::leafPageElement *nodes =
+        reinterpret_cast<bolt::impl::leafPageElement *>(&page->ptr);
     bolt::impl::leafPageElement elem;
     elem.flags = 0;
     elem.pos = 32;
@@ -73,14 +74,12 @@ TestResult TestNode_read_LeafPage() {
     elem.vsize = 3;
     nodes[1] = elem;
 
-    std::span<std::byte> data = std::span(reinterpret_cast<std::byte*>(&nodes[2]), 4096);
-    std::vector<std::byte> v1 = {std::byte('b'), std::byte('a'), std::byte('r'),
-                                 std::byte('f'), std::byte('o'), std::byte('o'),
-                                 std::byte('z')};
-    std::vector<std::byte> v2 = {std::byte('h'), std::byte('e'), std::byte('l'),
-                                 std::byte('l'), std::byte('o'), std::byte('w'),
-                                 std::byte('o'), std::byte('r'), std::byte('l'),
-                                 std::byte('d'), std::byte('b'), std::byte('y'),
+    std::span<std::byte> data = std::span(reinterpret_cast<std::byte *>(&nodes[2]), 4096);
+    std::vector<std::byte> v1 = {std::byte('b'), std::byte('a'), std::byte('r'), std::byte('f'),
+                                 std::byte('o'), std::byte('o'), std::byte('z')};
+    std::vector<std::byte> v2 = {std::byte('h'), std::byte('e'), std::byte('l'), std::byte('l'),
+                                 std::byte('o'), std::byte('w'), std::byte('o'), std::byte('r'),
+                                 std::byte('l'), std::byte('d'), std::byte('b'), std::byte('y'),
                                  std::byte('e')};
     std::copy(v1.begin(), v1.end(), data.begin());
     std::copy(v2.begin(), v2.end(), data.begin() + 7);
@@ -108,12 +107,12 @@ TestResult TestNode_write_LeafPage() {
     std::string lake = "lake";
     std::string john = "john";
     std::string johnson = "johnson";
-    std::span<std::byte> s_susy(reinterpret_cast<std::byte*>(susy.data()), susy.size());
-    std::span<std::byte> s_que(reinterpret_cast<std::byte*>(que.data()), que.size());
-    std::span<std::byte> s_ricki(reinterpret_cast<std::byte*>(ricki.data()), ricki.size());
-    std::span<std::byte> s_lake(reinterpret_cast<std::byte*>(lake.data()), lake.size());
-    std::span<std::byte> s_john(reinterpret_cast<std::byte*>(john.data()), john.size());
-    std::span<std::byte> s_johnson(reinterpret_cast<std::byte*>(johnson.data()), johnson.size());
+    std::span<std::byte> s_susy(reinterpret_cast<std::byte *>(susy.data()), susy.size());
+    std::span<std::byte> s_que(reinterpret_cast<std::byte *>(que.data()), que.size());
+    std::span<std::byte> s_ricki(reinterpret_cast<std::byte *>(ricki.data()), ricki.size());
+    std::span<std::byte> s_lake(reinterpret_cast<std::byte *>(lake.data()), lake.size());
+    std::span<std::byte> s_john(reinterpret_cast<std::byte *>(john.data()), john.size());
+    std::span<std::byte> s_johnson(reinterpret_cast<std::byte *>(johnson.data()), johnson.size());
     n->put(s_susy, s_susy, s_que, 0, 0);
     n->put(s_ricki, s_ricki, s_lake, 0, 0);
     n->put(s_john, s_john, s_johnson, 0, 0);
@@ -162,12 +161,12 @@ TestResult TestNode_split() {
     std::string k4 = "00000004";
     std::string k5 = "00000005";
     std::string v = "0123456701234567";
-    auto s_k1 = to_bytes(k1);
-    auto s_k2 = to_bytes(k2);
-    auto s_k3 = to_bytes(k3);
-    auto s_k4 = to_bytes(k4);
-    auto s_k5 = to_bytes(k5);
-    auto s_v = to_bytes(v);
+    auto s_k1 = bolt::to_bytes(k1);
+    auto s_k2 = bolt::to_bytes(k2);
+    auto s_k3 = bolt::to_bytes(k3);
+    auto s_k4 = bolt::to_bytes(k4);
+    auto s_k5 = bolt::to_bytes(k5);
+    auto s_v = bolt::to_bytes(v);
     n->put(s_k1, s_k1, s_v, 0, 0);
     n->put(s_k2, s_k2, s_v, 0, 0);
     n->put(s_k3, s_k3, s_v, 0, 0);
@@ -198,9 +197,9 @@ TestResult TestNode_split_MinKeys() {
     std::string k1 = "00000001";
     std::string k2 = "00000002";
     std::string v = "0123456701234567";
-    auto s_k1 = to_bytes(k1);
-    auto s_k2 = to_bytes(k2);
-    auto s_v = to_bytes(v);
+    auto s_k1 = bolt::to_bytes(k1);
+    auto s_k2 = bolt::to_bytes(k2);
+    auto s_v = bolt::to_bytes(v);
     n->put(s_k1, s_k1, s_v, 0, 0);
     n->put(s_k2, s_k2, s_v, 0, 0);
     auto split = n->split(20, hold);
@@ -223,12 +222,12 @@ TestResult TestNode_split_SinglePage() {
     std::string k4 = "00000004";
     std::string k5 = "00000005";
     std::string v = "0123456701234567";
-    auto s_k1 = to_bytes(k1);
-    auto s_k2 = to_bytes(k2);
-    auto s_k3 = to_bytes(k3);
-    auto s_k4 = to_bytes(k4);
-    auto s_k5 = to_bytes(k5);
-    auto s_v = to_bytes(v);
+    auto s_k1 = bolt::to_bytes(k1);
+    auto s_k2 = bolt::to_bytes(k2);
+    auto s_k3 = bolt::to_bytes(k3);
+    auto s_k4 = bolt::to_bytes(k4);
+    auto s_k5 = bolt::to_bytes(k5);
+    auto s_v = bolt::to_bytes(v);
     n->put(s_k1, s_k1, s_v, 0, 0);
     n->put(s_k2, s_k2, s_v, 0, 0);
     n->put(s_k3, s_k3, s_v, 0, 0);
