@@ -43,8 +43,16 @@ target_include_directories(bolt
 
 find_program(GIT_PROGRAM NAMES "git")
 if(GIT_PROGRAM)
-  execute_process(COMMAND git log --pretty=format:"git.%h" -1
-    OUTPUT_VARIABLE BOLT_BUILD_VERSION)
+  execute_process(COMMAND git log --pretty=format:git.%h -1
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    OUTPUT_VARIABLE BOLT_BUILD_VERSION
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(COMMAND git diff-index --quiet HEAD -- .
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    RESULT_VARIABLE BOLT_GIT_MODIFIED)
+  if(DEFINED BOLT_GIT_MODIFIED AND BOLT_GIT_MODIFIED EQUAL 1)
+    set(BOLT_BUILD_VERSION "\"${BOLT_BUILD_VERSION}-modified\"")
+  endif()
   target_compile_definitions(bolt PRIVATE BOLT_BUILD_VERSION=${BOLT_BUILD_VERSION})
 endif()
 target_compile_options(bolt PRIVATE ${PEDANTIC_COMPILE_FLAGS})
