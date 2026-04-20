@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.20)
 project(bolt-cpp CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -43,16 +43,25 @@ target_include_directories(bolt
 
 find_program(GIT_PROGRAM NAMES "git")
 if(GIT_PROGRAM)
-  execute_process(COMMAND git log --pretty=format:git.%h -1
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    OUTPUT_VARIABLE BOLT_BUILD_VERSION
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  set(BOLT_BUILD_VERSION "git.unknown")
+  
   execute_process(COMMAND git diff-index --quiet HEAD -- .
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    RESULT_VARIABLE BOLT_GIT_MODIFIED)
+    RESULT_VARIABLE BOLT_GIT_MODIFIED
+    ERROR_QUIET)
+  
   if(DEFINED BOLT_GIT_MODIFIED AND BOLT_GIT_MODIFIED EQUAL 1)
-    set(BOLT_BUILD_VERSION "\"${BOLT_BUILD_VERSION}-modified\"")
+    set(GIT_VERSION_FORMAT "git.%h-modified")
+  else()
+    set(GIT_VERSION_FORMAT "git.%h")
   endif()
+  
+  execute_process(COMMAND git log --pretty=format:"${GIT_VERSION_FORMAT}" -1
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    OUTPUT_VARIABLE BOLT_BUILD_VERSION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET)
+  
   target_compile_definitions(bolt PRIVATE BOLT_BUILD_VERSION=${BOLT_BUILD_VERSION})
 endif()
 target_compile_options(bolt PRIVATE ${PEDANTIC_COMPILE_FLAGS})

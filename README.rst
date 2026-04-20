@@ -31,3 +31,11 @@
        db.Close();
        return 0;
    }
+
+.. note::
+
+   编译
+
+   - Linux: gcc 11.4.0
+
+   - Windows: Visual Studio 2022
