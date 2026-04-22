@@ -60,15 +60,18 @@ int Help(int argc, char **argv) {
 
 Support command:
   list-bucket   <database>
-  delete-bucket <database> <bucket path>
-  create-bucket <database> <bucket path>
-  set           <database> <bucket path> <key> <value>
-  get           <database> <bucket path> <key-range>
-  del           <database> <bucket path> <key-range>
+  delete-bucket <database> <bucket-path>
+  create-bucket <database> <bucket-path>
+  set           <database> <bucket-path> <key> <value>
+  get           <database> <bucket-path> <key-range>|<key>
+  del           <database> <bucket-path> <key-range>|<key>
   help
 
-key-range format:
-  [start-key]...[end-key]
+<key-range> format:
+  <start-key>...<end-key>
+
+<bucket-path> format:
+  <bucket-name>/<bucket-name>/<bucket-name>
 
 version: {})",
                  argv[0], bolt::library_version());
