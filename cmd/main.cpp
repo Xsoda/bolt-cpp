@@ -97,6 +97,7 @@ int Set(int argc, char **argv) {
             if (err != bolt::ErrorCode::Success) {
                 return err;
             }
+            fmt::println("set <KEY-VALUE> `{}` => `{}`", key, value);
             return bucket.Put(key, value);
         });
         err != bolt::ErrorCode::Success) {
@@ -143,12 +144,12 @@ int Del(int argc, char **argv) {
                         }
                     }
                     if (value.empty()) {
-                        fmt::println("delete bucket `{}`", key);
+                        fmt::println("delete <BUCKET> `{}`", key);
                         if (auto err = bucket.DeleteBucket(key); err != bolt::ErrorCode::Success) {
                             return err;
                         }
                     } else {
-                        fmt::println("delete `{}`", key);
+                        fmt::println("delete <KEY-VALUE> `{}`", key);
                         cursor.Delete();
                     }
                     std::tie(key, value) = cursor.Next();
@@ -164,6 +165,7 @@ int Del(int argc, char **argv) {
                 if (err != bolt::ErrorCode::Success) {
                     return err;
                 }
+                fmt::println("delete <KEY-VALUE> `{}`", key);
                 return bucket.Delete(key);
             });
             err != bolt::ErrorCode::Success) {
@@ -212,11 +214,10 @@ int Get(int argc, char **argv) {
                     if (value.empty()) {
                         fmt::println("<BUCKET> `{}`", key);
                     } else {
-                        fmt::println("`{}` => `{}`", key, value);
+                        fmt::println("<KEY-VALUE> `{}` => `{}`", key, value);
                     }
                     std::tie(key, value) = cursor.Next();
                 }
-                return bolt::ErrorCode::Success;
                 return bolt::ErrorCode::Success;
             });
             err != bolt::ErrorCode::Success) {
@@ -230,9 +231,9 @@ int Get(int argc, char **argv) {
                 }
                 auto value = bucket.Get(key);
                 if (value.empty()) {
-                    fmt::println("`{}` not found", key);
+                    fmt::println("<KEY-VALUE> `{}` not found", key);
                 } else {
-                    fmt::println("`{}` => `{}`", key, value);
+                    fmt::println("<KEY-VALUE> `{}` => `{}`", key, value);
                 }
                 return bolt::ErrorCode::Success;
             });
@@ -242,6 +243,11 @@ int Get(int argc, char **argv) {
     }
     return 0;
 }
+
+struct BucketTree {
+    std::string name;
+    std::vector<BucketTree> children;
+};
 
 int ListBucket(int argc, char **argv) {
     bolt::DB db;
@@ -254,33 +260,64 @@ int ListBucket(int argc, char **argv) {
         fmt::println("open database fail, {}", err);
         return -1;
     }
-    std::function<bolt::ErrorCode(bolt::Bucket &, int)> list_bucket;
-    list_bucket = [&list_bucket](bolt::Bucket &b, int indent) -> bolt::ErrorCode {
-        auto c = b.Cursor();
-        auto [key, value] = c.First();
+    std::function<std::vector<BucketTree>(bolt::Bucket &)> list_bucket;
+    list_bucket = [&list_bucket](bolt::Bucket &b) -> std::vector<BucketTree> {
+        std::vector<BucketTree> result;
+        auto cursor = b.Cursor();
+        auto [key, value] = cursor.First();
         while (!key.empty()) {
             if (value.empty()) {
-                std::string space(indent, ' ');
-                fmt::println("{}`--> {}", space, key);
-                auto child = b.RetrieveBucket(key);
-                if (auto err = list_bucket(child, indent + 5); err != bolt::ErrorCode::Success) {
-                    return err;
-                }
+                BucketTree item;
+                item.name = std::string(reinterpret_cast<const char *>(key.data()), key.size());
+                auto subbucket = b.RetrieveBucket(key);
+                item.children = list_bucket(subbucket);
+                result.push_back(item);
             }
-            std::tie(key, value) = c.Next();
-        }
-        return bolt::ErrorCode::Success;
+            std::tie(key, value) = cursor.Next();
+        };
+        return result;
     };
-    fmt::println("{}", "<ROOT>");
-    if (auto err = db.View([&list_bucket](bolt::Tx tx) -> bolt::ErrorCode {
-            return tx.ForEach([&](bolt::const_bytes name, bolt::Bucket b) -> bolt::ErrorCode {
-                fmt::println("`--> {}", name);
-                return list_bucket(b, 5);
+    BucketTree root;
+    root.name = "<ROOT>";
+    if (auto err = db.View([&list_bucket, &root](bolt::Tx tx) -> bolt::ErrorCode {
+            tx.ForEach([&](bolt::const_bytes name, bolt::Bucket b) -> bolt::ErrorCode {
+                BucketTree item;
+                item.name = std::string(reinterpret_cast<const char *>(name.data()), name.size());
+                item.children = list_bucket(b);
+                root.children.push_back(item);
+                return bolt::ErrorCode::Success;
             });
+            return bolt::ErrorCode::Success;
         });
         err != bolt::ErrorCode::Success) {
         fmt::println("view database fail, {}", err);
     }
+    // ┌─┬─┐
+    // ├─┼─┤
+    // │ │ │
+    // └─┴─┘
+    auto string_repeat = [](const std::string &s, int n) -> std::string {
+        std::string result;
+        for (int i = 0; i < n; i++) {
+            result += s;
+        }
+        return result;
+    };
+    std::function<void(BucketTree &, std::string)> print_bucket;
+    print_bucket = [&print_bucket, &string_repeat](BucketTree &tree, std::string prefix) {
+        for (int i = 0; i < tree.children.size(); i++) {
+            auto &item = tree.children[i];
+            if (i == tree.children.size() - 1) {
+                fmt::println("{}└── {}", prefix, item.name);
+                print_bucket(item, prefix + "    ");
+            } else {
+                fmt::println("{}├── {}", prefix, item.name);
+                print_bucket(item, prefix + "│   ");
+            }
+        }
+    };
+    fmt::println("{}", root.name);
+    print_bucket(root, "");
     return 0;
 }
 
