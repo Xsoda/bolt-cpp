@@ -1,480 +1,368 @@
-#include "args.hpp"
 #include "bolt/bolt.hpp"
-#include "bolt/common.hpp"
-#include "impl/file.hpp"
-#include "impl/meta.hpp"
-#include "impl/page.hpp"
-#include "impl/utils.hpp"
+#include <algorithm>
 #include <iterator>
 #include <locale>
 #include <span>
 
-std::string hexdump(std::uint64_t offset, const std::span<const std::byte> bytes) {
-    std::string result;
-    auto size = 0;
-    result += "┌────────┬─────────────────────────┬─────────────────────────┬────────"
-              "┬────────┐\n";
-    for (size = 0; size + 16 < bytes.size(); size += 16) {
-        result += fmt::format("│{:08x}│", offset + size);
-        for (int i = 0; i < 16; i++) {
-            if (i == 8) {
-                result += " ┊";
-            }
-            result += fmt::format(" {:02x}", bytes[size + i]);
+inline std::vector<std::string> string_split(const std::string &str, const std::string &delimiter) {
+    std::vector<std::string> result;
+    std::size_t start = 0;
+    while (true) {
+        std::size_t pos = str.find(delimiter, start);
+        if (pos == std::string::npos) {
+            result.push_back(str.substr(start));
+            break;
         }
-        result += " │";
-        for (int i = 0; i < 16; i++) {
-            if (i == 8) {
-                result += "┊";
-            }
-            if (std::isprint((char)bytes[size + i], std::locale::classic())) {
-                result += fmt::format("{}", (char)bytes[size + i]);
-            } else {
-                if (bytes[size + i] == std::byte(0)) {
-                    result += "⋄";
-                } else {
-                    result += "×";
-                }
-            }
-        }
-        result += fmt::format("{}\n", "│");
+        result.push_back(str.substr(start, pos - start));
+        start = pos + delimiter.size();
     }
-    if (size < bytes.size()) {
-        result += fmt::format("│{:08x}│", offset + size);
-        for (int i = 0; i < 16; i++) {
-            if (i == 8) {
-                result += " ┊";
-            }
-            if (size + i < bytes.size()) {
-                result += fmt::format(" {:02x}", bytes[size + i]);
-            } else {
-                result += fmt::format(" {}", "  ");
-            }
-        }
-        result += fmt::format("{}", " │");
-        for (int i = 0; i < 16; i++) {
-            if (i == 8) {
-                result += "┊";
-            }
-            if (size + i < bytes.size()) {
-                if (std::isprint((char)bytes[size + i], std::locale::classic())) {
-                    result += fmt::format("{}", (char)bytes[size + i]);
-                } else {
-                    if (bytes[size + i] == std::byte(0)) {
-                        result += "⋄";
-                    } else {
-                        result += "×";
-                    }
-                }
-            } else {
-                result += " ";
-            }
-        }
-        result += fmt::format("{}\n", "│");
-    }
-    result += "└────────┴─────────────────────────┴─────────────────────────┴──"
-              "──────┴────────┘";
     return result;
 }
-std::tuple<std::uint32_t, bolt::ErrorCode> ReadPageSize(bolt::impl::File &file) {
-    std::vector<std::byte> buf;
-    buf.resize(4096);
-    if (auto [s, err] = file.ReadAt(buf, 0); err != bolt::ErrorCode::Success) {
-        return {0, err};
-    }
-    bolt::impl::meta *meta =
-        reinterpret_cast<bolt::impl::meta *>(buf.data() + bolt::impl::pageHeaderSize);
-    return {meta->pageSize, bolt::ErrorCode::Success};
+
+inline bool string_startswith(const std::string &str, const std::string &start) {
+    return str.find(start) == 0;
 }
 
-std::tuple<std::vector<std::byte>, bolt::ErrorCode> ReadPage(bolt::impl::File &file,
-                                                             bolt::impl::pgid pageid) {
-    std::vector<std::byte> result;
-    auto [pageSize, err] = ReadPageSize(file);
-    if (err != bolt::ErrorCode::Success) {
-        return {std::vector<std::byte>(), err};
+inline bool string_endswith(const std::string &str, const std::string &end) {
+    if (end.size() > str.size()) {
+        return false;
     }
-    result.resize(pageSize);
-    if (auto [n, err] = file.ReadAt(result, pageid * pageSize); err != bolt::ErrorCode::Success) {
-        return {std::vector<std::byte>(), err};
-    }
-    auto p = reinterpret_cast<bolt::impl::page *>(result.data());
-    auto overflowN = p->overflow;
-    if (p->id != pageid) {
-        return {result, bolt::ErrorCode::Success};
-    }
-    result.resize((overflowN + 1) * pageSize);
-    p = reinterpret_cast<bolt::impl::page *>(result.data());
-    if (auto [n, err] = file.ReadAt(result, pageid * pageSize); err != bolt::ErrorCode::Success) {
-        return {std::vector<std::byte>(), err};
-    } else if (n != result.size()) {
-        return {std::vector<std::byte>(), bolt::ErrorCode::ErrorDatabaseEOF};
-    }
-    return {result, bolt::ErrorCode::Success};
+    std::size_t pos = str.size() - end.size();
+    return str.find(end, pos) == pos;
 }
 
-int Help() {
-    auto help = R"(Bolt is a tool for inspecting bolt databases.
+inline std::tuple<std::optional<std::string>, std::optional<std::string>, bool>
+ParseKeyRange(const std::string &str) {
+    auto pos = str.find("...");
+    if (pos == std::string::npos) {
+        return {std::nullopt, std::nullopt, false};
+    }
+    auto start = str.substr(0, pos);
+    auto stop = str.substr(pos + 3);
+    if (start.empty()) {
+        if (stop.empty()) {
+            return {std::nullopt, std::nullopt, true};
+        } else {
+            return {std::nullopt, stop, true};
+        }
+    } else {
+        if (stop.empty()) {
+            return {start, std::nullopt, true};
+        } else {
+            return {start, stop, true};
+        }
+    }
+}
 
-Usage:
+int Help(int argc, char **argv) {
+    fmt::println(R"(Usage:
+  {} <command> <argument>...
 
-    bolt-cli command [arguments]
+Support command:
+  list-bucket   <database>
+  delete-bucket <database> <bucket path>
+  create-bucket <database> <bucket path>
+  set           <database> <bucket path> <key> <value>
+  get           <database> <bucket path> <key-range>
+  del           <database> <bucket path> <key-range>
+  help
 
-The commands are:
+key-range format:
+  [start-key]...[end-key]
 
-    check       verifies integrity of bolt database
-    info        print basic info
-    help        print this screen
-    page        prints one or more pages in human readable format
-    pages       print list of pages with their types
-    stats       iterate over all pages and generate usage stats
-    version     print bolt-cpp library version
-
-Use "bolt [command] --help" for more information about a command.)";
-    fmt::println("{}", help);
+version: {})",
+                 argv[0], bolt::library_version());
     return 0;
 }
 
-int Check(int argc, char **argv) {
-    auto help = R"(usage: bolt-cli check --path <PATH>
-
-Check opens a database at PATH and runs an exhaustive check to verify that
-all pages are accessible or are marked as freed. It also verifies that no
-pages are double referenced.
-
-Verification errors will stream out as they are found and the process will
-return after all pages have been checked.)";
-    auto cmd = Parse(argc, argv);
-    if (auto val = GetArgument<std::nullptr_t>(cmd, "help"); val.has_value()) {
-        fmt::println("{}", help);
-        return 0;
-    }
-    auto path = GetArgument<std::string>(cmd, "path");
-    if (!path.has_value()) {
-        fmt::println("{}", help);
-        return 0;
-    }
+int Set(int argc, char **argv) {
     bolt::DB db;
-    if (auto err = db.Open(*path, true); err != bolt::ErrorCode::Success) {
-        fmt::println("{}", err);
-        return 0;
+    if (argc < 4) {
+        fmt::println("missing arguments");
+        return -1;
     }
-    if (auto err = db.View([](bolt::Tx tx) -> bolt::ErrorCode {
-            auto future = tx.Check();
-            auto result = future.get();
-            if (result.size() > 0) {
-                fmt::println("{} errors found", result.size());
-                for (auto &it : result) {
-                    fmt::println("  - {}", it);
-                }
-            } else {
-                fmt::println("OK");
+    std::string database = argv[0];
+    std::string path = argv[1];
+    std::string key = argv[2];
+    std::string value = argv[3];
+    if (auto err = db.Open(database); err != bolt::ErrorCode::Success) {
+        fmt::println("open database fail, {}", err);
+        return -1;
+    }
+    if (auto err = db.Update([&key, &value, &path](bolt::Tx tx) -> bolt::ErrorCode {
+            auto [bucket, err] = tx.CreateBucketWithPath(path);
+            if (err != bolt::ErrorCode::Success) {
+                return err;
             }
-            return bolt::ErrorCode::Success;
+            return bucket.Put(key, value);
         });
         err != bolt::ErrorCode::Success) {
-        fmt::println("{}", err);
-        return -1;
+        fmt::println("update database fail, {}", err);
     }
     return 0;
 }
 
-int Info(int argc, char **argv) {
-    auto help = R"(usage: bolt-cli info --path <PATH>
-
-Info prints basic information about the Bolt database at PATH.)";
-    auto cmd = Parse(argc, argv);
-    if (auto val = GetArgument<std::nullptr_t>(cmd, "help"); val.has_value()) {
-        fmt::println("{}", help);
-        return 0;
-    }
-    auto path = GetArgument<std::string>(cmd, "path");
-    if (!path.has_value()) {
-        fmt::println("{}", help);
-        return 0;
-    }
+int Del(int argc, char **argv) {
     bolt::DB db;
-    if (auto err = db.Open(*path, true); err != bolt::ErrorCode::Success) {
-        fmt::println("{}", err);
-        return 0;
-    }
-    auto info = db.Info();
-    fmt::println("Page Size: {}", info.PageSize);
-    return 0;
-}
-
-int Page(int argc, char **argv) {
-    auto help =
-        R"(usage: bolt-cli page --path <PATH> --page <pageid> [pageid...]
-
-Page prints one or more pages in human readable format.)";
-    auto cmd = Parse(argc, argv);
-    if (auto val = GetArgument<std::nullptr_t>(cmd, "help"); val.has_value()) {
-        fmt::println("{}", help);
-        return 0;
-    }
-    auto path = GetArgument<std::string>(cmd, "path");
-    auto page = GetArgument<long long>(cmd, "page");
-    auto pages = GetArgument<std::vector<long long>>(cmd, "page");
-    if (!path.has_value()) {
-        fmt::println("{}", help);
-        return 0;
-    }
-    if (!page.has_value() && !pages.has_value()) {
-        fmt::println("{}", help);
-        return 0;
-    }
-    std::vector<long long> pageids;
-    if (page.has_value()) {
-        pageids.push_back(*page);
-    }
-    if (pages.has_value()) {
-        std::copy((*pages).begin(), (*pages).end(), std::back_inserter(pageids));
-    }
-    bolt::impl::File file;
-    if (auto err = file.Open(*path, true); err != bolt::ErrorCode::Success) {
-        fmt::println("{}", err);
+    if (argc < 3) {
+        fmt::println("missing arguments");
         return -1;
     }
-    for (auto it : pageids) {
-        auto [buf, err] = ReadPage(file, it);
-        auto p = reinterpret_cast<bolt::impl::page *>(buf.data());
-        if (err != bolt::ErrorCode::Success) {
-            fmt::println("{}", err);
-            return -1;
-        }
-        if (p->id != it) {
-            fmt::println("page id {} maybe a overflow page", it);
-            continue;
-        }
-        fmt::println("Page ID: {}", p->id);
-        fmt::println("Page Type: {}", p->type());
-        fmt::println("Total Size: {} bytes", buf.size());
-        if (p->type() == "meta") {
-            auto m = reinterpret_cast<bolt::impl::meta *>(&buf[bolt::impl::pageHeaderSize]);
-            fmt::println("Version: {}", m->version);
-            fmt::println("Page Size: {}", m->pageSize);
-            fmt::println("Flags: {:08x}", m->flags);
-            fmt::println("Root: <pgid={}>", m->root.root);
-            fmt::println("Freelist: <pgid={}>", m->freelist);
-            fmt::println("HWM: <pgid={}>", m->pgid);
-            fmt::println("Txn ID: {}", m->txid);
-            fmt::println("Checksum: {:016x}", m->checksum);
-        } else if (p->type() == "leaf") {
-            fmt::println("Item Count: {}", p->count);
-            for (std::uint16_t i = 0; i < p->count; i++) {
-                auto e = p->leafPageElement(i);
-                if ((e->flags & bolt::impl::bucketLeafFlag) != 0) {
-                    auto b = reinterpret_cast<bolt::impl::bucket *>(e->value().data());
-                    fmt::println("{}: <pgid={}, seq={}>", e->key(), b->root, b->sequence);
+    std::string database = argv[0];
+    std::string path = argv[1];
+    std::string key = argv[2];
+
+    if (auto err = db.Open(database); err != bolt::ErrorCode::Success) {
+        fmt::println("open database fail, {}", err);
+        return -1;
+    }
+    auto [start, stop, range] = ParseKeyRange(key);
+    if (range) {
+        if (auto err = db.Update([&path, &start, &stop](bolt::Tx tx) -> bolt::ErrorCode {
+                auto [bucket, err] = tx.RetrieveBucketWithPath(path);
+                if (err != bolt::ErrorCode::Success) {
+                    return err;
+                }
+                bolt::const_bytes key, value;
+                auto cursor = bucket.Cursor();
+                if (start) {
+                    std::tie(key, value) = cursor.Seek(bolt::to_bytes(*start));
                 } else {
-                    fmt::println(R"("{}": "{}")", e->key(), e->value());
+                    std::tie(key, value) = cursor.First();
                 }
-            }
-        } else if (p->type() == "branch") {
-            fmt::println("Item Count: {}", p->count);
-            for (std::uint16_t i = 0; i < p->count; i++) {
-                auto e = p->branchPageElement(i);
-                fmt::println("{}: <pgid={}>", e->key(), e->pgid);
-            }
-        } else if (p->type() == "freelist") {
-            if (p->count != 0xFFFF) {
-                fmt::println("Item Count: {}", p->count);
-                auto ptr = reinterpret_cast<bolt::impl::pgid *>(&p->ptr);
-                for (std::uint16_t i = 0; i < p->count; i++) {
-                    fmt::println("{}", ptr[i]);
+                while (!key.empty()) {
+                    if (stop) {
+                        auto ends = bolt::to_bytes(*stop);
+                        auto cmp = std::lexicographical_compare_three_way(key.begin(), key.end(),
+                                                                          ends.begin(), ends.end());
+                        if (std::is_gteq(cmp)) {
+                            break;
+                        }
+                    }
+                    if (value.empty()) {
+                        fmt::println("delete bucket `{}`", key);
+                        if (auto err = bucket.DeleteBucket(key); err != bolt::ErrorCode::Success) {
+                            return err;
+                        }
+                    } else {
+                        fmt::println("delete `{}`", key);
+                        cursor.Delete();
+                    }
+                    std::tie(key, value) = cursor.Next();
                 }
-            } else {
-                auto ptr = reinterpret_cast<bolt::impl::pgid *>(&p->ptr);
-                auto count = ptr[0];
-                for (std::uint64_t i = 1; i < count; i++) {
-                    fmt::println("{}", ptr[i]);
-                }
-            }
+                return bolt::ErrorCode::Success;
+            });
+            err != bolt::ErrorCode::Success) {
+            fmt::println("update database fail, {}", err);
         }
-        fmt::println("==================================");
+    } else {
+        if (auto err = db.Update([&key, &path](bolt::Tx tx) -> bolt::ErrorCode {
+                auto [bucket, err] = tx.RetrieveBucketWithPath(path);
+                if (err != bolt::ErrorCode::Success) {
+                    return err;
+                }
+                return bucket.Delete(key);
+            });
+            err != bolt::ErrorCode::Success) {
+            fmt::println("update database fail, {}", err);
+        }
     }
     return 0;
 }
 
-int Pages(int argc, char **argv) {
-    auto help = R"(usage: bolt-cli pages --path <PATH>
-
-Pages prints a table of pages with their type (meta, leaf, branch, freelist).
-Leaf and branch pages will show a key count in the "items" column while the
-freelist will show the number of free pages in the "items" column.
-
-The "overflow" column shows the number of blocks that the page spills over
-into. Normally there is no overflow but large keys and values can cause
-a single page to take up multiple blocks.)";
-    auto cmd = Parse(argc, argv);
-    if (auto val = GetArgument<std::nullptr_t>(cmd, "help"); val.has_value()) {
-        fmt::println("{}", help);
-        return 0;
-    }
-    return 0;
-}
-
-int Stats(int argc, char **argv) {
-    auto help = R"(usage: bolt stats --path <PATH>
-
-Stats performs an extensive search of the database to track every page
-reference. It starts at the current meta page and recursively iterates
-through every accessible bucket.
-
-The following errors can be reported:
-
-    already freed
-        The page is referenced more than once in the freelist.
-
-    unreachable unfreed
-        The page is not referenced by a bucket or in the freelist.
-
-    reachable freed
-        The page is referenced by a bucket but is also in the freelist.
-
-    out of bounds
-        A page is referenced that is above the high water mark.
-
-    multiple references
-        A page is referenced by more than one other page.
-
-    invalid type
-        The page type is not "meta", "leaf", "branch", or "freelist".
-
-No errors should occur in your database.)";
-    auto cmd = Parse(argc, argv);
-    if (auto val = GetArgument<std::nullptr_t>(cmd, "help"); val.has_value()) {
-        fmt::println("{}", help);
-        return 0;
-    }
-    auto path = GetArgument<std::string>(cmd, "path");
-    if (!path.has_value()) {
-        fmt::println("{}", help);
-        return 0;
-    }
+int Get(int argc, char **argv) {
     bolt::DB db;
-    if (auto err = db.Open(*path, true); err != bolt::ErrorCode::Success) {
-        fmt::println("{}", err);
+    if (argc < 3) {
+        fmt::println("missing arguments");
         return -1;
     }
+    std::string database = argv[0];
+    std::string path = argv[1];
+    std::string key = argv[2];
+    if (auto err = db.Open(database, true); err != bolt::ErrorCode::Success) {
+        fmt::println("open database fail, {}", err);
+        return -1;
+    }
+    auto [start, stop, range] = ParseKeyRange(key);
+    if (range) {
+        if (auto err = db.View([&path, &start, &stop](bolt::Tx tx) -> bolt::ErrorCode {
+                auto [bucket, err] = tx.RetrieveBucketWithPath(path);
+                if (err != bolt::ErrorCode::Success) {
+                    return err;
+                }
+                bolt::const_bytes key, value;
+                auto cursor = bucket.Cursor();
+                if (start) {
+                    std::tie(key, value) = cursor.Seek(bolt::to_bytes(*start));
+                } else {
+                    std::tie(key, value) = cursor.First();
+                }
+                while (!key.empty()) {
+                    if (stop) {
+                        auto ends = bolt::to_bytes(*stop);
+                        auto cmp = std::lexicographical_compare_three_way(key.begin(), key.end(),
+                                                                          ends.begin(), ends.end());
+                        if (std::is_gteq(cmp)) {
+                            break;
+                        }
+                    }
+                    if (value.empty()) {
+                        fmt::println("<BUCKET> `{}`", key);
+                    } else {
+                        fmt::println("`{}` => `{}`", key, value);
+                    }
+                    std::tie(key, value) = cursor.Next();
+                }
+                return bolt::ErrorCode::Success;
+                return bolt::ErrorCode::Success;
+            });
+            err != bolt::ErrorCode::Success) {
+            fmt::println("retrieve key fail, {}", err);
+        }
+    } else {
+        if (auto err = db.View([&key, &path](bolt::Tx tx) -> bolt::ErrorCode {
+                auto [bucket, err] = tx.RetrieveBucketWithPath(path);
+                if (err != bolt::ErrorCode::Success) {
+                    return err;
+                }
+                auto value = bucket.Get(key);
+                if (value.empty()) {
+                    fmt::println("`{}` not found", key);
+                } else {
+                    fmt::println("`{}` => `{}`", key, value);
+                }
+                return bolt::ErrorCode::Success;
+            });
+            err != bolt::ErrorCode::Success) {
+            fmt::println("retrieve key fail, {}", err);
+        }
+    }
+    return 0;
+}
 
-    if (auto err = db.View([](bolt::Tx tx) -> bolt::ErrorCode {
-            bolt::BucketStats s;
-            int count = 0;
-            if (auto err =
-                    tx.ForEach([&](bolt::const_bytes name, bolt::Bucket b) -> bolt::ErrorCode {
-                        s += b.Stats();
-                        count += 1;
-                        return bolt::ErrorCode::Success;
-                    });
+int ListBucket(int argc, char **argv) {
+    bolt::DB db;
+    if (argc < 1) {
+        fmt::println("missing database argument");
+        return -1;
+    }
+    std::string database = argv[0];
+    if (auto err = db.Open(database, true); err != bolt::ErrorCode::Success) {
+        fmt::println("open database fail, {}", err);
+        return -1;
+    }
+    std::function<bolt::ErrorCode(bolt::Bucket &, int)> list_bucket;
+    list_bucket = [&list_bucket](bolt::Bucket &b, int indent) -> bolt::ErrorCode {
+        auto c = b.Cursor();
+        auto [key, value] = c.First();
+        while (!key.empty()) {
+            if (value.empty()) {
+                std::string space(indent, ' ');
+                fmt::println("{}`--> {}", space, key);
+                auto child = b.RetrieveBucket(key);
+                if (auto err = list_bucket(child, indent + 5); err != bolt::ErrorCode::Success) {
+                    return err;
+                }
+            }
+            std::tie(key, value) = c.Next();
+        }
+        return bolt::ErrorCode::Success;
+    };
+    fmt::println("{}", "<ROOT>");
+    if (auto err = db.View([&list_bucket](bolt::Tx tx) -> bolt::ErrorCode {
+            return tx.ForEach([&](bolt::const_bytes name, bolt::Bucket b) -> bolt::ErrorCode {
+                fmt::println("`--> {}", name);
+                return list_bucket(b, 5);
+            });
+        });
+        err != bolt::ErrorCode::Success) {
+        fmt::println("view database fail, {}", err);
+    }
+    return 0;
+}
+
+int DeleteBucket(int argc, char **argv) {
+    bolt::DB db;
+    if (argc < 2) {
+        fmt::println("missing argument");
+        return -1;
+    }
+    std::string database = argv[0];
+    std::string path = argv[1];
+    if (auto err = db.Open(database); err != bolt::ErrorCode::Success) {
+        fmt::println("open database fail, {}", err);
+        return -1;
+    }
+    if (path.empty()) {
+        fmt::println("missing bucket path");
+        return -1;
+    }
+    if (auto err = db.Update([&path](bolt::Tx tx) -> bolt::ErrorCode {
+            auto bucket_names = string_split(path, "/");
+            if (bucket_names.size() == 1) {
+                fmt::println("delete bucket `{}`", bucket_names.front());
+                return tx.DeleteBucket(bucket_names[0]);
+            }
+            bolt::Bucket bucket = tx.Bucket(bucket_names[0]);
+            for (int i = 1; i < bucket_names.size() - 1; i++) {
+                bucket = bucket.RetrieveBucket(bucket_names[i]);
+            }
+            fmt::println("delete bucket `{}`", bucket_names.back());
+            return bucket.DeleteBucket(bucket_names.back());
+        });
+        err != bolt::ErrorCode::Success) {
+        fmt::println("update database fail, {}", err);
+    }
+    return 0;
+}
+
+int CreateBucket(int argc, char **argv) {
+    bolt::DB db;
+    if (argc < 2) {
+        fmt::println("missing argument");
+        return -1;
+    }
+    std::string database = argv[0];
+    std::string path = argv[1];
+    if (auto err = db.Open(database); err != bolt::ErrorCode::Success) {
+        fmt::println("open database fail, {}", err);
+        return -1;
+    }
+    if (auto err = db.Update([&path](bolt::Tx tx) -> bolt::ErrorCode {
+            if (auto [bucket, err] = tx.CreateBucketWithPath(path);
                 err != bolt::ErrorCode::Success) {
                 return err;
             }
-            fmt::println("Aggregate statistics for {} buckets", count);
-            fmt::println("Page count statistics");
-            fmt::println("\tNumber of logical branch pages: {}", s.BranchPageN);
-            fmt::println("\tNumber of physical branch overflow pages: {}", s.BranchOverflowN);
-            fmt::println("\tNumber of logical leaf pages: {}", s.LeafPageN);
-            fmt::println("\tNumber of physical leaf overflow pages: {}", s.LeafOverflowN);
-            fmt::println("Tree statistics");
-            fmt::println("\tNumber of keys/value pairs: {}", s.KeyN);
-            fmt::println("\tNumber of levels in B+tree: {}", s.Depth);
-            fmt::println("Page size utilization");
-            fmt::println("\tBytes allocated for physical branch pages: {}", s.BranchAlloc);
-            float percentage = 0;
-            if (s.BranchAlloc != 0) {
-                percentage =
-                    static_cast<float>(s.BranchInuse) * 100.0 / static_cast<float>(s.BranchAlloc);
-            }
-            fmt::println("\tBytes actually used for branch data: {} ({:.02}%)", s.BranchInuse,
-                         percentage);
-            fmt::println("Bucket statistics");
-            fmt::println("\tTotal number of buckets: {}", s.BucketN);
-            percentage = 0;
-            if (s.BucketN != 0) {
-                percentage =
-                    static_cast<float>(s.InlineBucketN) * 100.0 / static_cast<float>(s.BucketN);
-            }
-            fmt::println("\tTotal number on inlined buckets: {} ({:.02}%)", s.InlineBucketN,
-                         percentage);
-            percentage = 0;
-            if (s.LeafInuse != 0) {
-                percentage = static_cast<float>(s.InlineBucketInuse) * 100.0 /
-                             static_cast<float>(s.LeafInuse);
-            }
-            fmt::println("\tBytes used for inlined buckets: {} ({:.02}%)", s.InlineBucketInuse,
-                         percentage);
             return bolt::ErrorCode::Success;
         });
         err != bolt::ErrorCode::Success) {
-        fmt::println("{}", err);
-        return -1;
+        fmt::println("update database fail, {}", err);
     }
-    return 0;
-}
-
-int Dump(int argc, char **argv) {
-    auto help = R"(usage: bolt dump --page <PAGEID> --path <PATH>
-
-Dump prints a hexadecimal dump of a single page.)";
-    auto cmd = Parse(argc, argv);
-    if (auto val = GetArgument<std::nullptr_t>(cmd, "help"); val.has_value()) {
-        fmt::println("{}", help);
-        return 0;
-    }
-    auto path = GetArgument<std::string>(cmd, "path");
-    auto pageid = GetArgument<long long>(cmd, "page");
-    if (!path.has_value() || !pageid.has_value()) {
-        fmt::println("{}", help);
-        return 0;
-    }
-    bolt::impl::File file;
-    if (auto err = file.Open(*path, true); err != bolt::Success) {
-        fmt::println("open file fail, {}", err);
-        return -1;
-    }
-    auto [buf, err] = ReadPage(file, *pageid);
-    auto page = reinterpret_cast<bolt::impl::page *>(buf.data());
-    if (err != bolt::Success) {
-        fmt::println("read page fail, {}", err);
-        return -1;
-    }
-    std::uint32_t pageSize;
-    std::tie(pageSize, err) = ReadPageSize(file);
-    if (page->id == *pageid) {
-        fmt::println("Page ID: {}", page->id);
-        fmt::println("Page Type: {}", page->type());
-    }
-    fmt::println("Page Size: {}", pageSize);
-    fmt::println("Total Size: {} bytes", buf.size());
-    fmt::println("{}", hexdump(pageSize * (*pageid), buf));
     return 0;
 }
 
 int main(int argc, char **argv) {
     if (argc > 1) {
         std::string command = argv[1];
-        if (command == "check") {
-            return Check(argc - 2, argv + 2);
-        } else if (command == "info") {
-            return Info(argc - 2, argv + 2);
+        if (command == "list-bucket") {
+            return ListBucket(argc - 2, argv + 2);
+        } else if (command == "delete-bucket") {
+            return DeleteBucket(argc - 2, argv + 2);
+        } else if (command == "create-bucket") {
+            return CreateBucket(argc - 2, argv + 2);
         } else if (command == "help") {
-            return Help();
-        } else if (command == "pages") {
-            return Pages(argc - 2, argv + 2);
-        } else if (command == "stats") {
-            return Stats(argc - 2, argv + 2);
-        } else if (command == "dump") {
-            return Dump(argc - 2, argv + 2);
-        } else if (command == "page") {
-            return Page(argc - 2, argv + 2);
-        } else if (command == "version") {
-            fmt::println("{}", bolt::library_version());
+            Help(argc, argv);
+        } else if (command == "get") {
+            return Get(argc - 2, argv + 2);
+        } else if (command == "set") {
+            return Set(argc - 2, argv + 2);
+        } else if (command == "del") {
+            return Del(argc - 2, argv + 2);
         } else {
-            return Help();
+            Help(argc, argv);
         }
     } else {
-        return Help();
+        Help(argc, argv);
     }
+    return 0;
 }

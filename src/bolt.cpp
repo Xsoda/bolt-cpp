@@ -192,6 +192,10 @@ bolt::Bucket Bucket::RetrieveBucket(bolt::const_bytes name) {
     return pimpl<impl::BucketPtr>::impl()->RetrieveBucket(name);
 }
 
+bolt::Bucket Bucket::RetrieveBucket(const std::string &name) {
+    return pimpl<impl::BucketPtr>::impl()->RetrieveBucket(bolt::to_bytes(name));
+}
+
 bool Bucket::Writable() { return pimpl<impl::BucketPtr>::impl()->Writable(); }
 
 bolt::BucketStats Bucket::Stats() { return pimpl<impl::BucketPtr>::impl()->Stats(); }

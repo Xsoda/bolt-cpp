@@ -124,8 +124,10 @@ public:
 
     bolt::Cursor Cursor();
     bolt::Tx Tx();
+
     // retrieve child bucket
     bolt::Bucket RetrieveBucket(bolt::const_bytes name);
+    bolt::Bucket RetrieveBucket(const std::string &name);
 
     bool Writable();
     bolt::BucketStats Stats();
