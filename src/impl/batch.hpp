@@ -32,7 +32,7 @@ struct batch {
 
     batch(std::shared_ptr<impl::DB> db) : db(db){};
     void trigger();
-    void wait();
+    void StopTimer();
     void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn);
 
     ~batch();

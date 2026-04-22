@@ -60,7 +60,7 @@ void batch::run() {
 
 batch::~batch() { db.reset(); }
 
-void batch::wait() {
+void batch::StopTimer() {
     _assert(timer.get_id() != std::this_thread::get_id(), "Same thread join self");
     timer.request_stop();
     timer.join();

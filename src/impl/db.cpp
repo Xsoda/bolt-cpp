@@ -230,7 +230,7 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     f.wait();
 
     if (ptr) {
-        ptr->wait();
+        ptr->StopTimer();
     }
     if (executor.joinable()) {
         executor.join();
