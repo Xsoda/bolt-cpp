@@ -278,7 +278,7 @@ int ListBucket(int argc, char **argv) {
         return result;
     };
     BucketTree root;
-    root.name = "<ROOT>";
+    root.name = db.Path();
     if (auto err = db.View([&list_bucket, &root](bolt::Tx tx) -> bolt::ErrorCode {
             tx.ForEach([&](bolt::const_bytes name, bolt::Bucket b) -> bolt::ErrorCode {
                 BucketTree item;
@@ -316,7 +316,9 @@ int ListBucket(int argc, char **argv) {
             }
         }
     };
-    fmt::println("{}", root.name);
+    fmt::println("┌{}┐", string_repeat("─", root.name.size() + 2));
+    fmt::println("│ {} │", root.name);
+    fmt::println("├{}┘", string_repeat("─", root.name.size() + 2));
     print_bucket(root, "");
     return 0;
 }
