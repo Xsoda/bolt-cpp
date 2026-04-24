@@ -66,6 +66,7 @@ Support command:
   set           <database> <bucket-path> <key> <value>
   get           <database> <bucket-path> <key-range>|<key>
   del           <database> <bucket-path> <key-range>|<key>
+  list          <database> <bucket-path> [<key-range>]
   help
 
 <key-range> format:
@@ -241,6 +242,65 @@ int Get(int argc, char **argv) {
             err != bolt::ErrorCode::Success) {
             fmt::println("retrieve key fail, {}", err);
         }
+    }
+    return 0;
+}
+
+int List(int argc, char **argv) {
+    bolt::DB db;
+    std::string key;
+    if (argc < 2) {
+        fmt::println("missing arguments");
+        return -1;
+    }
+    std::string database = argv[0];
+    std::string path = argv[1];
+    if (argc >= 3) {
+        key = argv[2];
+    } else {
+        key = "...";
+    }
+    if (auto err = db.Open(database, true); err != bolt::ErrorCode::Success) {
+        fmt::println("open database fail, {}", err);
+        return -1;
+    }
+    auto [start, stop, range] = ParseKeyRange(key);
+    if (range) {
+        if (auto err = db.View([&path, &start, &stop](bolt::Tx tx) -> bolt::ErrorCode {
+                auto [bucket, err] = tx.RetrieveBucketWithPath(path);
+                if (err != bolt::ErrorCode::Success) {
+                    return err;
+                }
+                bolt::const_bytes key, value;
+                auto cursor = bucket.Cursor();
+                if (start) {
+                    std::tie(key, value) = cursor.Seek(bolt::to_bytes(*start));
+                } else {
+                    std::tie(key, value) = cursor.First();
+                }
+                while (!key.empty()) {
+                    if (stop) {
+                        auto ends = bolt::to_bytes(*stop);
+                        auto cmp = std::lexicographical_compare_three_way(key.begin(), key.end(),
+                                                                          ends.begin(), ends.end());
+                        if (std::is_gteq(cmp)) {
+                            break;
+                        }
+                    }
+                    if (value.empty() && value.data() == nullptr) {
+                        fmt::println("<BUCKET>    `{}`", key);
+                    } else {
+                        fmt::println("<KEY-VALUE> `{}`", key);
+                    }
+                    std::tie(key, value) = cursor.Next();
+                }
+                return bolt::ErrorCode::Success;
+            });
+            err != bolt::ErrorCode::Success) {
+            fmt::println("retrieve key fail, {}", err);
+        }
+    } else {
+        fmt::println("wrong arguments");
     }
     return 0;
 }
@@ -465,6 +525,8 @@ int main(int argc, char **argv) {
             Help(argc, argv);
         } else if (command == "get") {
             return Get(argc - 2, argv + 2);
+        } else if (command == "list") {
+            return List(argc - 2, argv + 2);
         } else if (command == "set") {
             return Set(argc - 2, argv + 2);
         } else if (command == "del") {
