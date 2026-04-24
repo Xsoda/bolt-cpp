@@ -1,5 +1,6 @@
 #include "bolt/bolt.hpp"
 #include <algorithm>
+#include <filesystem>
 #include <iterator>
 #include <locale>
 #include <span>
@@ -266,7 +267,7 @@ int ListBucket(int argc, char **argv) {
         auto cursor = b.Cursor();
         auto [key, value] = cursor.First();
         while (!key.empty()) {
-            if (value.empty()) {
+            if (value.empty() && value.data() == nullptr) {
                 BucketTree item;
                 item.name = std::string(reinterpret_cast<const char *>(key.data()), key.size());
                 auto subbucket = b.RetrieveBucket(key);
@@ -383,6 +384,74 @@ int CreateBucket(int argc, char **argv) {
     return 0;
 }
 
+int StoreFolder(int argc, char **argv) {
+    bolt::DB db;
+    std::string database = argv[0];
+    std::string folder = argv[1];
+    if (auto err = db.Open(database); err != bolt::ErrorCode::Success) {
+        fmt::println("open database fail, {}", err);
+        return -1;
+    }
+    std::filesystem::path p = folder;
+    p = p.lexically_normal();
+    if (!std::filesystem::exists(p)) {
+        fmt::println("{} not exists", folder);
+        return -1;
+    }
+    auto status = std::filesystem::status(p);
+    if (!std::filesystem::is_directory(status)) {
+        fmt::println("{} is not directory", folder);
+        return -1;
+    }
+    std::function<bolt::ErrorCode(bolt::Bucket & b, std::filesystem::path p)> iter_folder;
+    iter_folder = [&iter_folder](bolt::Bucket &b, std::filesystem::path p) -> bolt::ErrorCode {
+        for (const auto &it : std::filesystem::directory_iterator{p}) {
+            auto filename = it.path().filename().string();
+            if (it.is_directory()) {
+                auto [sub, err] = b.CreateBucketIfNotExists(filename);
+                if (err != bolt::ErrorCode::Success) {
+                    return err;
+                }
+                if (err = iter_folder(sub, it.path()); err != bolt::ErrorCode::Success) {
+                    return err;
+                }
+            } else if (it.is_regular_file()) {
+                std::ifstream fin{it.path(), std::ios::binary | std::ios::ate};
+                if (!fin.is_open()) {
+                    return bolt::ErrorCode::ErrorSystemCall;
+                }
+                std::streamsize filesize = fin.tellg();
+                fin.seekg(0, std::ios::beg);
+                std::vector<char> buf(filesize);
+                if (!fin.read(buf.data(), filesize)) {
+                    return bolt::ErrorCode::ErrorSystemCall;
+                }
+                if (auto err = b.Put(bolt::to_bytes(filename), bolt::to_bytes(buf));
+                    err != bolt::ErrorCode::Success) {
+                    return err;
+                }
+            }
+        }
+        return bolt::ErrorCode::Success;
+    };
+    if (auto err = db.Update([&iter_folder, &p](bolt::Tx tx) -> bolt::ErrorCode {
+            auto filename = p.filename().string();
+            if (filename.empty()) {
+                filename = p.parent_path().filename().string();
+            }
+            auto [b, err] = tx.CreateBucketIfNotExists(filename);
+            if (err != bolt::ErrorCode::Success) {
+                return err;
+            }
+            return iter_folder(b, p);
+        });
+        err != bolt::ErrorCode::Success) {
+        fmt::println("update database fail, {}", err);
+        return -1;
+    }
+    return 0;
+}
+
 int main(int argc, char **argv) {
     if (argc > 1) {
         std::string command = argv[1];
@@ -400,6 +469,8 @@ int main(int argc, char **argv) {
             return Set(argc - 2, argv + 2);
         } else if (command == "del") {
             return Del(argc - 2, argv + 2);
+        } else if (command == "store-folder") {
+            return StoreFolder(argc - 2, argv + 2);
         } else {
             Help(argc, argv);
         }
