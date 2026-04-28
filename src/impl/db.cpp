@@ -455,7 +455,7 @@ bolt::ErrorCode DB::grow(std::uint64_t sz) {
 // allocate returns a contiguous block of memory starting at a given page.
 std::tuple<impl::page *, bolt::ErrorCode> DB::allocate(size_t count) {
     // Allocate a temporary buffer for the page.
-    impl::page *p = static_cast<impl::page *>(pool.allocate(count * pageSize));
+    impl::page *p = static_cast<impl::page *>(pool.allocate(count * pageSize, pageSize));
     std::memset(p, 0, count * pageSize);
     p->overflow = std::uint32_t(count - 1);
 
@@ -471,7 +471,7 @@ std::tuple<impl::page *, bolt::ErrorCode> DB::allocate(size_t count) {
     if (minsz >= datasz) {
         auto err = mmap(minsz);
         if (err != bolt::ErrorCode::Success) {
-            pool.deallocate(p, count * pageSize);
+            pool.deallocate(p, count * pageSize, pageSize);
             return {nullptr, err};
         }
     }
@@ -481,9 +481,9 @@ std::tuple<impl::page *, bolt::ErrorCode> DB::allocate(size_t count) {
     return {p, bolt::ErrorCode::Success};
 }
 
-void DB::releasePage(impl::page *p) {
+void DB::deallocate(impl::page *p) {
     size_t count = p->overflow + 1;
-    pool.deallocate(p, count * pageSize);
+    pool.deallocate(p, count * pageSize, pageSize);
 }
 
 bolt::ErrorCode DB::mmap(std::uint64_t minsz) {

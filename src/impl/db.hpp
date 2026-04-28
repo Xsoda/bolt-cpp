@@ -96,7 +96,7 @@ struct DB : public std::enable_shared_from_this<DB> {
     bolt::ErrorCode grow(std::uint64_t sz);
     bolt::ErrorCode mmap(std::uint64_t minsz);
     bolt::ErrorCode munmap();
-    void releasePage(impl::page *p);
+    void deallocate(impl::page *p);
     std::tuple<std::uint64_t, bolt::ErrorCode> mmapSize(std::uint64_t size);
     bool IsReadOnly() const { return readOnly; };
 

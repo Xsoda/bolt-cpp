@@ -147,7 +147,7 @@ bolt::ErrorCode Tx::write() {
     }
     // Put small pages back to page pool.
     for (auto it : pages) {
-        dbptr->releasePage(it);
+        dbptr->deallocate(it);
     }
 
     return bolt::Success;
