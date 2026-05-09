@@ -15,14 +15,13 @@ TestResult TestNode_put() {
     bolt::impl::TxPtr tx = std::make_shared<bolt::impl::Tx>(db, meta);
     bolt::impl::BucketPtr bucket = std::make_shared<bolt::impl::Bucket>(tx);
     auto n = std::make_shared<bolt::impl::node>(bucket);
-
-    std::vector<std::byte> bar = {std::byte('b'), std::byte('a'), std::byte('r')};
-    std::vector<std::byte> baz = {std::byte('b'), std::byte('a'), std::byte('z')};
-    std::vector<std::byte> foo = {std::byte('f'), std::byte('o'), std::byte('o')};
-    std::vector<std::byte> v0 = {std::byte('0')};
-    std::vector<std::byte> v1 = {std::byte('1')};
-    std::vector<std::byte> v2 = {std::byte('2')};
-    std::vector<std::byte> v3 = {std::byte('3')};
+    auto bar = bolt::to_bytes("bar");
+    auto baz = bolt::to_bytes("baz");
+    auto foo = bolt::to_bytes("foo");
+    auto v0 = bolt::to_bytes("0");
+    auto v1 = bolt::to_bytes("1");
+    auto v2 = bolt::to_bytes("2");
+    auto v3 = bolt::to_bytes("3");
     n->put(baz, baz, v2, 0, 0);
     n->put(foo, foo, v0, 0, 0);
     n->put(bar, bar, v1, 0, 0);
@@ -75,12 +74,8 @@ TestResult TestNode_read_LeafPage() {
     nodes[1] = elem;
 
     std::span<std::byte> data = std::span(reinterpret_cast<std::byte *>(&nodes[2]), 4096);
-    std::vector<std::byte> v1 = {std::byte('b'), std::byte('a'), std::byte('r'), std::byte('f'),
-                                 std::byte('o'), std::byte('o'), std::byte('z')};
-    std::vector<std::byte> v2 = {std::byte('h'), std::byte('e'), std::byte('l'), std::byte('l'),
-                                 std::byte('o'), std::byte('w'), std::byte('o'), std::byte('r'),
-                                 std::byte('l'), std::byte('d'), std::byte('b'), std::byte('y'),
-                                 std::byte('e')};
+    auto v1 = bolt::to_bytes("barfooz");
+    auto v2 = bolt::to_bytes("helloworldbye");
     std::copy(v1.begin(), v1.end(), data.begin());
     std::copy(v2.begin(), v2.end(), data.begin() + 7);
 
@@ -101,21 +96,15 @@ TestResult TestNode_write_LeafPage() {
     bolt::impl::TxPtr tx = std::make_shared<bolt::impl::Tx>(db, meta);
     bolt::impl::BucketPtr bucket = std::make_shared<bolt::impl::Bucket>(tx);
     auto n = std::make_shared<bolt::impl::node>(bucket, true, nullptr);
-    std::string susy = "susy";
-    std::string que = "que";
-    std::string ricki = "ricki";
-    std::string lake = "lake";
-    std::string john = "john";
-    std::string johnson = "johnson";
-    std::span<std::byte> s_susy(reinterpret_cast<std::byte *>(susy.data()), susy.size());
-    std::span<std::byte> s_que(reinterpret_cast<std::byte *>(que.data()), que.size());
-    std::span<std::byte> s_ricki(reinterpret_cast<std::byte *>(ricki.data()), ricki.size());
-    std::span<std::byte> s_lake(reinterpret_cast<std::byte *>(lake.data()), lake.size());
-    std::span<std::byte> s_john(reinterpret_cast<std::byte *>(john.data()), john.size());
-    std::span<std::byte> s_johnson(reinterpret_cast<std::byte *>(johnson.data()), johnson.size());
-    n->put(s_susy, s_susy, s_que, 0, 0);
-    n->put(s_ricki, s_ricki, s_lake, 0, 0);
-    n->put(s_john, s_john, s_johnson, 0, 0);
+    auto susy = bolt::to_bytes("susy");
+    auto que = bolt::to_bytes("que");
+    auto ricki = bolt::to_bytes("ricki");
+    auto lake = bolt::to_bytes("lake");
+    auto john = bolt::to_bytes("john");
+    auto johnson = bolt::to_bytes("johnson");
+    n->put(susy, susy, que, 0, 0);
+    n->put(ricki, ricki, lake, 0, 0);
+    n->put(john, john, johnson, 0, 0);
 
     std::vector<std::byte> buf;
     buf.assign(4096, std::byte(0));
@@ -130,19 +119,19 @@ TestResult TestNode_write_LeafPage() {
     std::span<std::byte> k, v;
     k = n2->inodes[0].key;
     v = n2->inodes[0].value;
-    if (!Equal(k, s_john) || !Equal(v, s_johnson)) {
+    if (!Equal(k, john) || !Equal(v, johnson)) {
         return TestResult(false, "expected inodes[0] is <john, johnson>");
     }
 
     k = n2->inodes[1].key;
     v = n2->inodes[1].value;
-    if (!Equal(k, s_ricki) || !Equal(v, s_lake)) {
+    if (!Equal(k, ricki) || !Equal(v, lake)) {
         return TestResult(false, "expected inodes[1] is <ricki, lake>");
     }
 
     k = n2->inodes[2].key;
     v = n2->inodes[2].value;
-    if (!Equal(k, s_susy) || !Equal(v, s_que)) {
+    if (!Equal(k, susy) || !Equal(v, que)) {
         return TestResult(false, "expected inodes[2] is <susy, que>");
     }
     return true;
@@ -155,23 +144,17 @@ TestResult TestNode_split() {
     bolt::impl::TxPtr tx = std::make_shared<bolt::impl::Tx>(db, meta);
     bolt::impl::BucketPtr bucket = std::make_shared<bolt::impl::Bucket>(tx);
     auto n = std::make_shared<bolt::impl::node>(bucket);
-    std::string k1 = "00000001";
-    std::string k2 = "00000002";
-    std::string k3 = "00000003";
-    std::string k4 = "00000004";
-    std::string k5 = "00000005";
-    std::string v = "0123456701234567";
-    auto s_k1 = bolt::to_bytes(k1);
-    auto s_k2 = bolt::to_bytes(k2);
-    auto s_k3 = bolt::to_bytes(k3);
-    auto s_k4 = bolt::to_bytes(k4);
-    auto s_k5 = bolt::to_bytes(k5);
-    auto s_v = bolt::to_bytes(v);
-    n->put(s_k1, s_k1, s_v, 0, 0);
-    n->put(s_k2, s_k2, s_v, 0, 0);
-    n->put(s_k3, s_k3, s_v, 0, 0);
-    n->put(s_k4, s_k4, s_v, 0, 0);
-    n->put(s_k5, s_k5, s_v, 0, 0);
+    auto k1 = bolt::to_bytes("00000001");
+    auto k2 = bolt::to_bytes("00000002");
+    auto k3 = bolt::to_bytes("00000003");
+    auto k4 = bolt::to_bytes("00000004");
+    auto k5 = bolt::to_bytes("00000005");
+    auto v = bolt::to_bytes("0123456701234567");
+    n->put(k1, k1, v, 0, 0);
+    n->put(k2, k2, v, 0, 0);
+    n->put(k3, k3, v, 0, 0);
+    n->put(k4, k4, v, 0, 0);
+    n->put(k5, k5, v, 0, 0);
 
     auto splits = n->split(100, hold);
     auto parent = n->parent.lock();
@@ -194,14 +177,11 @@ TestResult TestNode_split_MinKeys() {
     bolt::impl::TxPtr tx = std::make_shared<bolt::impl::Tx>(db, meta);
     bolt::impl::BucketPtr bucket = std::make_shared<bolt::impl::Bucket>(tx);
     auto n = std::make_shared<bolt::impl::node>(bucket);
-    std::string k1 = "00000001";
-    std::string k2 = "00000002";
-    std::string v = "0123456701234567";
-    auto s_k1 = bolt::to_bytes(k1);
-    auto s_k2 = bolt::to_bytes(k2);
-    auto s_v = bolt::to_bytes(v);
-    n->put(s_k1, s_k1, s_v, 0, 0);
-    n->put(s_k2, s_k2, s_v, 0, 0);
+    auto k1 = bolt::to_bytes("00000001");
+    auto k2 = bolt::to_bytes("00000002");
+    auto v = bolt::to_bytes("0123456701234567");
+    n->put(k1, k1, v, 0, 0);
+    n->put(k2, k2, v, 0, 0);
     auto split = n->split(20, hold);
     if (!n->parent.expired()) {
         return TestResult(false, "expected nullptr parent");
@@ -216,23 +196,17 @@ TestResult TestNode_split_SinglePage() {
     bolt::impl::TxPtr tx = std::make_shared<bolt::impl::Tx>(db, meta);
     bolt::impl::BucketPtr bucket = std::make_shared<bolt::impl::Bucket>(tx);
     auto n = std::make_shared<bolt::impl::node>(bucket);
-    std::string k1 = "00000001";
-    std::string k2 = "00000002";
-    std::string k3 = "00000003";
-    std::string k4 = "00000004";
-    std::string k5 = "00000005";
-    std::string v = "0123456701234567";
-    auto s_k1 = bolt::to_bytes(k1);
-    auto s_k2 = bolt::to_bytes(k2);
-    auto s_k3 = bolt::to_bytes(k3);
-    auto s_k4 = bolt::to_bytes(k4);
-    auto s_k5 = bolt::to_bytes(k5);
-    auto s_v = bolt::to_bytes(v);
-    n->put(s_k1, s_k1, s_v, 0, 0);
-    n->put(s_k2, s_k2, s_v, 0, 0);
-    n->put(s_k3, s_k3, s_v, 0, 0);
-    n->put(s_k4, s_k4, s_v, 0, 0);
-    n->put(s_k5, s_k5, s_v, 0, 0);
+    auto k1 = bolt::to_bytes("00000001");
+    auto k2 = bolt::to_bytes("00000002");
+    auto k3 = bolt::to_bytes("00000003");
+    auto k4 = bolt::to_bytes("00000004");
+    auto k5 = bolt::to_bytes("00000005");
+    auto v = bolt::to_bytes("0123456701234567");
+    n->put(k1, k1, v, 0, 0);
+    n->put(k2, k2, v, 0, 0);
+    n->put(k3, k3, v, 0, 0);
+    n->put(k4, k4, v, 0, 0);
+    n->put(k5, k5, v, 0, 0);
 
     auto splits = n->split(4096, hold);
     if (!n->parent.expired()) {

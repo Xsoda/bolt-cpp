@@ -27,6 +27,8 @@ constexpr int MaxKeySize = 32768;
 constexpr int MaxValueSize = std::numeric_limits<int>::max() - 2;
 constexpr float DefaultFillPercent = 0.5;
 
+template <typename...> inline constexpr bool always_false = false;
+
 template <typename T> constexpr std::span<const std::byte> to_bytes(const T &val) {
     if constexpr (requires {
                       val.data();
@@ -34,11 +36,20 @@ template <typename T> constexpr std::span<const std::byte> to_bytes(const T &val
                   }) {
         return std::span<const std::byte>(reinterpret_cast<const std::byte *>(val.data()),
                                           val.size());
-    }
-    if constexpr (std::is_convertible_v<T, const char *>) {
+    } else if constexpr (std::is_convertible_v<T, const char *>) {
         return std::span<const std::byte>(reinterpret_cast<const std::byte *>(val),
                                           std::char_traits<char>::length(val));
+    } else {
+        static_assert(always_false<T>, "Unsupport convert to bytes");
     }
+}
+
+constexpr std::span<const std::byte> to_bytes(const void *ptr, size_t byte_length) {
+    return {static_cast<const std::byte *>(ptr), byte_length};
+}
+
+constexpr std::span<const std::byte> to_bytes(void *ptr, size_t byte_length) {
+    return to_bytes(static_cast<const void *>(ptr), byte_length);
 }
 
 } // namespace bolt

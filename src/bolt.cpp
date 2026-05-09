@@ -84,8 +84,7 @@ Tx::ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name, bolt::Bucket b
 bolt::Bucket Tx::Bucket(bolt::const_bytes name) { return pimpl<impl::TxPtr>::impl()->Bucket(name); }
 
 bolt::Bucket Tx::Bucket(const std::string &name) {
-    return pimpl<impl::TxPtr>::impl()->Bucket(
-        bolt::const_bytes{reinterpret_cast<const std::byte *>(name.data()), name.size()});
+    return pimpl<impl::TxPtr>::impl()->Bucket(to_bytes(name));
 }
 
 bolt::Cursor Tx::Cursor() { return pimpl<impl::TxPtr>::impl()->Cursor(); }

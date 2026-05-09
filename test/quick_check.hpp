@@ -1,15 +1,14 @@
 #pragma once
-
-#include <span>
-#include <vector>
-#include <algorithm>
-#include <cstdint>
+#include "bolt/common.hpp"
 #include "impl/bsearch.hpp"
 #include "random.hpp"
+#include <algorithm>
+#include <cstdint>
+#include <span>
+#include <vector>
 
 struct TestData {
-    using Item =
-        std::pair<std::span<const std::byte>, std::span<const std::byte>>;
+    using Item = std::pair<std::span<const std::byte>, std::span<const std::byte>>;
     std::vector<std::byte> memory;
     std::vector<Item> items;
     std::uint32_t RandomInt(std::uint32_t min, std::uint32_t max) {
@@ -34,18 +33,17 @@ struct TestData {
         RandomCharset(memory);
         std::uint32_t offset = 0;
         for (size_t i = 0; i < size; i++) {
-            auto k = std::span<std::byte>(reinterpret_cast<std::byte*>(memory.data() + offset), lens[i * 2]);
+            auto k = bolt::to_bytes((memory.data() + offset), lens[i * 2]);
             offset += lens[i * 2];
-            auto v = std::span<std::byte>(reinterpret_cast<std::byte*>(memory.data() + offset), lens[i * 2 + 1]);
+            auto v = bolt::to_bytes((memory.data() + offset), lens[i * 2 + 1]);
             offset += lens[i * 2 + 1];
             items.push_back(std::make_pair(k, v));
         }
     };
     void Sort() {
-        std::sort(items.begin(), items.end(),
-                  [](const Item &a, const Item &b) -> bool {
-                      return std::is_lt(bolt::impl::compare_three_way(a.first, b.first));
-                  });
+        std::sort(items.begin(), items.end(), [](const Item &a, const Item &b) -> bool {
+            return std::is_lt(bolt::impl::compare_three_way(a.first, b.first));
+        });
     };
     auto begin() { return items.begin(); };
     auto end() { return items.end(); };
@@ -54,12 +52,12 @@ struct TestData {
 };
 
 class QuickCheck {
-  public:
+public:
     bool Check(std::function<bool(TestData &testdata)> fn, size_t size = 1000) {
         testdata.Generate(size);
         return fn(testdata);
     };
 
-  private:
+private:
     TestData testdata;
 };
