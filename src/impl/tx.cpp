@@ -459,10 +459,11 @@ std::tuple<std::optional<impl::PageInfo>, bolt::ErrorCode> Tx::Page(int id) {
     return std::make_tuple(info, bolt::Success);
 }
 
-std::tuple<impl::BucketPtr, bolt::ErrorCode> Tx::CreateBucketWithPath(const std::string &path) {
+std::tuple<impl::BucketPtr, bolt::ErrorCode>
+Tx::CreateBucketWithPath(const std::string &path, const std::string &delimiter) {
     impl::BucketPtr bktptr;
     bolt::ErrorCode err = bolt::ErrorCode::ErrorBucketNameRequired;
-    auto names = impl::string_split(path, "/");
+    auto names = impl::string_split(path, delimiter);
     for (auto &it : names) {
         auto key = bolt::to_bytes(it);
         if (bktptr) {
@@ -477,9 +478,10 @@ std::tuple<impl::BucketPtr, bolt::ErrorCode> Tx::CreateBucketWithPath(const std:
     return {bktptr, err};
 }
 
-std::tuple<impl::BucketPtr, bolt::ErrorCode> Tx::RetrieveBucketWithPath(const std::string &path) {
+std::tuple<impl::BucketPtr, bolt::ErrorCode>
+Tx::RetrieveBucketWithPath(const std::string &path, const std::string &delimiter) {
     impl::BucketPtr bktptr;
-    auto names = impl::string_split(path, "/");
+    auto names = impl::string_split(path, delimiter);
     for (auto &it : names) {
         auto key = bolt::to_bytes(it);
         if (bktptr) {

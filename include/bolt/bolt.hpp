@@ -64,8 +64,10 @@ public:
     bolt::ErrorCode DeleteBucket(const std::string &name);
 
     // <bucket>/<bucket>/.../<last-bucket>
-    std::tuple<bolt::Bucket, bolt::ErrorCode> CreateBucketWithPath(const std::string &path);
-    std::tuple<bolt::Bucket, bolt::ErrorCode> RetrieveBucketWithPath(const std::string &path);
+    std::tuple<bolt::Bucket, bolt::ErrorCode>
+    CreateBucketWithPath(const std::string &path, const std::string &delimiter = "/");
+    std::tuple<bolt::Bucket, bolt::ErrorCode>
+    RetrieveBucketWithPath(const std::string &path, const std::string &delimiter = "/");
 
     bolt::ErrorCode
     ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name, bolt::Bucket b)> &&fn);

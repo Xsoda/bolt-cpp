@@ -68,8 +68,10 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     impl::CursorPtr Cursor();
     std::tuple<std::optional<impl::PageInfo>, bolt::ErrorCode> Page(int id);
 
-    std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucketWithPath(const std::string &path);
-    std::tuple<impl::BucketPtr, bolt::ErrorCode> RetrieveBucketWithPath(const std::string &path);
+    std::tuple<impl::BucketPtr, bolt::ErrorCode>
+    CreateBucketWithPath(const std::string &path, const std::string &delimiter = "/");
+    std::tuple<impl::BucketPtr, bolt::ErrorCode>
+    RetrieveBucketWithPath(const std::string &path, const std::string &delimiter = "/");
 };
 
 } // namespace bolt::impl
