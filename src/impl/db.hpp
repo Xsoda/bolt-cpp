@@ -6,6 +6,7 @@
 #include "impl/freelist.hpp"
 #include "impl/tx.hpp"
 #include "impl/utils.hpp"
+#include <chrono>
 #include <memory>
 #include <memory_resource>
 #include <mutex>
@@ -83,7 +84,8 @@ struct DB : public std::enable_shared_from_this<DB> {
     ~DB();
     bolt::ErrorCode init();
     const std::string &Path() const;
-    bolt::ErrorCode Open(std::string path, bool readOnly = false);
+    bolt::ErrorCode Open(std::string path, bool readOnly = false,
+                         std::chrono::milliseconds timeout = 0s);
     bolt::ErrorCode Close();
     void Sync();
     impl::meta *meta();

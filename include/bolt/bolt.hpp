@@ -1,4 +1,5 @@
 #pragma once
+#include <chrono>
 #ifndef BOLT_HPP
 #define BOLT_HPP
 
@@ -30,7 +31,8 @@ class Bucket;
 
 class DB final : private pimpl<impl::DBPtr> {
 public:
-    bolt::ErrorCode Open(std::string path, bool readOnly = false);
+    bolt::ErrorCode Open(std::string path, bool readOnly = false,
+                         std::chrono::milliseconds timeout = 0s);
     bolt::ErrorCode Close();
 
     bolt::ErrorCode Update(std::function<bolt::ErrorCode(bolt::Tx)> &&fn);

@@ -71,7 +71,7 @@ DB::DB()
 
 DB::~DB() { Close(); }
 
-bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
+bolt::ErrorCode DB::Open(std::string path, bool readOnly, std::chrono::milliseconds timeout) {
     this->path = path;
     this->readOnly = readOnly;
     auto err = file.Open(path, readOnly);
@@ -79,7 +79,7 @@ bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
         return err;
     }
 
-    err = file.Flock(!readOnly, 0ms);
+    err = file.Flock(!readOnly, timeout);
     if (err != bolt::ErrorCode::Success) {
         return err;
     }

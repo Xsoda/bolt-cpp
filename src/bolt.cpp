@@ -13,8 +13,8 @@ namespace bolt {
 // DB
 DB::DB() : pimpl(std::make_shared<impl::DB>()) {}
 
-bolt::ErrorCode DB::Open(std::string path, bool readOnly) {
-    return pimpl<impl::DBPtr>::impl()->Open(path, readOnly);
+bolt::ErrorCode DB::Open(std::string path, bool readOnly, std::chrono::milliseconds timeout) {
+    return pimpl<impl::DBPtr>::impl()->Open(path, readOnly, timeout);
 }
 
 bolt::ErrorCode DB::Close() { return pimpl<impl::DBPtr>::impl()->Close(); }
