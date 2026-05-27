@@ -40,23 +40,23 @@ private:
 };
 
 std::string wstr2str(const std::wstring &ws) {
-    int len;
-    int slen = (int)ws.length() + 1;
-    len = WideCharToMultiByte(CP_ACP, 0, ws.c_str(), slen, NULL, 0, NULL, NULL);
-    std::vector<char> buf;
-    buf.assign(len, char(0));
-    WideCharToMultiByte(CP_ACP, 0, ws.c_str(), slen, buf.data(), len, NULL, NULL);
-    return std::string(buf.data());
+    int len = WideCharToMultiByte(CP_ACP, 0, ws.c_str(), -1, NULL, 0, NULL, NULL);
+    if (len <= 0) {
+        return {};
+    }
+    auto buf = std::make_unique<char[]>(len);
+    WideCharToMultiByte(CP_ACP, 0, ws.c_str(), ws.length(), buf.get(), len, NULL, NULL);
+    return std::string(buf.get());
 }
 
 std::wstring str2wstr(const std::string &s) {
-    int len;
-    int slength = (int)s.length() + 1;
-    len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, NULL, 0);
-    std::vector<wchar_t> buf;
-    buf.assign(len, wchar_t(0));
-    MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, buf.data(), len);
-    return std::wstring(buf.data());
+    int len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), -1, NULL, 0);
+    if (len <= 0) {
+        return {};
+    }
+    auto buf = std::make_unique<wchar_t[]>(len);
+    MultiByteToWideChar(CP_ACP, 0, s.c_str(), -1, buf.get(), len);
+    return std::wstring(buf.get());
 }
 
 FileImpl::~FileImpl() {
