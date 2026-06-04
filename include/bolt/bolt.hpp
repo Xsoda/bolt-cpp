@@ -1,5 +1,5 @@
 #pragma once
-#include <chrono>
+
 #ifndef BOLT_HPP
 #define BOLT_HPP
 
@@ -7,6 +7,7 @@
 #include "error.hpp"
 #include "pimpl.hpp"
 #include "stats.hpp"
+#include <chrono>
 #include <functional>
 #include <future>
 #include <memory>

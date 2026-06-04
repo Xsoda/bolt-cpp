@@ -1,4 +1,5 @@
 #pragma once
+
 #ifndef BOLT_STATS_HPP
 #define BOLT_STATS_HPP
 
