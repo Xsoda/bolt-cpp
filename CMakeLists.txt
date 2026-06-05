@@ -205,7 +205,6 @@ if(BUILD_CXX_CHAOS_TEST)
   add_executable(chaos-op)
   target_sources(chaos-op
     PRIVATE
-    cmd/args.hpp
     cmd/chaos-op.cpp)
   target_link_libraries(chaos-op PRIVATE fmt::fmt bolt)
 endif()

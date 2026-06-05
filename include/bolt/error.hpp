@@ -40,25 +40,25 @@ namespace bolt {
     XX(ExceptionCaptured, "exception captured")                                                    \
     XX(NotImplemented, "not implemented")
 
-typedef enum {
+enum class ErrorCode {
     Success = 0,
 
-#define XX(name, desc) Error##name,
+#define XX(name, desc) name,
     ERROR_MAP(XX)
 #undef XX
 
         MaxErrorCode,
-} ErrorCode;
+};
 
 } // namespace bolt
 
-FMT_BEGIN_NAMESPACE
-template <> struct formatter<bolt::ErrorCode> : nested_formatter<fmt::string_view> {
+FMT_BEGIN_NAMESPACE template <>
+struct formatter<bolt::ErrorCode> : nested_formatter<fmt::string_view> {
     auto format(bolt::ErrorCode error_code, format_context &ctx) const -> decltype(ctx.out()) {
         return write_padded(ctx, [this, error_code](auto out) -> decltype(out) {
             switch (error_code) {
 #define XX(name, desc)                                                                             \
-    case bolt::ErrorCode::Error##name:                                                             \
+    case bolt::ErrorCode::name:                                                                    \
         return fmt::format_to(out, "({}) - {}", #name, desc);
                 ERROR_MAP(XX)
 #undef XX

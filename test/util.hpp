@@ -60,7 +60,7 @@ inline bolt::impl::DBPtr MustOpenDB(std::string path = "") {
         path = tempfile();
     }
     auto err = db->Open(path);
-    if (err != bolt::Success) {
+    if (err != bolt::ErrorCode::Success) {
         assert("open database fail" && false);
         return nullptr;
     }
@@ -69,7 +69,7 @@ inline bolt::impl::DBPtr MustOpenDB(std::string path = "") {
 
 inline void MustCloseDB(bolt::impl::DBPtr &&db) {
     auto err = db->Close();
-    if (err != bolt::Success) {
+    if (err != bolt::ErrorCode::Success) {
         assert("close database fail" && false);
     }
 }
@@ -84,6 +84,6 @@ inline void MustCheck(bolt::impl::DBPtr db) {
                 fmt::println("  - {}", item);
             }
         }
-        return bolt::Success;
+        return bolt::ErrorCode::Success;
     });
 }

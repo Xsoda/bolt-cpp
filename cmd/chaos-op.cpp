@@ -1,7 +1,7 @@
-#include "args.hpp"
 #include "bolt/bolt.hpp"
 #include "fmt/format.h"
 #include "fmt/std.h"
+#include <cstring>
 #include <filesystem>
 #include <functional>
 #include <iterator>
@@ -44,17 +44,6 @@ std::string RandomString(std::int64_t min, std::int64_t max) {
     return result;
 }
 
-template <typename Container>
-constexpr std::span<const std::byte> to_bytes(const Container &container) {
-    return std::span<const std::byte>(reinterpret_cast<const std::byte *>(container.data()),
-                                      container.size());
-}
-
-inline std::span<const std::byte> to_bytes(const char *str) {
-    return std::span<const std::byte>(reinterpret_cast<const std::byte *>(str),
-                                      std::char_traits<char>::length(str));
-}
-
 template <class Container> std::string to_string(const Container &container) {
     return std::string(reinterpret_cast<const char *>(container.data()), container.size());
 }
@@ -81,21 +70,38 @@ int main(int argc, char **argv) {
     bolt::DB db;
     std::set<std::string> keys;
     std::filesystem::remove("chaos-cxx");
-    if (auto err = db.Open("chaos-cxx"); err != bolt::Success) {
+    if (auto err = db.Open("chaos-cxx"); err != bolt::ErrorCode::Success) {
         fmt::println("open {} fail, {}", db.Path(), err);
         return -1;
     }
-    auto cmd = Parse(argc - 1, argv + 1);
-    auto max_op = GetArgument<long long>(cmd, "max-op").value_or(100000);
-    auto tx_op = GetArgument<long long>(cmd, "tx-op").value_or(50000);
+    std::optional<long long> max_op, tx_op;
+    for (int i = 1; i < argc; i++) {
+        if (std::strcmp(argv[i], "-max-op") == 0 && i + 1 < argc) {
+            try {
+                auto val = std::stoll(argv[i + 1]);
+                max_op = val;
+            } catch (std::exception &e) {
+                fmt::println("excpetion {}", e.what());
+            }
+            i += 1;
+        } else if (std::strcmp(argv[i], "-tx-op") == 0 && i + 1 < argc) {
+            try {
+                auto val = std::stoll(argv[i + 1]);
+                tx_op = val;
+            } catch (std::exception &e) {
+                fmt::println("excpetion {}", e.what());
+            }
+            i += 1;
+        }
+    }
     auto bucket = RandomString(8, 32);
-    for (int i = 0; i < max_op; i += tx_op) {
+    for (int i = 0; i < max_op.value_or(100000); i += tx_op.value_or(50000)) {
         auto err = db.Update([tx_op, i, &keys, &bucket](bolt::Tx tx) -> bolt::ErrorCode {
-            auto [b, err] = tx.CreateBucketIfNotExists(to_bytes(bucket));
-            if (err != bolt::Success) {
+            auto [b, err] = tx.CreateBucketIfNotExists(bolt::to_bytes(bucket));
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            for (int j = 0; j < tx_op; j++) {
+            for (int j = 0; j < tx_op.value_or(50000); j++) {
                 auto op = GetOP();
                 if (keys.size() == 0) {
                     op = OP::Insert;
@@ -104,9 +110,9 @@ int main(int argc, char **argv) {
                     auto key = RandomString(8, 32);
                     auto val = RandomString(32, 4096);
                     keys.insert(key);
-                    fmt::println("{:06} INSERT {}", i + j, to_bytes(key));
-                    err = b.Put(to_bytes(key), to_bytes(val));
-                    if (err != bolt::Success) {
+                    fmt::println("{:06} INSERT {}", i + j, bolt::to_bytes(key));
+                    err = b.Put(bolt::to_bytes(key), bolt::to_bytes(val));
+                    if (err != bolt::ErrorCode::Success) {
                         return err;
                     }
                 } else if (op == OP::Update) {
@@ -114,41 +120,41 @@ int main(int argc, char **argv) {
                     auto it = std::next(keys.begin(), idx);
                     auto val = RandomString(32, 4096);
                     auto key = *it;
-                    err = b.Put(to_bytes(key), to_bytes(val));
-                    fmt::println("{:06} UPDATE {}", i + j, to_bytes(key));
-                    if (err != bolt::Success) {
+                    err = b.Put(bolt::to_bytes(key), bolt::to_bytes(val));
+                    fmt::println("{:06} UPDATE {}", i + j, bolt::to_bytes(key));
+                    if (err != bolt::ErrorCode::Success) {
                         return err;
                     }
                 } else if (op == OP::Delete) {
                     auto idx = RandomInt(0, keys.size());
                     auto it = std::next(keys.begin(), idx);
                     auto key = *it;
-                    fmt::println("{:06} DELETE {}", i + j, to_bytes(key));
+                    fmt::println("{:06} DELETE {}", i + j, bolt::to_bytes(key));
                     keys.erase(it);
-                    err = b.Delete(to_bytes(key));
-                    if (err != bolt::Success) {
+                    err = b.Delete(bolt::to_bytes(key));
+                    if (err != bolt::ErrorCode::Success) {
                         return err;
                     }
                 }
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        if (err != bolt::Success) {
+        if (err != bolt::ErrorCode::Success) {
             fmt::println("update fail, {}", err);
         }
         keys.clear();
     }
     if (auto err = db.View([&bucket](bolt::Tx tx) -> bolt::ErrorCode {
-            auto b = tx.Bucket(to_bytes(bucket));
-            auto val = b.Get(to_bytes("ZqReP8ryRa5y"));
+            auto b = tx.Bucket(bolt::to_bytes(bucket));
+            auto val = b.Get(bolt::to_bytes("ZqReP8ryRa5y"));
             fmt::println("value: {}", val);
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
     }
     auto stat = db.Stats().TxStats;
     fmt::println("{}", stat);
-    if (auto err = db.Close(); err != bolt::Success) {
+    if (auto err = db.Close(); err != bolt::ErrorCode::Success) {
         fmt::println("close {} fail, {}", db.Path(), err);
         return -1;
     }

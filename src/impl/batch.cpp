@@ -35,24 +35,24 @@ void batch::run() {
                 try {
                     err = it->get()->fn(tx);
                 } catch ([[maybe_unused]] const std::exception &e) {
-                    err = bolt::ErrorExceptionCaptured;
+                    err = bolt::ErrorCode::ExceptionCaptured;
                 }
-                if (err != bolt::Success) {
+                if (err != bolt::ErrorCode::Success) {
                     failIdx = std::distance(calls.begin(), it);
                     return err;
                 }
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
 
         if (failIdx >= 0) {
             auto c = std::move(calls[failIdx]);
             calls.erase(calls.begin() + failIdx);
-            c->err.set_value(bolt::ErrorTrySolo);
+            c->err.set_value(bolt::ErrorCode::TrySolo);
             continue;
         }
         for (auto &it : calls) {
-            it->err.set_value(bolt::Success);
+            it->err.set_value(bolt::ErrorCode::Success);
         }
         break;
     }

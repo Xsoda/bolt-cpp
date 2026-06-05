@@ -71,7 +71,7 @@ bolt::ErrorCode
 Bucket::ForEach(std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &&fn) {
     auto txptr = tx.lock();
     if (!txptr || txptr->db.expired()) {
-        return bolt::ErrorCode::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     }
     auto c = Cursor();
     auto [k, v] = c->First();
@@ -330,15 +330,15 @@ impl::BucketPtr Bucket::openBucket(bolt::bytes value) {
 // for the lifetime of the transaction.
 std::tuple<impl::BucketPtr, bolt::ErrorCode> Bucket::CreateBucket(bolt::const_bytes key) {
     if (tx.expired()) {
-        return std::make_tuple(nullptr, bolt::ErrorCode::ErrorTxClosed);
+        return std::make_tuple(nullptr, bolt::ErrorCode::TxClosed);
     }
     auto txptr = tx.lock();
     if (txptr->db.expired()) {
-        return std::make_tuple(nullptr, bolt::ErrorCode::ErrorTxClosed);
+        return std::make_tuple(nullptr, bolt::ErrorCode::TxClosed);
     } else if (!txptr->writable) {
-        return std::make_tuple(nullptr, bolt::ErrorCode::ErrorTxNotWritable);
+        return std::make_tuple(nullptr, bolt::ErrorCode::TxNotWritable);
     } else if (key.empty()) {
-        return std::make_tuple(nullptr, bolt::ErrorCode::ErrorBucketNameRequired);
+        return std::make_tuple(nullptr, bolt::ErrorCode::BucketNameRequired);
     }
 
     // Move cursor to correct position.
@@ -348,9 +348,9 @@ std::tuple<impl::BucketPtr, bolt::ErrorCode> Bucket::CreateBucket(bolt::const_by
     // Return an error if there is an existing key.
     if (std::is_eq(impl::compare_three_way(key, k))) {
         if ((flags & bolt::impl::bucketLeafFlag) != 0) {
-            return std::make_tuple(nullptr, bolt::ErrorCode::ErrorBucketExists);
+            return std::make_tuple(nullptr, bolt::ErrorCode::BucketExists);
         }
-        return std::make_tuple(nullptr, bolt::ErrorCode::ErrorIncompatiableValue);
+        return std::make_tuple(nullptr, bolt::ErrorCode::IncompatiableValue);
     }
 
     // Create empty, inline bucket.
@@ -410,7 +410,7 @@ void Bucket::_forEachPageNode(impl::pgid pgid, int depth,
 std::tuple<impl::BucketPtr, bolt::ErrorCode>
 Bucket::CreateBucketIfNotExists(bolt::const_bytes key) {
     auto [child, err] = CreateBucket(key);
-    if (err == bolt::ErrorCode::ErrorBucketExists) {
+    if (err == bolt::ErrorCode::BucketExists) {
         return std::make_tuple(RetrieveBucket(key), bolt::ErrorCode::Success);
     } else if (err != bolt::ErrorCode::Success) {
         return std::make_tuple(nullptr, err);
@@ -424,9 +424,9 @@ Bucket::CreateBucketIfNotExists(bolt::const_bytes key) {
 bolt::ErrorCode Bucket::DeleteBucket(bolt::const_bytes key) {
     auto txptr = tx.lock();
     if (!txptr || txptr->db.expired()) {
-        return bolt::ErrorCode::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     } else if (!Writable()) {
-        return bolt::ErrorCode::ErrorTxNotWritable;
+        return bolt::ErrorCode::TxNotWritable;
     }
 
     // Move cursor to correct position.
@@ -435,9 +435,9 @@ bolt::ErrorCode Bucket::DeleteBucket(bolt::const_bytes key) {
 
     // Return an error if bucket doesn't exist or is not a bucket.
     if (!std::is_eq(impl::compare_three_way(key, k))) {
-        return bolt::ErrorCode::ErrorBucketNotFound;
+        return bolt::ErrorCode::BucketNotFound;
     } else if ((flags & bolt::impl::bucketLeafFlag) == 0) {
-        return bolt::ErrorCode::ErrorIncompatiableValue;
+        return bolt::ErrorCode::IncompatiableValue;
     }
 
     // Recursively delete all child buckets.
@@ -498,19 +498,19 @@ bolt::const_bytes Bucket::Get(bolt::const_bytes key) {
 // the key is blank, if the key is too large, or if the value is too large.
 bolt::ErrorCode Bucket::Put(bolt::const_bytes key, bolt::const_bytes value) {
     if (tx.expired()) {
-        return bolt::ErrorCode::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     }
     auto txptr = tx.lock();
     if (txptr->db.expired()) {
-        return bolt::ErrorCode::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     } else if (!Writable()) {
-        return bolt::ErrorCode::ErrorTxNotWritable;
+        return bolt::ErrorCode::TxNotWritable;
     } else if (key.size() == 0) {
-        return bolt::ErrorCode::ErrorKeyRequired;
+        return bolt::ErrorCode::KeyRequired;
     } else if (key.size() > bolt::MaxKeySize) {
-        return bolt::ErrorCode::ErrorKeyTooLarge;
+        return bolt::ErrorCode::KeyTooLarge;
     } else if (value.size() > bolt::MaxValueSize) {
-        return bolt::ErrorCode::ErrorValueTooLarge;
+        return bolt::ErrorCode::ValueTooLarge;
     }
 
     // Move cursor to correct position.
@@ -519,7 +519,7 @@ bolt::ErrorCode Bucket::Put(bolt::const_bytes key, bolt::const_bytes value) {
 
     // Return an error if there is an existing key with a bucket value.
     if (std::is_eq(impl::compare_three_way(key, k)) && (flags & bolt::impl::bucketLeafFlag) != 0) {
-        return bolt::ErrorCode::ErrorIncompatiableValue;
+        return bolt::ErrorCode::IncompatiableValue;
     }
 
     // Insert into node.
@@ -529,11 +529,11 @@ bolt::ErrorCode Bucket::Put(bolt::const_bytes key, bolt::const_bytes value) {
 
 bolt::ErrorCode Bucket::Delete(bolt::const_bytes key) {
     if (tx.expired()) {
-        return bolt::ErrorCode::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     } else if (auto txptr = tx.lock(); txptr->db.expired()) {
-        return bolt::ErrorCode::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     } else if (!Writable()) {
-        return bolt::ErrorCode::ErrorTxNotWritable;
+        return bolt::ErrorCode::TxNotWritable;
     }
 
     // Move cursor to correct position.
@@ -542,7 +542,7 @@ bolt::ErrorCode Bucket::Delete(bolt::const_bytes key) {
 
     // Return an error if there is already existing bucket value.
     if ((flags & bolt::impl::bucketLeafFlag) != 0) {
-        return bolt::ErrorCode::ErrorIncompatiableValue;
+        return bolt::ErrorCode::IncompatiableValue;
     }
 
     // Delete the node if we have a matching key.
@@ -555,11 +555,11 @@ std::uint64_t Bucket::Sequence() { return sequence; }
 
 bolt::ErrorCode Bucket::SetSequence(std::uint64_t v) {
     if (tx.expired()) {
-        return bolt::ErrorCode::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     } else if (auto txptr = tx.lock(); txptr->db.expired()) {
-        return bolt::ErrorCode::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     } else if (!Writable()) {
-        return bolt::ErrorCode::ErrorTxNotWritable;
+        return bolt::ErrorCode::TxNotWritable;
     }
 
     // Materialize the root node if it hasn't been already so that the
@@ -576,11 +576,11 @@ bolt::ErrorCode Bucket::SetSequence(std::uint64_t v) {
 // NextSequence returns an autoincrementing integer for the bucket.
 std::tuple<std::uint64_t, bolt::ErrorCode> Bucket::NextSequence() {
     if (tx.expired()) {
-        return std::make_tuple(0, bolt::ErrorCode::ErrorTxClosed);
+        return std::make_tuple(0, bolt::ErrorCode::TxClosed);
     } else if (auto txptr = tx.lock(); txptr->db.expired()) {
-        return std::make_tuple(0, bolt::ErrorCode::ErrorTxClosed);
+        return std::make_tuple(0, bolt::ErrorCode::TxClosed);
     } else if (!Writable()) {
-        return std::make_tuple(0, bolt::ErrorCode::ErrorTxNotWritable);
+        return std::make_tuple(0, bolt::ErrorCode::TxNotWritable);
     }
 
     // Materialize the root node if it hasn't been already so that the

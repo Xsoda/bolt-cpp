@@ -236,7 +236,7 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
         executor.join();
     }
 
-    if (f.get() == bolt::ErrorCode::ErrorTrySolo) {
+    if (f.get() == bolt::ErrorCode::TrySolo) {
         return Update(std::move(c->fn));
     }
     return bolt::ErrorCode::Success;
@@ -261,7 +261,7 @@ bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
         err = fn(tx);
     } catch (const std::exception &e) {
         log_debug("exception: {}", e.what());
-        err = bolt::ErrorExceptionCaptured;
+        err = bolt::ErrorCode::ExceptionCaptured;
     }
     tx->managed = false;
 
@@ -291,7 +291,7 @@ bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
         err = fn(tx);
     } catch (const std::exception &e) {
         log_debug("exception: {}", e.what());
-        err = bolt::ErrorExceptionCaptured;
+        err = bolt::ErrorCode::ExceptionCaptured;
     }
     tx->managed = false;
 
@@ -323,7 +323,7 @@ std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginTx() {
     if (!opened) {
         mmaplock.unlock_shared();
         metalock.unlock();
-        return {nullptr, bolt::ErrorCode::ErrorDatabaseNotOpen};
+        return {nullptr, bolt::ErrorCode::DatabaseNotOpen};
     }
     impl::TxPtr tx = std::make_shared<impl::Tx>(shared_from_this(), false);
     tx->init();
@@ -340,7 +340,7 @@ std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginTx() {
 std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
     // If the database was opened with Options.ReadOnly, return an error.
     if (readOnly) {
-        return {nullptr, bolt::ErrorCode::ErrorDatabaseReadOnly};
+        return {nullptr, bolt::ErrorCode::DatabaseReadOnly};
     }
     // Obtain writer lock. This is released by the transaction when it closes.
     // This enforces only one writer transaction at a time.
@@ -354,7 +354,7 @@ std::tuple<impl::TxPtr, bolt::ErrorCode> DB::beginRWTx() {
     if (!opened) {
         rwlock.unlock();
         return std::make_tuple<impl::TxPtr, bolt::ErrorCode>(nullptr,
-                                                             bolt::ErrorCode::ErrorDatabaseNotOpen);
+                                                             bolt::ErrorCode::DatabaseNotOpen);
     }
 
     // Create a transaction associated with the database.
@@ -441,11 +441,11 @@ bolt::ErrorCode DB::grow(std::uint64_t sz) {
     if (!NoGrowSync && !readOnly) {
 #ifndef WIN32
         if (auto err = file.Truncate(sz); err != bolt::ErrorCode::Success) {
-            return bolt::ErrorCode::ErrorFileResizeFail;
+            return bolt::ErrorCode::FileResizeFail;
         }
 #endif
         if (auto err = file.Fsync(); err != bolt::ErrorCode::Success) {
-            return bolt::ErrorCode::ErrorFileSyncFail;
+            return bolt::ErrorCode::FileSyncFail;
         }
     }
     filesz = sz;
@@ -492,7 +492,7 @@ bolt::ErrorCode DB::mmap(std::uint64_t minsz) {
     if (err != bolt::ErrorCode::Success) {
         return err;
     } else if (size < pageSize * 2) {
-        return bolt::ErrorCode::ErrorFileSizeTooSmall;
+        return bolt::ErrorCode::FileSizeTooSmall;
     }
 
     // Ensure the size is at least the minimum size.
@@ -559,7 +559,7 @@ std::tuple<std::uint64_t, bolt::ErrorCode> DB::mmapSize(std::uint64_t size) {
 
     // Verify the requested size is not above the maximum allowed.
     if (size > impl::maxMapSize) {
-        return {0, bolt::ErrorCode::ErrorMmapTooLarge};
+        return {0, bolt::ErrorCode::MmapTooLarge};
     }
 
     // Ensure that the mmap size is a multiple of the page size.

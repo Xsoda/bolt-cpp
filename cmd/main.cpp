@@ -478,13 +478,13 @@ int StoreFolder(int argc, char **argv) {
             } else if (it.is_regular_file()) {
                 std::ifstream fin{it.path(), std::ios::binary | std::ios::ate};
                 if (!fin.is_open()) {
-                    return bolt::ErrorCode::ErrorSystemCall;
+                    return bolt::ErrorCode::SystemCall;
                 }
                 std::streamsize filesize = fin.tellg();
                 fin.seekg(0, std::ios::beg);
                 std::vector<char> buf(filesize);
                 if (!fin.read(buf.data(), filesize)) {
-                    return bolt::ErrorCode::ErrorSystemCall;
+                    return bolt::ErrorCode::SystemCall;
                 }
                 if (auto err = b.Put(bolt::to_bytes(filename), bolt::to_bytes(buf));
                     err != bolt::ErrorCode::Success) {

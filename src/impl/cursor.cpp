@@ -179,15 +179,15 @@ bolt::ErrorCode Cursor::Delete() {
     auto txptr = bktptr->tx.lock();
     _assert(!bktptr->tx.expired(), "tx invalid");
     if (txptr->db.expired()) {
-        return bolt::ErrorCode::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     } else if (!bktptr->Writable()) {
-        return bolt::ErrorCode::ErrorTxNotWritable;
+        return bolt::ErrorCode::TxNotWritable;
     }
 
     auto [k, v, flags] = keyValue();
     // Return an error if current value is a bucket.
     if ((flags & bolt::impl::bucketLeafFlag) != 0) {
-        return bolt::ErrorCode::ErrorIncompatiableValue;
+        return bolt::ErrorCode::IncompatiableValue;
     }
     node()->del(k);
 

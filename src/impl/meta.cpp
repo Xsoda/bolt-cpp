@@ -59,11 +59,11 @@ std::uint64_t meta::sum64() {
 
 bolt::ErrorCode meta::validate() {
     if (this->magic != impl::magic) {
-        return bolt::ErrorCode::ErrorDatabaseInvalid;
+        return bolt::ErrorCode::DatabaseInvalid;
     } else if (this->version != impl::version) {
-        return bolt::ErrorCode::ErrorVersionMismatch;
+        return bolt::ErrorCode::VersionMismatch;
     } else if (this->checksum != 0 && this->checksum != this->sum64()) {
-        return bolt::ErrorCode::ErrorChecksum;
+        return bolt::ErrorCode::Checksum;
     }
     return bolt::ErrorCode::Success;
 }

@@ -65,7 +65,7 @@ impl::page *Tx::page(impl::pgid id) {
 bolt::ErrorCode Tx::writeMeta() {
     auto dbptr = db.lock();
     if (!dbptr) {
-        return bolt::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     }
     std::vector<std::byte> buf;
     buf.assign(dbptr->pageSize, std::byte(0x00));
@@ -73,18 +73,18 @@ bolt::ErrorCode Tx::writeMeta() {
     impl::page *p = dbptr->pageInBuffer(bolt::bytes{buf}, 0);
     meta.write(p);
     auto [_, err] = dbptr->file.WriteAt(bolt::bytes{buf}, (std::int64_t)p->id * dbptr->pageSize);
-    if (err != bolt::Success) {
+    if (err != bolt::ErrorCode::Success) {
         return err;
     }
 
     if (!dbptr->NoSync) {
         err = dbptr->file.Fdatasync();
-        if (err != bolt::Success) {
+        if (err != bolt::ErrorCode::Success) {
             return err;
         }
     }
     stats.Write++;
-    return bolt::Success;
+    return bolt::ErrorCode::Success;
 }
 
 bolt::ErrorCode Tx::write() {
@@ -92,7 +92,7 @@ bolt::ErrorCode Tx::write() {
     std::vector<impl::page *> pages;
     auto dbptr = db.lock();
     if (!dbptr) {
-        return bolt::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     }
     pages.reserve(this->pages.size());
     for (auto &[key, value] : this->pages) {
@@ -121,7 +121,7 @@ bolt::ErrorCode Tx::write() {
             }
             // Write chunk to disk.
             auto [_, err] = dbptr->file.WriteAt(bolt::bytes(ptr, sz), offset);
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             // Update statistics.
@@ -141,7 +141,7 @@ bolt::ErrorCode Tx::write() {
     // Ignore file sync if flag is set on DB.
     if (!dbptr->NoSync) {
         auto err = dbptr->file.Fdatasync();
-        if (err != bolt::Success) {
+        if (err != bolt::ErrorCode::Success) {
             return err;
         }
     }
@@ -150,7 +150,7 @@ bolt::ErrorCode Tx::write() {
         dbptr->deallocate(it);
     }
 
-    return bolt::Success;
+    return bolt::ErrorCode::Success;
 }
 
 // Commit writes all changes to disk and updates the meta page.
@@ -161,9 +161,9 @@ bolt::ErrorCode Tx::Commit() {
     _assert(!managed, "managed tx commit not allowed");
     auto dbptr = db.lock();
     if (!dbptr) {
-        return bolt::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     } else if (!writable) {
-        return bolt::ErrorTxNotWritable;
+        return bolt::ErrorCode::TxNotWritable;
     }
 
     // Rebalance nodes which have had deletions.
@@ -178,7 +178,7 @@ bolt::ErrorCode Tx::Commit() {
     }
     // spill data onto dirty pages.
     startTime = std::chrono::system_clock::now();
-    if (auto err = root->spill(hold); err != bolt::Success) {
+    if (auto err = root->spill(hold); err != bolt::ErrorCode::Success) {
         rollback();
         return err;
     }
@@ -194,11 +194,11 @@ bolt::ErrorCode Tx::Commit() {
     // bad).
     dbptr->freelist->free(meta.txid, dbptr->page(meta.freelist));
     auto [p, ret] = allocate((dbptr->freelist->size() / dbptr->pageSize) + 1);
-    if (ret != bolt::Success) {
+    if (ret != bolt::ErrorCode::Success) {
         rollback();
         return ret;
     }
-    if (auto err = dbptr->freelist->write(p); err != bolt::Success) {
+    if (auto err = dbptr->freelist->write(p); err != bolt::ErrorCode::Success) {
         rollback();
         return err;
     }
@@ -207,14 +207,15 @@ bolt::ErrorCode Tx::Commit() {
 
     // If the high water mark has moved up then attempt to grow the database.
     if (meta.pgid > opgid) {
-        if (auto err = dbptr->grow((meta.pgid + 1) * dbptr->pageSize); err != bolt::Success) {
+        if (auto err = dbptr->grow((meta.pgid + 1) * dbptr->pageSize);
+            err != bolt::ErrorCode::Success) {
             return err;
         }
     }
 
     // Write dirty pages to disk.
     startTime = std::chrono::system_clock::now();
-    if (auto err = write(); err != bolt::Success) {
+    if (auto err = write(); err != bolt::ErrorCode::Success) {
         rollback();
         return err;
     }
@@ -234,7 +235,7 @@ bolt::ErrorCode Tx::Commit() {
     }
 
     // Write meta to disk.
-    if (auto err = writeMeta(); err != bolt::Success) {
+    if (auto err = writeMeta(); err != bolt::ErrorCode::Success) {
         rollback();
         return err;
     }
@@ -245,17 +246,17 @@ bolt::ErrorCode Tx::Commit() {
     for (auto &fn : commitHandlers) {
         fn();
     }
-    return bolt::Success;
+    return bolt::ErrorCode::Success;
 }
 
 bolt::ErrorCode Tx::Rollback() {
     _assert(!managed, "managed tx rollback not allowed");
     auto dbptr = db.lock();
     if (!dbptr) {
-        return bolt::ErrorTxClosed;
+        return bolt::ErrorCode::TxClosed;
     }
     rollback();
-    return bolt::Success;
+    return bolt::ErrorCode::Success;
 }
 
 void Tx::rollback() {
@@ -301,16 +302,16 @@ void Tx::close() {
 std::tuple<impl::page *, bolt::ErrorCode> Tx::allocate(size_t count) {
     auto dbptr = db.lock();
     if (!dbptr) {
-        return std::make_tuple(nullptr, bolt::ErrorTxClosed);
+        return std::make_tuple(nullptr, bolt::ErrorCode::TxClosed);
     }
     auto [p, err] = dbptr->allocate(count);
-    if (err != bolt::Success) {
+    if (err != bolt::ErrorCode::Success) {
         return {nullptr, err};
     }
     pages[p->id] = p;
     stats.PageCount++;
     stats.PageAlloc += count * dbptr->pageSize;
-    return std::make_tuple(p, bolt::Success);
+    return std::make_tuple(p, bolt::ErrorCode::Success);
 }
 
 std::future<std::vector<std::string>> Tx::Check() {
@@ -397,7 +398,7 @@ void Tx::checkBucket(impl::BucketPtr bucket, std::map<impl::pgid, impl::page *> 
         if (child) {
             checkBucket(child, reachable, freed, errors);
         }
-        return bolt::Success;
+        return bolt::ErrorCode::Success;
     });
 }
 
@@ -441,9 +442,9 @@ impl::CursorPtr Tx::Cursor() { return root->Cursor(); }
 std::tuple<std::optional<impl::PageInfo>, bolt::ErrorCode> Tx::Page(int id) {
     auto dbptr = db.lock();
     if (dbptr == nullptr) {
-        return std::make_tuple(std::nullopt, bolt::ErrorTxClosed);
+        return std::make_tuple(std::nullopt, bolt::ErrorCode::TxClosed);
     } else if (id >= meta.pgid) {
-        return std::make_tuple(std::nullopt, bolt::Success);
+        return std::make_tuple(std::nullopt, bolt::ErrorCode::Success);
     }
     impl::PageInfo info;
 
@@ -456,13 +457,13 @@ std::tuple<std::optional<impl::PageInfo>, bolt::ErrorCode> Tx::Page(int id) {
     } else {
         info.Type = p->type();
     }
-    return std::make_tuple(info, bolt::Success);
+    return std::make_tuple(info, bolt::ErrorCode::Success);
 }
 
 std::tuple<impl::BucketPtr, bolt::ErrorCode>
 Tx::CreateBucketWithPath(const std::string &path, const std::string &delimiter) {
     impl::BucketPtr bktptr;
-    bolt::ErrorCode err = bolt::ErrorCode::ErrorBucketNameRequired;
+    bolt::ErrorCode err = bolt::ErrorCode::BucketNameRequired;
     auto names = impl::string_split(path, delimiter);
     for (auto &it : names) {
         auto key = bolt::to_bytes(it);
@@ -490,13 +491,13 @@ Tx::RetrieveBucketWithPath(const std::string &path, const std::string &delimiter
             bktptr = Bucket(key);
         }
         if (!bktptr) {
-            return {bktptr, bolt::ErrorCode::ErrorBucketNotFound};
+            return {bktptr, bolt::ErrorCode::BucketNotFound};
         }
     }
     if (bktptr) {
         return {bktptr, bolt::ErrorCode::Success};
     } else {
-        return {nullptr, bolt::ErrorCode::ErrorBucketNameRequired};
+        return {nullptr, bolt::ErrorCode::BucketNameRequired};
     }
 }
 

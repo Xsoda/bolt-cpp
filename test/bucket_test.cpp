@@ -14,11 +14,11 @@ TestResult TestBucket_Get_NonExistent() {
             std::string foo = "foo";
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
             if (auto v = b->Get(bolt::to_bytes(foo)); !v.empty()) {
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -32,18 +32,18 @@ TestResult TestBucket_Get_FromNode() {
             std::string foo = "foo";
             std::string bar = "bar";
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (auto v = b->Get(bolt::to_bytes(foo)); !Equal(v, bolt::to_bytes(bar))) {
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -56,22 +56,22 @@ TestResult TestBucket_Get_IncompatibleValue() {
             std::string widgets = "widgets";
             std::string foo = "foo";
             std::string bar = "bar";
-            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (auto [b, err] =
                     tx->Bucket(bolt::to_bytes(widgets))->CreateBucket(bolt::to_bytes(foo));
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (auto v = tx->Bucket(bolt::to_bytes(widgets))->Get(bolt::to_bytes(foo));
                 !v.empty()) {
                 fmt::println("expected nil value");
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -90,20 +90,20 @@ TestResult TestBucket_Put() {
             std::string foo = "foo";
             std::string bar = "bar";
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             auto v = tx->Bucket(bolt::to_bytes(widgets))->Get(bolt::to_bytes(foo));
             if (!Equal(bolt::to_bytes(bar), v)) {
                 fmt::println("unexpected value: {}", v);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -118,23 +118,23 @@ TestResult TestBucket_Put_Repeat() {
             std::string bar = "bar";
             std::string baz = "baz";
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(baz)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(baz)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             auto v = tx->Bucket(bolt::to_bytes(widgets))->Get(bolt::to_bytes(foo));
             if (!Equal(bolt::to_bytes(baz), v)) {
                 fmt::println("unexpected value: {}", v);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -149,19 +149,19 @@ TestResult TestBucket_Put_Large() {
             std::string widgets = "widgets";
             std::vector<std::byte> key, val;
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             for (auto i = 1; i < count; i++) {
                 key.assign(i * factor, std::byte('0'));
                 val.assign((count - i) * factor, std::byte('X'));
-                if (auto err = b->Put(key, val); err != bolt::Success) {
+                if (auto err = b->Put(key, val); err != bolt::ErrorCode::Success) {
                     return err;
                 }
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     if (auto err = db->View([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
@@ -174,12 +174,12 @@ TestResult TestBucket_Put_Large() {
                 auto value = b->Get(key);
                 if (!Equal(value, val)) {
                     fmt::println("unexpected value: {}", value);
-                    return bolt::ErrorUnexpected;
+                    return bolt::ErrorCode::Unexpected;
                 }
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "view verify fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -197,7 +197,7 @@ TestResult TestBucket_Put_VeryLarge() {
         if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
                 std::string widgets = "widgets";
                 auto [b, err] = tx->CreateBucketIfNotExists(bolt::to_bytes(widgets));
-                if (err != bolt::Success) {
+                if (err != bolt::ErrorCode::Success) {
                     return err;
                 }
                 std::vector<std::byte> key, val;
@@ -209,13 +209,13 @@ TestResult TestBucket_Put_VeryLarge() {
                         k = byteswap(k);
                     }
                     *reinterpret_cast<std::uint32_t *>(key.data()) = k;
-                    if (auto err = b->Put(key, val); err != bolt::Success) {
+                    if (auto err = b->Put(key, val); err != bolt::ErrorCode::Success) {
                         return err;
                     }
                 }
-                return bolt::Success;
+                return bolt::ErrorCode::Success;
             });
-            err != bolt::Success) {
+            err != bolt::ErrorCode::Success) {
             return TestResult(false, "update fail, {}", err);
         }
     }
@@ -230,22 +230,22 @@ TestResult TestBucket_Put_IncompatibleValue() {
             std::string widgets = "widgets";
             std::string foo = "foo";
             std::string bar = "bar";
-            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (auto [b, err] =
                     tx->Bucket(bolt::to_bytes(widgets))->CreateBucket(bolt::to_bytes(foo));
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (auto err = tx->Bucket(bolt::to_bytes(widgets))
                                ->Put(bolt::to_bytes(foo), bolt::to_bytes(bar));
-                err != bolt::ErrorIncompatiableValue) {
-                return bolt::ErrorUnexpected;
+                err != bolt::ErrorCode::IncompatiableValue) {
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "udpate fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -259,14 +259,14 @@ TestResult TestBucket_Put_Closed() {
     std::string widgets = "widgets";
     std::string foo = "foo";
     std::string bar = "bar";
-    if (err != bolt::Success) {
+    if (err != bolt::ErrorCode::Success) {
         return TestResult(false, "Begin tx fail, {}", err);
     }
     std::tie(b, err) = tx->CreateBucket(bolt::to_bytes(widgets));
-    if (err = tx->Rollback(); err != bolt::Success) {
+    if (err = tx->Rollback(); err != bolt::ErrorCode::Success) {
         return TestResult(false, "Rollback fail, {}", err);
     }
-    if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::ErrorTxClosed) {
+    if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::ErrorCode::TxClosed) {
         return TestResult(false, "unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
@@ -279,24 +279,24 @@ TestResult TestBucket_Put_ReadOnly() {
     std::string bar = "bar";
     auto db = MustOpenDB();
     if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
-            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     if (auto err = db->View([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             auto b = tx->Bucket(bolt::to_bytes(widgets));
             if (auto err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar));
-                err != bolt::ErrorTxNotWritable) {
+                err != bolt::ErrorCode::TxNotWritable) {
                 fmt::println("unexpected error: {}", err);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
@@ -310,22 +310,22 @@ TestResult TestBucket_Delete() {
             std::string foo = "foo";
             std::string bar = "bar";
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Delete(bolt::to_bytes(foo)); err != bolt::Success) {
+            if (err = b->Delete(bolt::to_bytes(foo)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (auto v = b->Get(bolt::to_bytes(foo)); !v.empty()) {
                 fmt::println("unexpected value: {}", v);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -337,20 +337,20 @@ TestResult TestBucket_Delete_Large() {
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             std::vector<std::byte> val;
             val.assign(1024, std::byte('*'));
             for (auto i = 0; i < 100; i++) {
                 auto key = fmt::format("{}", i);
-                if (err = b->Put(bolt::to_bytes(key), val); err != bolt::Success) {
+                if (err = b->Put(bolt::to_bytes(key), val); err != bolt::ErrorCode::Success) {
                     return err;
                 }
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "update fail, {}", err);
     }
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
@@ -358,13 +358,13 @@ TestResult TestBucket_Delete_Large() {
             auto b = tx->Bucket(bolt::to_bytes(widgets));
             for (auto i = 0; i < 100; i++) {
                 auto key = fmt::format("{}", i);
-                if (auto err = b->Delete(bolt::to_bytes(key)); err != bolt::Success) {
+                if (auto err = b->Delete(bolt::to_bytes(key)); err != bolt::ErrorCode::Success) {
                     return err;
                 }
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "update fil, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -381,7 +381,7 @@ TestResult TestBucket_Delete_FreelistOverflow() {
         if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
                 std::string zero = "0";
                 auto [b, err] = tx->CreateBucketIfNotExists(bolt::to_bytes(zero));
-                if (err != bolt::Success) {
+                if (err != bolt::ErrorCode::Success) {
                     return err;
                 }
                 for (auto j = std::uint64_t(0); j < 1000; j++) {
@@ -397,13 +397,13 @@ TestResult TestBucket_Delete_FreelistOverflow() {
                     }
                     k[1] = v;
 
-                    if (err = b->Put(key, val); err != bolt::Success) {
+                    if (err = b->Put(key, val); err != bolt::ErrorCode::Success) {
                         return err;
                     }
                 }
-                return bolt::Success;
+                return bolt::ErrorCode::Success;
             });
-            err != bolt::Success) {
+            err != bolt::ErrorCode::Success) {
             return TestResult(false, "Update fail, {}", err);
         }
         if (i % 100 == 0) {
@@ -415,13 +415,13 @@ TestResult TestBucket_Delete_FreelistOverflow() {
             auto b = tx->Bucket(bolt::to_bytes(zero));
             auto c = b->Cursor();
             for (auto [k, v] = c->First(); !k.empty(); std::tie(k, v) = c->Next()) {
-                if (auto err = c->Delete(); err != bolt::Success) {
+                if (auto err = c->Delete(); err != bolt::ErrorCode::Success) {
                     return err;
                 }
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "update fail, {}", err);
     }
     MustCheck(db);
@@ -437,19 +437,19 @@ TestResult TestBucket_Nested() {
             std::string bar = "bar";
             std::string zero = "0000";
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             std::tie(std::ignore, err) = b->CreateBucket(bolt::to_bytes(foo));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(zero)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(zero)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "update fail, {}", err);
     }
     MustCheck(db);
@@ -459,12 +459,12 @@ TestResult TestBucket_Nested() {
             std::string xxxx = "xxxx";
             auto b = tx->Bucket(bolt::to_bytes(widgets));
             if (auto err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(xxxx));
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCheck(db);
@@ -474,13 +474,13 @@ TestResult TestBucket_Nested() {
             for (auto i = 0; i < 10000; i++) {
                 auto key = fmt::format("{}", i);
                 if (auto err = b->Put(bolt::to_bytes(key), bolt::to_bytes(key));
-                    err != bolt::Success) {
+                    err != bolt::ErrorCode::Success) {
                     return err;
                 }
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCheck(db);
@@ -492,12 +492,12 @@ TestResult TestBucket_Nested() {
             auto b = tx->Bucket(bolt::to_bytes(widgets));
             if (auto err = b->RetrieveBucket(bolt::to_bytes(foo))
                                ->Put(bolt::to_bytes(baz), bolt::to_bytes(yyyy));
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCheck(db);
@@ -513,22 +513,22 @@ TestResult TestBucket_Nested() {
             if (auto v = b->RetrieveBucket(bolt::to_bytes(foo))->Get(bolt::to_bytes(baz));
                 !Equal(v, bolt::to_bytes(yyyy))) {
                 fmt::println("unexpected value: {}", v);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
             if (auto v = b->Get(bolt::to_bytes(bar)); !Equal(v, bolt::to_bytes(xxxx))) {
                 fmt::println("unexpected value: {}", v);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
             for (auto i = 0; i < 10000; i++) {
                 auto key = fmt::format("{}", i);
                 if (auto v = b->Get(bolt::to_bytes(key)); !Equal(v, bolt::to_bytes(key))) {
                     fmt::println("unexpected value: {}", v);
-                    return bolt::ErrorUnexpected;
+                    return bolt::ErrorCode::Unexpected;
                 }
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "view fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -541,20 +541,20 @@ TestResult TestBucket_Delete_Bucket() {
             std::string widgets = "widgets";
             std::string foo = "foo";
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (std::tie(std::ignore, err) = b->CreateBucket(bolt::to_bytes(foo));
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Delete(bolt::to_bytes(foo)); err != bolt::ErrorIncompatiableValue) {
+            if (err = b->Delete(bolt::to_bytes(foo)); err != bolt::ErrorCode::IncompatiableValue) {
                 fmt::println("unexpected error: {}", err);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -565,25 +565,25 @@ TestResult TestBucket_Delete_ReadOnly() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
-            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
             std::string foo = "foo";
             if (auto err = tx->Bucket(bolt::to_bytes(widgets))->Delete(bolt::to_bytes(foo));
-                err != bolt::ErrorTxNotWritable) {
+                err != bolt::ErrorCode::TxNotWritable) {
                 fmt::println("unexpected error: {}", err);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "view fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -596,17 +596,17 @@ TestResult TestBucket_Delete_Closed() {
     std::string foo = "foo";
     bolt::impl::BucketPtr b;
     auto [tx, err] = db->Begin(true);
-    if (err != bolt::Success) {
+    if (err != bolt::ErrorCode::Success) {
         return TestResult(false, "Begin tx fail, {}", err);
     }
     std::tie(b, err) = tx->CreateBucket(bolt::to_bytes(widgets));
-    if (err != bolt::Success) {
+    if (err != bolt::ErrorCode::Success) {
         return TestResult(false, "CreateBucket fail, {}", err);
     }
-    if (err = tx->Rollback(); err != bolt::Success) {
+    if (err = tx->Rollback(); err != bolt::ErrorCode::Success) {
         return TestResult(false, "Rollback fail, {}", err);
     }
-    if (err = b->Delete(bolt::to_bytes(foo)); err != bolt::ErrorTxClosed) {
+    if (err = b->Delete(bolt::to_bytes(foo)); err != bolt::ErrorCode::TxClosed) {
         return TestResult(false, "Unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
@@ -623,27 +623,27 @@ TestResult TestBucket_DeleteBucket_Nested() {
             std::string baz = "baz";
             bolt::impl::BucketPtr f, b;
             auto [w, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             std::tie(f, err) = w->CreateBucket(bolt::to_bytes(foo));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             std::tie(b, err) = f->CreateBucket(bolt::to_bytes(bar));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(baz), bolt::to_bytes(bat)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(baz), bolt::to_bytes(bat)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (err = tx->Bucket(bolt::to_bytes(widgets))->DeleteBucket(bolt::to_bytes(foo));
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -661,21 +661,21 @@ TestResult TestBucket_DeleteBucket_Nested2() {
             bolt::ErrorCode err;
             bolt::impl::BucketPtr w, f, b;
             if (std::tie(w, err) = tx->CreateBucket(bolt::to_bytes(widgets));
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (std::tie(f, err) = w->CreateBucket(bolt::to_bytes(foo)); err != bolt::Success) {
+            if (std::tie(f, err) = w->CreateBucket(bolt::to_bytes(foo)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (std::tie(b, err) = f->CreateBucket(bolt::to_bytes(bar)); err != bolt::Success) {
+            if (std::tie(b, err) = f->CreateBucket(bolt::to_bytes(bar)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(baz), bolt::to_bytes(bat)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(baz), bolt::to_bytes(bat)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "update fail, {}", err);
     }
     if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
@@ -683,36 +683,36 @@ TestResult TestBucket_DeleteBucket_Nested2() {
             bolt::impl::BucketPtr w, f, b;
             if (w = tx->Bucket(bolt::to_bytes(widgets)); w == nullptr) {
                 fmt::println("{} bucket not found", widgets);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
             if (f = w->RetrieveBucket(bolt::to_bytes(foo)); f == nullptr) {
                 fmt::println("{} bucket not found", foo);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
             if (b = f->RetrieveBucket(bolt::to_bytes(bar)); b == nullptr) {
                 fmt::println("{} bucket not found", bar);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
             if (auto v = b->Get(bolt::to_bytes(baz)); !Equal(v, bolt::to_bytes(bat))) {
                 fmt::println("unexpected value: {}", v);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            if (err = tx->DeleteBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
+            if (err = tx->DeleteBucket(bolt::to_bytes(widgets)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     if (auto err = db->View([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             if (tx->Bucket(bolt::to_bytes(widgets)) != nullptr) {
                 fmt::println("expected bucket to be deleted");
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "View fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -727,31 +727,31 @@ TestResult TestBucket_DeleteBucket_Large() {
             bolt::ErrorCode err;
             bolt::impl::BucketPtr w, f;
             if (std::tie(w, err) = tx->CreateBucket(bolt::to_bytes(widgets));
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (std::tie(f, err) = w->CreateBucket(bolt::to_bytes(foo)); err != bolt::Success) {
+            if (std::tie(f, err) = w->CreateBucket(bolt::to_bytes(foo)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             for (auto i = 0; i < 1000; i++) {
                 auto key = fmt::format("{}", i);
                 auto val = fmt::format("{:0100}", i);
-                if (err = f->Put(bolt::to_bytes(key), bolt::to_bytes(val)); err != bolt::Success) {
+                if (err = f->Put(bolt::to_bytes(key), bolt::to_bytes(val)); err != bolt::ErrorCode::Success) {
                     return err;
                 }
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
-            if (auto err = tx->DeleteBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
+            if (auto err = tx->DeleteBucket(bolt::to_bytes(widgets)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -765,19 +765,19 @@ TestResult TestBucket_Bucket_IncompatibleValue() {
             std::string foo = "foo";
             std::string bar = "bar";
             auto [wid, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = wid->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::Success) {
+            if (err = wid->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (auto b = tx->Bucket(bolt::to_bytes(widgets))->RetrieveBucket(bolt::to_bytes(foo));
                 b != nullptr) {
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "udpate fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -792,19 +792,19 @@ TestResult TestBucket_CreateBucket_IncompatibleValue() {
             std::string bar = "bar";
 
             auto [wid, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = wid->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::Success) {
+            if (err = wid->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (std::tie(std::ignore, err) = wid->CreateBucket(bolt::to_bytes(foo));
-                err != bolt::ErrorIncompatiableValue) {
-                return bolt::ErrorUnexpected;
+                err != bolt::ErrorCode::IncompatiableValue) {
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -818,19 +818,19 @@ TestResult TestBucket_DeleteBucket_IncompatibleValue() {
             std::string foo = "foo";
             std::string bar = "bar";
             auto [wid, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = wid->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::Success) {
+            if (err = wid->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (err = tx->Bucket(bolt::to_bytes(widgets))->DeleteBucket(bolt::to_bytes(foo));
-                err != bolt::ErrorIncompatiableValue) {
-                return bolt::ErrorUnexpected;
+                err != bolt::ErrorCode::IncompatiableValue) {
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -842,34 +842,34 @@ TestResult TestBucket_Sequence() {
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string zero = "0";
             auto [bkt, err] = tx->CreateBucket(bolt::to_bytes(zero));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (auto v = bkt->Sequence(); v != 0) {
                 fmt::println("unexpected sequence: {}", v);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            if (err = bkt->SetSequence(1000); err != bolt::Success) {
+            if (err = bkt->SetSequence(1000); err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (auto v = bkt->Sequence(); v != 1000) {
                 fmt::println("unexpected sequence: {}", v);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string zero = "0";
             if (auto v = tx->Bucket(bolt::to_bytes(zero))->Sequence(); v != 1000) {
                 fmt::println("unexpected sequence: {}", v);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "View fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -882,37 +882,37 @@ TestResult TestBucket_NextSequence() {
             std::string widgets = "widgets";
             std::string woojits = "woojits";
             bolt::impl::BucketPtr wid, woo;
-            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::ErrorCode::Success) {
                 return err;
             } else {
                 wid = b;
             }
-            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(woojits)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(woojits)); err != bolt::ErrorCode::Success) {
                 return err;
             } else {
                 woo = b;
             }
-            if (auto [seq, err] = wid->NextSequence(); err != bolt::Success) {
+            if (auto [seq, err] = wid->NextSequence(); err != bolt::ErrorCode::Success) {
                 return err;
             } else if (seq != 1) {
                 fmt::println("unexpcted sequence: {}", seq);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            if (auto [seq, err] = wid->NextSequence(); err != bolt::Success) {
+            if (auto [seq, err] = wid->NextSequence(); err != bolt::ErrorCode::Success) {
                 return err;
             } else if (seq != 2) {
                 fmt::println("unexpected sequence: {}", seq);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            if (auto [seq, err] = woo->NextSequence(); err != bolt::Success) {
+            if (auto [seq, err] = woo->NextSequence(); err != bolt::ErrorCode::Success) {
                 return err;
             } else if (seq != 1) {
                 fmt::println("unexpected sequence: {}", seq);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -923,38 +923,38 @@ TestResult TestBucket_NextSequence_Persist() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
-            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
             if (auto [seq, err] = tx->Bucket(bolt::to_bytes(widgets))->NextSequence();
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
             auto [seq, err] = tx->Bucket(bolt::to_bytes(widgets))->NextSequence();
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 fmt::println("unexpected error: {}", err);
                 return err;
             } else if (seq != 2) {
                 fmt::println("unexpected sequence: {}", seq);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -965,24 +965,24 @@ TestResult TestBucket_NextSequence_ReadOnly() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
-            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "unexpected error, {}", err);
     }
     if (auto err = db->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string widgets = "widgets";
             auto [seq, err] = tx->Bucket(bolt::to_bytes(widgets))->NextSequence();
-            if (err != bolt::ErrorTxNotWritable) {
+            if (err != bolt::ErrorCode::TxNotWritable) {
                 fmt::println("unexpected error: {}", err);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "view fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -995,17 +995,17 @@ TestResult TestBucket_NextSequence_Closed() {
     bolt::impl::BucketPtr b;
     std::uint64_t sequence;
     auto [tx, err] = db->Begin(true);
-    if (err != bolt::Success) {
+    if (err != bolt::ErrorCode::Success) {
         return TestResult(false, "Begin Tx fail, {}", err);
     }
     std::tie(b, err) = tx->CreateBucket(bolt::to_bytes(widgets));
-    if (err != bolt::Success) {
+    if (err != bolt::ErrorCode::Success) {
         return TestResult(false, "CreateBucket fail, {}", err);
     }
-    if (err = tx->Rollback(); err != bolt::Success) {
+    if (err = tx->Rollback(); err != bolt::ErrorCode::Success) {
         return TestResult(false, "Rollback fail, {}", err);
     }
-    if (std::tie(sequence, err) = b->NextSequence(); err != bolt::ErrorTxClosed) {
+    if (std::tie(sequence, err) = b->NextSequence(); err != bolt::ErrorCode::TxClosed) {
         return TestResult(false, "unexpected error, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -1023,16 +1023,16 @@ TestResult TestBucket_ForEach() {
     auto db = MustOpenDB();
     if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(zero)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(zero)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(baz), bolt::to_bytes(one)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(baz), bolt::to_bytes(one)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(two)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(two)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             auto index = 0;
@@ -1042,44 +1042,44 @@ TestResult TestBucket_ForEach() {
                         case 0:
                             if (!Equal(k, bolt::to_bytes(bar))) {
                                 fmt::println("unexpected key: {}", k);
-                                return bolt::ErrorUnexpected;
+                                return bolt::ErrorCode::Unexpected;
                             } else if (!Equal(v, bolt::to_bytes(two))) {
                                 fmt::println("unexpected value: {}", v);
-                                return bolt::ErrorUnexpected;
+                                return bolt::ErrorCode::Unexpected;
                             }
                             break;
                         case 1:
                             if (!Equal(k, bolt::to_bytes(baz))) {
                                 fmt::println("unexpected key: {}", k);
-                                return bolt::ErrorUnexpected;
+                                return bolt::ErrorCode::Unexpected;
                             } else if (!Equal(v, bolt::to_bytes(one))) {
                                 fmt::println("unexpected value: {}", v);
-                                return bolt::ErrorUnexpected;
+                                return bolt::ErrorCode::Unexpected;
                             }
                             break;
                         case 2:
                             if (!Equal(k, bolt::to_bytes(foo))) {
                                 fmt::println("unexpected key: {}", k);
-                                return bolt::ErrorUnexpected;
+                                return bolt::ErrorCode::Unexpected;
                             } else if (!Equal(v, bolt::to_bytes(zero))) {
                                 fmt::println("unexpected value: {}", v);
-                                return bolt::ErrorUnexpected;
+                                return bolt::ErrorCode::Unexpected;
                             }
                             break;
                         }
                         index++;
-                        return bolt::Success;
+                        return bolt::ErrorCode::Success;
                     });
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (index != 3) {
                 fmt::println("unexpected index: {}", index);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -1095,16 +1095,16 @@ TestResult TestBucket_ForEach_ShortCircuit() {
     auto db = MustOpenDB();
     if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(zeros)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(zeros)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(baz), bolt::to_bytes(zeros)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(baz), bolt::to_bytes(zeros)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(zeros)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(zeros)); err != bolt::ErrorCode::Success) {
                 return err;
             }
             int index = 0;
@@ -1113,20 +1113,20 @@ TestResult TestBucket_ForEach_ShortCircuit() {
                         ->ForEach([&](bolt::const_bytes k, bolt::const_bytes v) -> bolt::ErrorCode {
                             index++;
                             if (Equal(k, bolt::to_bytes(baz))) {
-                                return bolt::ErrorExpected;
+                                return bolt::ErrorCode::Expected;
                             }
-                            return bolt::Success;
+                            return bolt::ErrorCode::Success;
                         });
-                err == bolt::Success || err != bolt::ErrorExpected) {
-                return bolt::ErrorUnexpected;
+                err == bolt::ErrorCode::Success || err != bolt::ErrorCode::Expected) {
+                return bolt::ErrorCode::Unexpected;
             }
             if (index != 2) {
                 fmt::println("unexpected index: {}", index);
-                return bolt::ErrorUnexpected;
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -1136,22 +1136,22 @@ TestResult TestBucket_ForEach_ShortCircuit() {
 TestResult TestBucket_ForEach_Closed() {
     auto db = MustOpenDB();
     auto [tx, err] = db->Begin(true);
-    if (err != bolt::Success) {
+    if (err != bolt::ErrorCode::Success) {
         return TestResult(false, "Begin Tx fail, {}", err);
     }
     bolt::impl::BucketPtr b;
     std::string widgets = "widgets";
     std::tie(b, err) = tx->CreateBucket(bolt::to_bytes(widgets));
-    if (err != bolt::Success) {
+    if (err != bolt::ErrorCode::Success) {
         return TestResult(false, "CreateBucket fail, {}", err);
     }
-    if (err = tx->Rollback(); err != bolt::Success) {
+    if (err = tx->Rollback(); err != bolt::ErrorCode::Success) {
         return TestResult(false, "Rollack fail, {}", err);
     }
     if (err = b->ForEach([](bolt::const_bytes k, bolt::const_bytes v) -> bolt::ErrorCode {
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::ErrorTxClosed) {
+        err != bolt::ErrorCode::TxClosed) {
         return TestResult(false, "unexpected error: {}", err);
     }
     MustCloseDB(std::move(db));
@@ -1166,19 +1166,19 @@ TestResult TestBucket_Put_EmptyKey() {
             std::string empty = "";
             bolt::bytes zero;
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             if (err = b->Put(bolt::to_bytes(empty), bolt::to_bytes(bar));
-                err != bolt::ErrorKeyRequired) {
-                return bolt::ErrorUnexpected;
+                err != bolt::ErrorCode::KeyRequired) {
+                return bolt::ErrorCode::Unexpected;
             }
-            if (err = b->Put(zero, bolt::to_bytes(bar)); err != bolt::ErrorKeyRequired) {
-                return bolt::ErrorUnexpected;
+            if (err = b->Put(zero, bolt::to_bytes(bar)); err != bolt::ErrorCode::KeyRequired) {
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -1191,16 +1191,16 @@ TestResult TestBucket_Put_KeyTooLarge() {
             std::string widgets = "widgets";
             std::string bar = "bar";
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             auto key = std::span<std::byte>(reinterpret_cast<std::byte *>(bar.data()), 32769);
-            if (err = b->Put(key, bolt::to_bytes(bar)); err != bolt::ErrorKeyTooLarge) {
-                return bolt::ErrorUnexpected;
+            if (err = b->Put(key, bolt::to_bytes(bar)); err != bolt::ErrorCode::KeyTooLarge) {
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -1213,17 +1213,17 @@ TestResult TestBucket_Put_ValueTooLarge() {
             std::string widgets = "widgets";
             std::string foo = "foo";
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             auto val = std::span<std::byte>(reinterpret_cast<std::byte *>(foo.data()),
                                             bolt::MaxValueSize + 1);
-            if (err = b->Put(bolt::to_bytes(foo), val); err != bolt::ErrorValueTooLarge) {
-                return bolt::ErrorUnexpected;
+            if (err = b->Put(bolt::to_bytes(foo), val); err != bolt::ErrorCode::ValueTooLarge) {
+                return bolt::ErrorCode::Unexpected;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -1237,17 +1237,17 @@ TestResult TestBucket_Stats() {
         if (auto err = db->Update([&, i](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
                 std::string woojits = "woojits";
                 auto [b, err] = tx->CreateBucketIfNotExists(bolt::to_bytes(woojits));
-                if (err != bolt::Success) {
+                if (err != bolt::ErrorCode::Success) {
                     return err;
                 }
                 auto key = fmt::format("{:03}", i);
                 auto val = fmt::format("{}", i);
-                if (err = b->Put(bolt::to_bytes(key), bolt::to_bytes(val)); err != bolt::Success) {
+                if (err = b->Put(bolt::to_bytes(key), bolt::to_bytes(val)); err != bolt::ErrorCode::Success) {
                     return err;
                 }
-                return bolt::Success;
+                return bolt::ErrorCode::Success;
             });
-            err != bolt::Success) {
+            err != bolt::ErrorCode::Success) {
             return TestResult(false, "Update fail, {}", err);
         }
     }
@@ -1257,12 +1257,12 @@ TestResult TestBucket_Stats() {
             bigValue.assign(10000, std::byte('*'));
             auto b = tx->Bucket(bolt::to_bytes(woojits));
             if (auto err = b->Put(bolt::to_bytes(bigKey), bolt::to_bytes(bigValue));
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
 
@@ -1311,9 +1311,9 @@ TestResult TestBucket_Stats() {
             } else if (stats.InlineBucketInuse != 0) {
                 fmt::println("unexpected InlineBucketInuse: {}", stats.InlineBucketInuse);
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "View fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -1328,15 +1328,15 @@ TestResult TestBucket_Stats_Small() {
             std::string whozawhats = "whozawhats";
             std::string foo = "foo", bar = "bar";
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(whozawhats));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::Success) {
+            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(bar)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "update fail, {}", err);
     }
     MustCheck(db);
@@ -1375,9 +1375,9 @@ TestResult TestBucket_Stats_Small() {
             } else if (stats.InlineBucketInuse != 16 + 16 + 6) {
                 fmt::println("unexpected InlineBucketInuse: {}", stats.InlineBucketInuse);
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "View fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -1388,12 +1388,12 @@ TestResult TestBucket_Stats_EmptyBucket() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
             std::string name = "whozawhats";
-            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(name)); err != bolt::Success) {
+            if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(name)); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "update fail, {}", err);
     }
     MustCheck(db);
@@ -1432,9 +1432,9 @@ TestResult TestBucket_Stats_EmptyBucket() {
             } else if (stats.InlineBucketInuse != 16) {
                 fmt::println("unexpected InlineBucketInuse: {}", stats.InlineBucketInuse);
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "View fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -1449,43 +1449,43 @@ TestResult TestBucket_Stats_Nested() {
             std::string baz = "baz";
             bolt::impl::BucketPtr br, bz;
             auto [b, err] = tx->CreateBucket(bolt::to_bytes(foo));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             for (int i = 0; i < 100; i++) {
                 auto val = fmt::format("{:02}", i);
                 if (auto err = b->Put(bolt::to_bytes(val), bolt::to_bytes(val));
-                    err != bolt::Success) {
+                    err != bolt::ErrorCode::Success) {
                     return err;
                 }
             }
 
             std::tie(br, err) = b->CreateBucket(bolt::to_bytes(bar));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             for (int i = 0; i < 10; i++) {
                 auto val = fmt::format("{}", i);
                 if (auto err = br->Put(bolt::to_bytes(val), bolt::to_bytes(val));
-                    err != bolt::Success) {
+                    err != bolt::ErrorCode::Success) {
                     return err;
                 }
             }
 
             std::tie(bz, err) = br->CreateBucket(bolt::to_bytes(baz));
-            if (err != bolt::Success) {
+            if (err != bolt::ErrorCode::Success) {
                 return err;
             }
             for (int i = 0; i < 10; i++) {
                 auto val = fmt::format("{}", i);
                 if (auto err = bz->Put(bolt::to_bytes(val), bolt::to_bytes(val));
-                    err != bolt::Success) {
+                    err != bolt::ErrorCode::Success) {
                     return err;
                 }
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "Update fail, {}", err);
     }
 
@@ -1542,9 +1542,9 @@ TestResult TestBucket_Stats_Nested() {
             } else if (stats.InlineBucketInuse != sbaz) {
                 fmt::println("unexpected InlineBucketInuse: {}", stats.InlineBucketInuse);
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "view fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -1559,20 +1559,20 @@ TestResult TestBucket_Stats_Large() {
         if (auto err = db->Update([&index](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
                 std::string widgets = "widgets";
                 auto [b, err] = tx->CreateBucketIfNotExists(bolt::to_bytes(widgets));
-                if (err != bolt::Success) {
+                if (err != bolt::ErrorCode::Success) {
                     return err;
                 }
                 for (int j = 0; j < 1000; j++) {
                     auto val = fmt::format("{}", index);
                     if (auto err = b->Put(bolt::to_bytes(val), bolt::to_bytes(val));
-                        err != bolt::Success) {
+                        err != bolt::ErrorCode::Success) {
                         return err;
                     }
                     index++;
                 }
-                return bolt::Success;
+                return bolt::ErrorCode::Success;
             });
-            err != bolt::Success) {
+            err != bolt::ErrorCode::Success) {
             return TestResult(false, "Update fail, {}", err);
         }
     }
@@ -1613,9 +1613,9 @@ TestResult TestBucket_Stats_Large() {
             } else if (stats.InlineBucketInuse != 0) {
                 fmt::println("unexpected InlineBucketInuse: {}", stats.InlineBucketInuse);
             }
-            return bolt::Success;
+            return bolt::ErrorCode::Success;
         });
-        err != bolt::Success) {
+        err != bolt::ErrorCode::Success) {
         return TestResult(false, "view fail, {}", err);
     }
     MustCloseDB(std::move(db));
@@ -1629,12 +1629,12 @@ TestResult TestBucket_Put_Single() {
         std::string widgets = "widgets";
         if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
                 if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-                    err != bolt::Success) {
+                    err != bolt::ErrorCode::Success) {
                     return err;
                 }
-                return bolt::Success;
+                return bolt::ErrorCode::Success;
             });
-            err != bolt::Success) {
+            err != bolt::ErrorCode::Success) {
             fmt::println("Update fail, {}", err);
             return false;
         }
@@ -1643,13 +1643,13 @@ TestResult TestBucket_Put_Single() {
             if (auto err = db->Update(
                     [&keys, &widgets, k = k, v = v](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
                         auto b = tx->Bucket(bolt::to_bytes(widgets));
-                        if (auto err = b->Put(k, v); err != bolt::Success) {
+                        if (auto err = b->Put(k, v); err != bolt::ErrorCode::Success) {
                             return err;
                         }
                         keys.push_back(std::make_pair(k, v));
-                        return bolt::Success;
+                        return bolt::ErrorCode::Success;
                     });
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 fmt::println("put fail, {} => {}", k, v);
                 return false;
             }
@@ -1662,9 +1662,9 @@ TestResult TestBucket_Put_Single() {
                                          kv);
                         }
                     }
-                    return bolt::Success;
+                    return bolt::ErrorCode::Success;
                 });
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 fmt::println("view fail, {}", err);
                 return false;
             }
@@ -1685,25 +1685,25 @@ TestResult TestBucket_Put_Multiple() {
         std::string widgets = "widgets";
         if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
                 if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-                    err != bolt::Success) {
+                    err != bolt::ErrorCode::Success) {
                     return err;
                 }
-                return bolt::Success;
+                return bolt::ErrorCode::Success;
             });
-            err != bolt::Success) {
+            err != bolt::ErrorCode::Success) {
             fmt::println("Update fail, {}", err);
             return false;
         }
         if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
                 auto b = tx->Bucket(bolt::to_bytes(widgets));
                 for (auto &[k, v] : testdata) {
-                    if (auto err = b->Put(k, v); err != bolt::Success) {
+                    if (auto err = b->Put(k, v); err != bolt::ErrorCode::Success) {
                         return err;
                     }
                 }
-                return bolt::Success;
+                return bolt::ErrorCode::Success;
             });
-            err != bolt::Success) {
+            err != bolt::ErrorCode::Success) {
             fmt::println("update fail, {}", err);
             return false;
         }
@@ -1715,9 +1715,9 @@ TestResult TestBucket_Put_Multiple() {
                         fmt::println("expect value: {}, got: {}", v, value);
                     }
                 }
-                return bolt::Success;
+                return bolt::ErrorCode::Success;
             });
-            err != bolt::Success) {
+            err != bolt::ErrorCode::Success) {
             fmt::println("view fail, {}", err);
             return false;
         }
@@ -1738,25 +1738,25 @@ TestResult TestBucket_Delete_Quick() {
         std::string widgets = "widgets";
         if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
                 if (auto [b, err] = tx->CreateBucket(bolt::to_bytes(widgets));
-                    err != bolt::Success) {
+                    err != bolt::ErrorCode::Success) {
                     return err;
                 }
-                return bolt::Success;
+                return bolt::ErrorCode::Success;
             });
-            err != bolt::Success) {
+            err != bolt::ErrorCode::Success) {
             fmt::println(stderr, "CreateBucket fail, {}", err);
             return false;
         }
         if (auto err = db->Update([&](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
                 auto b = tx->Bucket(bolt::to_bytes(widgets));
                 for (auto &[k, v] : testdata) {
-                    if (auto err = b->Put(k, v); err != bolt::Success) {
+                    if (auto err = b->Put(k, v); err != bolt::ErrorCode::Success) {
                         return err;
                     }
                 }
-                return bolt::Success;
+                return bolt::ErrorCode::Success;
             });
-            err != bolt::Success) {
+            err != bolt::ErrorCode::Success) {
             return false;
         }
 
@@ -1764,12 +1764,12 @@ TestResult TestBucket_Delete_Quick() {
         for (auto &[k, v] : testdata) {
             if (auto err = db->Update([&, k = k](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
                     auto b = tx->Bucket(bolt::to_bytes(widgets));
-                    if (auto err = b->Delete(k); err != bolt::Success) {
+                    if (auto err = b->Delete(k); err != bolt::ErrorCode::Success) {
                         return err;
                     }
-                    return bolt::Success;
+                    return bolt::ErrorCode::Success;
                 });
-                err != bolt::Success) {
+                err != bolt::ErrorCode::Success) {
                 fmt::println(stderr, "Update fail, {}", err);
                 return false;
             }
@@ -1779,14 +1779,14 @@ TestResult TestBucket_Delete_Quick() {
                                    ->ForEach([](bolt::const_bytes k,
                                                 bolt::const_bytes v) -> bolt::ErrorCode {
                                        fmt::println(stderr, "bucket should be empty, found {}", k);
-                                       return bolt::ErrorUnexpected;
+                                       return bolt::ErrorCode::Unexpected;
                                    });
-                    err != bolt::Success) {
+                    err != bolt::ErrorCode::Success) {
                     return err;
                 }
-                return bolt::Success;
+                return bolt::ErrorCode::Success;
             });
-            err != bolt::Success) {
+            err != bolt::ErrorCode::Success) {
             fmt::println("View fail, {}", err);
             return false;
         }
