@@ -402,7 +402,7 @@ void Tx::checkBucket(impl::BucketPtr bucket, std::map<impl::pgid, impl::page *> 
     });
 }
 
-void Tx::forEachPage(impl::pgid pgid, int depth, std::function<void(impl::page *, int)> &&fn) {
+void Tx::forEachPage(impl::pgid pgid, int depth, const std::function<void(impl::page *, int)> &fn) {
     auto p = page(pgid);
 
     // Execute function.
@@ -412,7 +412,7 @@ void Tx::forEachPage(impl::pgid pgid, int depth, std::function<void(impl::page *
     if (p->flags & impl::branchPageFlag) {
         for (std::uint16_t i = 0; i < p->count; i++) {
             auto elem = p->branchPageElement(i);
-            forEachPage(elem->pgid, depth + 1, std::forward<decltype(fn)>(fn));
+            forEachPage(elem->pgid, depth + 1, fn);
         }
     }
 }

@@ -89,7 +89,7 @@ struct Bucket : public bucket, public std::enable_shared_from_this<impl::Bucket>
     // Stat returns stats on a bucket.
     bolt::BucketStats Stats();
     // forEachPage iterates over every page in a bucket, including inline pages.
-    void forEachPage(std::function<void(impl::page *, int)> &&fn);
+    void forEachPage(const std::function<void(impl::page *, int)> &fn);
     // forEachPageNode iterates over every page (or node) in a bucket.
     // This also includes inline pages.
     void forEachPageNode(std::function<void(impl::page *, impl::node_ptr, int)> &&fn);

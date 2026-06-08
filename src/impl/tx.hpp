@@ -57,7 +57,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     std::future<std::vector<std::string>> Check();
     void checkBucket(impl::BucketPtr bucket, std::map<impl::pgid, impl::page *> &reachable,
                      std::map<impl::pgid, bool> &freed, std::vector<std::string> &errors);
-    void forEachPage(impl::pgid pgid, int depth, std::function<void(impl::page *, int)> &&fn);
+    void forEachPage(impl::pgid pgid, int depth, const std::function<void(impl::page *, int)> &fn);
 
     std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucket(bolt::const_bytes name);
     std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucketIfNotExists(bolt::const_bytes name);
