@@ -149,7 +149,8 @@ TestResult TestCursor_Delete() {
                     return err;
                 }
             }
-            if (std::tie(b, err) = b->CreateBucket(bolt::to_bytes(sub)); err != bolt::ErrorCode::Success) {
+            if (std::tie(b, err) = b->CreateBucket(bolt::to_bytes(sub));
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
             return bolt::ErrorCode::Success;
@@ -218,7 +219,8 @@ TestResult TestCursor_Seek_Large() {
                     if constexpr (std::endian::native == std::endian::little) {
                         k = byteswap(k);
                     }
-                    if (auto err = b->Put(key, bolt::to_bytes(value)); err != bolt::ErrorCode::Success) {
+                    if (auto err = b->Put(key, bolt::to_bytes(value));
+                        err != bolt::ErrorCode::Success) {
                         return err;
                     }
                 }
@@ -345,13 +347,16 @@ TestResult TestCursor_Iterate_Leaf() {
             if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(baz), bolt::to_bytes(vempty)); err != bolt::ErrorCode::Success) {
+            if (err = b->Put(bolt::to_bytes(baz), bolt::to_bytes(vempty));
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(v0)); err != bolt::ErrorCode::Success) {
+            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(v0));
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(v1)); err != bolt::ErrorCode::Success) {
+            if (err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(v1));
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
             return bolt::ErrorCode::Success;
@@ -420,13 +425,16 @@ TestResult TestCursor_LeafRootReverse() {
             if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(baz), bolt::to_bytes(vempty)); err != bolt::ErrorCode::Success) {
+            if (err = b->Put(bolt::to_bytes(baz), bolt::to_bytes(vempty));
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(v0)); err != bolt::ErrorCode::Success) {
+            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(v0));
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(v1)); err != bolt::ErrorCode::Success) {
+            if (err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(v1));
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
             return bolt::ErrorCode::Success;
@@ -488,10 +496,12 @@ TestResult TestCursor_Restart() {
             if (err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(empty)); err != bolt::ErrorCode::Success) {
+            if (err = b->Put(bolt::to_bytes(bar), bolt::to_bytes(empty));
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
-            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(empty)); err != bolt::ErrorCode::Success) {
+            if (err = b->Put(bolt::to_bytes(foo), bolt::to_bytes(empty));
+                err != bolt::ErrorCode::Success) {
                 return err;
             }
             return bolt::ErrorCode::Success;
@@ -538,7 +548,8 @@ TestResult TestCursor_First_EmptyPages() {
             std::uint64_t key;
             for (int i = 0; i < 1000; i++) {
                 key = i;
-                if (auto err = b->Put(u64tob(key), bolt::to_bytes(empty)); err != bolt::ErrorCode::Success) {
+                if (auto err = b->Put(u64tob(key), bolt::to_bytes(empty));
+                    err != bolt::ErrorCode::Success) {
                     return err;
                 }
             }
@@ -571,6 +582,50 @@ TestResult TestCursor_First_EmptyPages() {
         return TestResult(false, "Update fail, {}", err);
     }
     MustCloseDB(std::move(db));
+    return true;
+}
+
+TestResult TestCursor_Last_EmptyPages() {
+    auto db = MustOpenDB();
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+            auto [b, err] = tx->CreateBucket(bolt::to_bytes("widgets"));
+            if (err != bolt::ErrorCode::Success) {
+                return err;
+            }
+            for (auto i = 0; i < 1000; i++) {
+                std::uint64_t key = i;
+                if (auto err = b->Put(u64tob(key), bolt::to_bytes(""));
+                    err != bolt::ErrorCode::Success) {
+                    return err;
+                }
+            }
+            return bolt::ErrorCode::Success;
+        });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "Update fail, {}", err);
+    }
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+            auto b = tx->Bucket(bolt::to_bytes("widgets"));
+            for (auto i = 200; i < 1000; i++) {
+                std::uint64_t key = i;
+                if (auto err = b->Delete(u64tob(key)); err != bolt::ErrorCode::Success) {
+                    return err;
+                }
+            }
+            auto c = b->Cursor();
+            int count = 0;
+            for (auto [k, v] = c->Last(); !k.empty(); std::tie(k, v) = c->Prev()) {
+                count++;
+            }
+            if (count != 200) {
+                fmt::println("unexpected key count: {}", count);
+                return bolt::ErrorCode::Unexpected;
+            }
+            return bolt::ErrorCode::Success;
+        });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "Update fail, {}", err);
+    }
     return true;
 }
 
