@@ -585,6 +585,7 @@ TestResult TestCursor_First_EmptyPages() {
     return true;
 }
 
+// TODO: bugfix
 TestResult TestCursor_Last_EmptyPages() {
     auto db = MustOpenDB();
     if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
