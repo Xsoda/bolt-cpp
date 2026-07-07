@@ -94,6 +94,16 @@ std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Last() {
     ref.index = ref.count() - 1;
 
     last();
+
+    // If this is an empty page (calling Delete may result in empty pages)
+    // we call prev to find the last page that is not empty
+    while (stack.size() > 0 && stack.back().count() == 0) {
+        prev();
+    }
+    if (stack.size() == 0) {
+        return {bolt::bytes(), bolt::bytes()};
+    }
+
     auto [k, v, flags] = keyValue();
     if ((flags & bolt::impl::bucketLeafFlag) != 0) {
         return std::make_tuple(k, bolt::bytes());
