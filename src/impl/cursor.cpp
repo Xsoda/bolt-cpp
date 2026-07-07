@@ -126,26 +126,7 @@ std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Prev() {
     auto bptr = bucket.lock();
     _assert(!bptr->tx.expired(), "tx closed");
 
-    // Attempt to move back one element until we're successful.
-    // Move up the stack as we hit the beginning of each page in our stack.
-    for (auto elem = stack.rbegin(); elem != stack.rend();) {
-        if (elem->index > 0) {
-            elem->index--;
-            break;
-        }
-        auto it = stack.erase(elem.base() - 1, stack.end());
-        elem = std::reverse_iterator(it);
-    }
-
-    // If we've hit the end then return nil.
-    if (stack.size() == 0) {
-        return std::make_tuple(bolt::bytes(), bolt::bytes());
-    }
-
-    // Move down the stack to find the last element of the last leaf under this
-    // branch.
-    last();
-    auto [k, v, flags] = keyValue();
+    auto [k, v, flags] = prev();
     if ((flags & bolt::impl::bucketLeafFlag) != 0) {
         return std::make_tuple(k, bolt::bytes());
     }
@@ -310,6 +291,29 @@ std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::next() {
         }
         return keyValue();
     }
+}
+
+std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::prev() {
+    // Attempt to move back one element until we're successful.
+    // Move up the stack as we hit the beginning of each page in our stack.
+    for (auto elem = stack.rbegin(); elem != stack.rend();) {
+        if (elem->index > 0) {
+            elem->index--;
+            break;
+        }
+        auto it = stack.erase(elem.base() - 1, stack.end());
+        elem = std::reverse_iterator(it);
+    }
+
+    // If we've hit the end then return nil.
+    if (stack.size() == 0) {
+        return {bolt::bytes(), bolt::bytes(), 0};
+    }
+
+    // Move down the stack to find the last element of the last leaf under this
+    // branch.
+    last();
+    return keyValue();
 }
 
 // search recursively performs a binary search against a given page/node until

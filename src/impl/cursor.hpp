@@ -39,6 +39,7 @@ struct Cursor : public std::enable_shared_from_this<Cursor> {
     void first();
     void last();
     std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> next();
+    std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> prev();
     void search(bolt::const_bytes key, impl::pgid pgid);
     void nsearch(bolt::const_bytes key);
     void searchPage(bolt::const_bytes key, impl::page *p);
