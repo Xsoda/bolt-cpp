@@ -116,6 +116,7 @@ target_sources(bolt
   src/impl/cursor.cpp
   src/impl/cursor.hpp
   src/impl/bsearch.hpp
+  src/impl/error.cpp
   src/bolt.cpp
 )
 

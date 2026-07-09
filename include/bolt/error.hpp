@@ -97,25 +97,14 @@ struct formatter<std::span<T>> : nested_formatter<fmt::string_view> {
 FMT_END_NAMESPACE
 
 namespace std {
+
 template <> struct is_error_code_enum<bolt::ErrorCode> : true_type {};
+
 } // namespace std
 
 namespace bolt {
-class ErrorCategory : public std::error_category {
-public:
-    static ErrorCategory &instance() {
-        static ErrorCategory inst;
-        return inst;
-    }
-    const char *name() const noexcept override { return "bolt"; }
-    std::string message(int ec) const override {
-        return fmt::format("{}", static_cast<bolt::ErrorCode>(ec));
-    }
-};
 
-inline std::error_code make_error_code(bolt::ErrorCode ec) {
-    return {static_cast<int>(ec), bolt::ErrorCategory::instance()};
-}
+std::error_code make_error_code(bolt::ErrorCode ec);
 
 } // namespace bolt
 
