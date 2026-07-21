@@ -218,13 +218,13 @@ bolt::ErrorCode freelist::write(impl::page *p) {
 void freelist::reload(impl::page *p) {
     read(p);
     std::map<impl::pgid, bool> pcache;
-    for (auto &[_, pendingIDs] : pending) {
-        for (auto &pendingID : pendingIDs) {
+    for (const auto &[_, pendingIDs] : pending) {
+        for (const auto &pendingID : pendingIDs) {
             pcache[pendingID] = true;
         }
     }
     std::vector<impl::pgid> a;
-    for (auto item : ids) {
+    for (const auto &item : ids) {
         auto it = pcache.find(item);
         if (it != pcache.end()) {
             a.push_back(item);
@@ -238,8 +238,8 @@ void freelist::reindex() {
     for (auto &item : ids) {
         cache[item] = true;
     }
-    for (auto &[_, pendingIDs] : pending) {
-        for (auto &pendingID : pendingIDs) {
+    for (const auto &[_, pendingIDs] : pending) {
+        for (const auto &pendingID : pendingIDs) {
             cache[pendingID] = true;
         }
     }
