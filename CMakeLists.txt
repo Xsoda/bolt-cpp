@@ -80,7 +80,7 @@ if(OS_WINDOWS)
   add_compile_options(
     /W3
     /utf-8
-    /Breprp
+    /Brepro
     /permissive-
     /MP
     /Zc:__cplusplus
