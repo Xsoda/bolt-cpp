@@ -11,6 +11,15 @@ option(BUILD_CXX_CHAOS_TEST "Build cpp chaos test" OFF)
 option(BUILD_GOLANG_CHAOS_TEST "Build golang chaos test" OFF)
 option(BUILD_BOLT_CLI "Build bolt cli program" OFF)
 
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+  set(OS_WINDOWS TRUE)
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+  set(OS_MACOS TRUE)
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux|FreeBSD")
+  string(TOUPPER "${CMAKE_HOST_SYSTEM_NAME}" _SYSTEM_NAME_U)
+  set(OS_${_SYSTEM_NAME_U} TRUE)
+endif()
+
 find_program(CCACHE_PROGRAM NAMES "ccache")
 if(CCACHE_PROGRAM)
   message(STATUS "Found ccache: ${CCACHE_PROGRAM}")
@@ -67,10 +76,20 @@ endif()
 target_compile_options(bolt PRIVATE ${PEDANTIC_COMPILE_FLAGS})
 target_link_libraries(bolt PRIVATE fmt::fmt)
 
-if(MSVC)
-  target_compile_definitions(bolt PRIVATE
-    /W4
+if(OS_WINDOWS)
+  add_compile_options(
+    /W3
     /utf-8
+    /Breprp
+    /permissive-
+    /MP
+    /Zc:__cplusplus
+    /Zc:preprocessor
+    /Zc:char8_t-
+    $<$<NOT:$<CONFIG:Debug>>:/Gy>
+    $<$<NOT:$<CONFIG:Debug>>:/Oi>
+  )
+  add_compile_definitions(
     NOMINMAX
     UNICODE
     _UNICODE
@@ -78,7 +97,18 @@ if(MSVC)
     _CRT_NONSTDC_NO_WARNINGS
     $<$<CONFIG:DEBUG>:DEBUG>
     $<$<CONFIG:DEBUG>:_DEBUG>
-)
+  )
+  add_link_options(
+    $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:/LTCG>
+    $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:/OPT:REF>
+    $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:/OPT:ICF>
+    $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:/EMITTOOLVERSIONINFO:NO>
+    /DEBUG
+    /Brepro
+  )
+  if(CMAKE_COMPILE_WARNING_AS_ERROR)
+    add_link_options(/WX)
+  endif()
 endif()
 
 target_sources(bolt
@@ -151,20 +181,6 @@ if(BUILD_TESTS)
     ${CMAKE_CURRENT_SOURCE_DIR}/include
   )
   
-  if(MSVC)
-  target_compile_definitions(bolt-tests PRIVATE
-    /W4
-    /utf-8
-    NOMINMAX
-    UNICODE
-    _UNICODE
-    _CRT_SECURE_NO_WARNINGS
-    _CRT_NONSTDC_NO_WARNINGS
-    $<$<CONFIG:DEBUG>:DEBUG>
-    $<$<CONFIG:DEBUG>:_DEBUG>
-  )
-  endif()
-
   if(ENABLE_COVERAGE)
     # use make coverage generate html report
     include(CodeCoverage.cmake)
@@ -187,19 +203,6 @@ if(BUILD_BOLT_CLI)
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
   )
-  if(MSVC)
-  target_compile_definitions(bolt-cli PRIVATE
-    /W4
-    /utf-8
-    NOMINMAX
-    UNICODE
-    _UNICODE
-    _CRT_SECURE_NO_WARNINGS
-    _CRT_NONSTDC_NO_WARNINGS
-    $<$<CONFIG:DEBUG>:DEBUG>
-    $<$<CONFIG:DEBUG>:_DEBUG>
-)
-endif()
 endif()
 
 if(BUILD_CXX_CHAOS_TEST)
