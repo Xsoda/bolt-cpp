@@ -30,7 +30,7 @@ struct batch {
 
     std::jthread timer;
 
-    batch(std::shared_ptr<impl::DB> db) : db(db){};
+    explicit batch(std::shared_ptr<impl::DB> db) : db(db){};
     void trigger();
     void StopTimer();
     void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn);
