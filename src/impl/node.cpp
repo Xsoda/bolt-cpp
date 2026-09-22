@@ -122,7 +122,7 @@ size_t node::minKeys() const {
 size_t node::size() const {
     size_t sz = impl::pageHeaderSize;
     size_t elsz = pageElementSize();
-    for (auto &it : inodes) {
+    for (const auto &it : inodes) {
         sz += elsz + it.key.size() + it.value.size();
     }
     return sz;
@@ -132,7 +132,7 @@ bool node::sizeLessThan(size_t v, size_t off) const {
     size_t sz = impl::pageHeaderSize;
     size_t elsz = pageElementSize();
     for (size_t i = off; i < inodes.size(); i++) {
-        auto &item = inodes[i];
+        const auto &item = inodes[i];
         sz += elsz + item.key.size() + item.value.size();
         if (sz >= v) {
             return false;
@@ -307,7 +307,7 @@ void node::write(impl::page *p) {
     // Loop over each item and write it to the page.
     std::byte *buf = &reinterpret_cast<std::byte *>(&p->ptr)[pageElementSize() * inodes.size()];
     for (size_t i = 0; i < inodes.size(); i++) {
-        auto &item = inodes[i];
+        const auto &item = inodes[i];
         _assert(item.key.size() > 0, "write: zero-length inode key");
         // Write the page element.
         if (isLeaf) {
@@ -383,7 +383,7 @@ std::tuple<size_t, size_t> node::splitIndex(size_t threshold, size_t off) {
     size_t sz = impl::pageHeaderSize;
     for (size_t i = off; i < inodes.size() - impl::minKeysPerPage; i++) {
         index = i;
-        impl::inode &inode = inodes.at(i);
+        const auto &inode = inodes.at(i);
         size_t elsize = pageElementSize() + inode.key.size() + inode.value.size();
 
         if (i - off >= impl::minKeysPerPage && sz + elsize > threshold) {
@@ -408,10 +408,11 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
     // the case of split-merge so we cannot use a range loop. We have to check
     // the children size on every loop iteration.
     if (children.size() > 1) {
-        std::sort(children.begin(), children.end(), [](impl::node_ptr &a, impl::node_ptr &b) -> bool {
-            auto ret = impl::compare_three_way(a->key, b->key);
-            return std::is_lt(ret);
-        });
+        std::sort(children.begin(), children.end(),
+                  [](impl::node_ptr &a, impl::node_ptr &b) -> bool {
+                      auto ret = impl::compare_three_way(a->key, b->key);
+                      return std::is_lt(ret);
+                  });
     }
     for (size_t i = 0; i < children.size(); i++) {
         auto err = children[i]->spill(hold);
@@ -550,7 +551,7 @@ void node::rebalance() {
     // If both this node and the target node are too small then merge them.
     if (useNextSibling) {
         // Reparent all child nodes being moved.
-        for (auto &item : target->inodes) {
+        for (const auto &item : target->inodes) {
             if (auto it = bktptr->nodes.find(item.pgid); it != bktptr->nodes.end()) {
                 impl::node_ptr child = it->second;
                 auto cp = child->parent.lock();
@@ -572,7 +573,7 @@ void node::rebalance() {
         target->free();
     } else {
         // Reparent all child nodes being moved.
-        for (auto &item : inodes) {
+        for (const auto &item : inodes) {
             auto it = bktptr->nodes.find(item.pgid);
             if (it != bktptr->nodes.end()) {
                 impl::node_ptr child = it->second;

@@ -123,7 +123,7 @@ bool Bucket::inlineable() const {
     // Bucket is not inlineable if it contains subbuckets or if it goes beyond
     // our threshold for inline bucket size.
     auto size = impl::pageHeaderSize;
-    for (auto &inode : n->inodes) {
+    for (const auto &inode : n->inodes) {
         size += impl::leafPageElementSize + inode.key.size() + inode.value.size();
         if ((inode.flags & impl::bucketLeafFlag) != 0) {
             return false;
