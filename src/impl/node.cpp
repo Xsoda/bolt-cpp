@@ -678,7 +678,7 @@ std::vector<impl::node_ptr> node::split(size_t pageSize, std::vector<impl::node_
 
 std::vector<impl::node_ptr> node::split_v2(size_t pageSize, std::vector<impl::node_ptr> &hold) {
     std::vector<impl::node_ptr> nodes;
-    std::vector<std::span<impl::inode>> split_result;
+    std::vector<std::span<impl::inode>> splits;
     auto bktptr = bucket.lock();
     auto txptr = bktptr->tx.lock();
     // Determine the threshold before starting a new node.
@@ -694,17 +694,16 @@ std::vector<impl::node_ptr> node::split_v2(size_t pageSize, std::vector<impl::no
     do {
         if (inodes.size() - offset <= impl::minKeysPerPage * 2 || sizeLessThan(pageSize, offset)) {
 
-            split_result.emplace_back(
+            splits.emplace_back(
                 std::span<impl::inode>(inodes.begin() + offset, inodes.size() - offset));
             break;
         }
         std::tie(splitIdx, std::ignore) = splitIndex(threshold, offset);
-        split_result.emplace_back(
-            std::span<impl::inode>(inodes.begin() + offset, splitIdx - offset));
+        splits.emplace_back(std::span<impl::inode>(inodes.begin() + offset, splitIdx - offset));
         offset = splitIdx;
     } while (offset < inodes.size());
 
-    if (split_result.size() == 1) {
+    if (splits.size() == 1) {
         nodes.emplace_back(shared_from_this());
         return nodes;
     }
@@ -716,16 +715,15 @@ std::vector<impl::node_ptr> node::split_v2(size_t pageSize, std::vector<impl::no
         hold.push_back(pptr);
     }
     parent = pptr;
-    nodes.assign(split_result.size(), nullptr);
+    nodes.assign(splits.size(), nullptr);
     nodes[0] = shared_from_this();
-    for (int i = 1; i < split_result.size(); i++) {
+    for (int i = 1; i < splits.size(); i++) {
         nodes[i] = std::make_shared<impl::node>(bktptr, isLeaf, pptr);
-        std::move(split_result[i].begin(), split_result[i].end(),
-                  std::back_inserter(nodes[i]->inodes));
+        std::move(splits[i].begin(), splits[i].end(), std::back_inserter(nodes[i]->inodes));
         pptr->children.emplace_back(nodes[i]);
         txptr->stats.Split++;
     }
-    inodes.erase(std::next(inodes.begin(), split_result[0].size()), inodes.end());
+    inodes.erase(std::next(inodes.begin(), splits[0].size()), inodes.end());
     return nodes;
 }
 
