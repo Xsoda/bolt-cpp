@@ -94,7 +94,7 @@ struct Bucket : public bucket, public std::enable_shared_from_this<impl::Bucket>
     // This also includes inline pages.
     void forEachPageNode(std::function<void(impl::page *, impl::node_ptr, int)> &&fn);
     void _forEachPageNode(impl::pgid pgid, int depth,
-                          std::function<void(impl::page *, impl::node_ptr, int)> &fn);
+                          const std::function<void(impl::page *, impl::node_ptr, int)> &fn);
     // node creates a node from a page and associates it with a given parent.
     impl::node_ptr node(impl::pgid pgid, impl::node_ptr parent);
     // rebalance attempts to balance all nodes.

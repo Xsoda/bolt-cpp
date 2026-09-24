@@ -380,7 +380,7 @@ void Bucket::forEachPageNode(std::function<void(impl::page *, impl::node_ptr, in
 }
 
 void Bucket::_forEachPageNode(impl::pgid pgid, int depth,
-                              std::function<void(impl::page *, impl::node_ptr, int)> &fn) {
+                              const std::function<void(impl::page *, impl::node_ptr, int)> &fn) {
     auto [p, n] = pageNode(pgid);
 
     // Execute function.
