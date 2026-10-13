@@ -258,6 +258,7 @@ bolt::ErrorCode FileImpl::Munmap(std::uintptr_t ptr) {
 #endif // defined(_WIN32)
 
 #if defined(__linux__) || defined(__APPLE__)
+#include <sys/fcntl.h>
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -387,7 +388,11 @@ bolt::ErrorCode FileImpl::Funlock() {
 }
 
 std::tuple<std::uintptr_t, bolt::ErrorCode> FileImpl::Mmap(std::uint64_t size) {
+#if defined(__APPLE__)
+    ptr = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+#else
     ptr = mmap(NULL, size, PROT_READ, MAP_SHARED | MAP_POPULATE, fd, 0);
+#endif
     if (ptr == (void *)-1) {
         return std::make_tuple(std::uintptr_t(nullptr), bolt::ErrorCode::SystemCall);
     }
@@ -408,10 +413,17 @@ bolt::ErrorCode FileImpl::Munmap(std::uintptr_t ptr) {
 }
 
 bolt::ErrorCode FileImpl::Fdatasync() {
-    int ret = fdatasync(fd);
+#if defined(__APPLE__)
+    int ret = fcntl(fd, F_FULLSYNC, 0);
     if (ret) {
         return bolt::ErrorCode::SystemCall;
     }
+#else
+    int ret = fdatasync(fd);
+    if (ret) {
+        return Fsync();
+    }
+#endif
     return bolt::ErrorCode::Success;
 }
 
