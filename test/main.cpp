@@ -92,6 +92,7 @@ TestResult TestTx_OnCommit();
 TestResult TestTx_OnCommit_Rollback();
 TestResult TestTx_CreateBucketIfNotExists_ErrorBucketNameRequired();
 TestResult TestTx_BucketWithPath();
+TestResult TestTx_Rollback();
 TestResult TestBucket_Get_NonExistent();
 TestResult TestBucket_Get_FromNode();
 TestResult TestBucket_Get_IncompatibleValue();
@@ -222,6 +223,7 @@ static const std::vector<Test> tests = {
     {"Test Tx OnCommit", TestTx_OnCommit},
     {"Test Tx OnCommit Rollback", TestTx_OnCommit_Rollback},
     {"Test Tx BucketWithPath", TestTx_BucketWithPath},
+    {"Test Tx Rollback", TestTx_Rollback},
     {"Test Bucket Get NonExistent", TestBucket_Get_NonExistent},
     {"Test Bucket Get FromNode", TestBucket_Get_FromNode},
     {"Test Bucket Get IncompatibleValue", TestBucket_Get_IncompatibleValue},
