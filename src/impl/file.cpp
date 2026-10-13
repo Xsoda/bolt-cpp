@@ -414,7 +414,7 @@ bolt::ErrorCode FileImpl::Munmap(std::uintptr_t ptr) {
 
 bolt::ErrorCode FileImpl::Fdatasync() {
 #if defined(__APPLE__)
-    int ret = fcntl(fd, F_FULLSYNC, 0);
+    int ret = fcntl(fd, F_FULLFSYNC, 0);
     if (ret) {
         return bolt::ErrorCode::SystemCall;
     }
