@@ -258,12 +258,9 @@ bolt::ErrorCode FileImpl::Munmap(std::uintptr_t ptr) {
 #endif // defined(_WIN32)
 
 #if defined(__linux__) || defined(__APPLE__)
-#include <error.h>
-#include <fcntl.h>
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/uio.h>
 #include <unistd.h>
 
 namespace bolt::impl {
