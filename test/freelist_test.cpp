@@ -1,7 +1,7 @@
+#include "bolt/error.hpp"
 #include "impl/freelist.hpp"
 #include "impl/page.hpp"
 #include "impl/utils.hpp"
-#include "bolt/error.hpp"
 #include "test.hpp"
 #include "util.hpp"
 #include <cstring>
@@ -12,7 +12,7 @@ TestResult TestFreelist_free() {
     freelist.free(100, &page);
     auto it = freelist.pending.find(100);
     if (it == freelist.pending.end()) {
-      return TestResult(false, "freelist free fail");
+        return TestResult(false, "freelist free fail");
     }
     if (freelist.pending_count() != 1) {
         return TestResult(false, "freelist pending count");
@@ -114,7 +114,7 @@ TestResult TestFreelist_read() {
     bolt::impl::page *page = reinterpret_cast<bolt::impl::page *>(buf);
     page->flags = bolt::impl::freeListPageFlag;
     page->count = 2;
-    std::span<bolt::impl::pgid> ids(&page->ptr, page->count);
+    std::span<bolt::impl::pgid> ids(reinterpret_cast<bolt::impl::pgid *>(&page->ptr), page->count);
     ids[0] = 23;
     ids[1] = 50;
 
