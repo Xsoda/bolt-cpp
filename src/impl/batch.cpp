@@ -13,7 +13,7 @@ void batch::trigger() { std::call_once(start, std::bind(&batch::run, this)); }
 void batch::run() {
     auto dbptr = db.lock();
     if (!dbptr) {
-        _assert(false, "DB already closed at batch");
+        __assert(false, "DB already closed at batch");
         return;
     }
 
@@ -61,7 +61,7 @@ void batch::run() {
 batch::~batch() { db.reset(); }
 
 void batch::StopTimer() {
-    _assert(timer.get_id() != std::this_thread::get_id(), "Same thread join self");
+    __assert(timer.get_id() != std::this_thread::get_id(), "Same thread join self");
     timer.request_stop();
     timer.join();
 }

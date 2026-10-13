@@ -150,10 +150,10 @@ size_t node::pageElementSize() const {
 
 impl::node_ptr node::childAt(ptrdiff_t index) {
     if (isLeaf) {
-        _assert(false, "invalid chatAt({}) on a leaf node", index);
+        __assert(false, "invalid chatAt({}) on a leaf node", index);
     }
     if (bucket.expired()) {
-        _assert(false, "bucket pointer already expired");
+        __assert(false, "bucket pointer already expired");
     }
     auto ptr = bucket.lock();
     return ptr->node(inodes[index].pgid, shared_from_this());
@@ -198,18 +198,18 @@ void node::put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_b
                impl::pgid pgid, std::uint32_t flags) {
     auto bktptr = bucket.lock();
     if (!bktptr) {
-        _assert(false, "bucket invalid");
+        __assert(false, "bucket invalid");
     }
     auto txptr = bktptr->tx.lock();
     if (!txptr) {
-        _assert(false, "tx invalid");
+        __assert(false, "tx invalid");
     }
     if (pgid >= txptr->meta.pgid) {
-        _assert(false, "pgid ({}) above high water mark ({})", pgid, txptr->meta.pgid);
+        __assert(false, "pgid ({}) above high water mark ({})", pgid, txptr->meta.pgid);
     } else if (oldKey.size() <= 0) {
-        _assert(false, "put: zero-length old key");
+        __assert(false, "put: zero-length old key");
     } else if (newKey.size() <= 0) {
-        _assert(false, "put: zero-length new key");
+        __assert(false, "put: zero-length new key");
     }
 
     // Find insertion index.
@@ -238,7 +238,7 @@ void node::put(bolt::const_bytes oldKey, bolt::const_bytes newKey, bolt::const_b
     inode.value = bolt::bytes(inode.memory.data() + newKey.size(), value.size());
 
     inode.pgid = pgid;
-    _assert(inode.key.size() > 0, "put: zero-length inode key");
+    __assert(inode.key.size() > 0, "put: zero-length inode key");
 }
 
 // del removes a key from the node.
@@ -275,11 +275,11 @@ void node::read(impl::page *p) {
             inode.pgid = elem->pgid;
             inode.key = elem->key();
         }
-        _assert(inode.key.size() > 0, "read: zero-length inode key");
+        __assert(inode.key.size() > 0, "read: zero-length inode key");
     }
     if (inodes.size() > 0) {
         this->key = inodes[0].key;
-        _assert(this->key.size() > 0, "read: zero-length node key");
+        __assert(this->key.size() > 0, "read: zero-length node key");
     } else {
         this->key = bolt::bytes();
     }
@@ -295,7 +295,7 @@ void node::write(impl::page *p) {
 
     if (inodes.size() > 0xFFFF) {
         size_t size = inodes.size();
-        _assert(false, "inode overflow: {} (pgid={})", size, p->id);
+        __assert(false, "inode overflow: {} (pgid={})", size, p->id);
     }
     p->count = (uint16_t)inodes.size();
 
@@ -308,7 +308,7 @@ void node::write(impl::page *p) {
     std::byte *buf = &reinterpret_cast<std::byte *>(&p->ptr)[pageElementSize() * inodes.size()];
     for (size_t i = 0; i < inodes.size(); i++) {
         const auto &item = inodes[i];
-        _assert(item.key.size() > 0, "write: zero-length inode key");
+        __assert(item.key.size() > 0, "write: zero-length inode key");
         // Write the page element.
         if (isLeaf) {
             auto elem = p->leafPageElement((uint16_t)i);
@@ -321,7 +321,7 @@ void node::write(impl::page *p) {
             elem->pos = (uint32_t)(buf - reinterpret_cast<std::byte *>(elem));
             elem->ksize = (uint32_t)item.key.size();
             elem->pgid = item.pgid;
-            _assert(elem->pgid != p->id, "write: circular dependency occurred");
+            __assert(elem->pgid != p->id, "write: circular dependency occurred");
         }
 
         std::memcpy(buf, item.key.data(), item.key.size());
@@ -441,7 +441,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
 
         // Write the node.
         if (p->id >= txptr->meta.pgid) {
-            _assert(false, "pgid ({}) above high water mark ({})", p->id, txptr->meta.pgid);
+            __assert(false, "pgid ({}) above high water mark ({})", p->id, txptr->meta.pgid);
         }
         it->pgid = p->id;
         it->write(p);
@@ -455,7 +455,7 @@ bolt::ErrorCode node::spill(std::vector<impl::node_ptr> &hold) {
             }
             pptr->put(k, it->inodes[0].key, bolt::bytes(), it->pgid, 0);
             it->key = it->inodes[0].key;
-            _assert(it->key.size() > 0, "spill: zero-length node key");
+            __assert(it->key.size() > 0, "spill: zero-length node key");
         }
         // Update the statistics.
         txptr->stats.Spill++;
@@ -537,7 +537,7 @@ void node::rebalance() {
         return;
     }
 
-    _assert(pptr->numChildren() > 1, "parent must have at least 2 children");
+    __assert(pptr->numChildren() > 1, "parent must have at least 2 children");
 
     // Destination node is right sibling if idx == 0, otherwise left sibling.
     impl::node_ptr target;
@@ -622,10 +622,10 @@ void node::dereference() {
         memory.resize(key.size());
         std::memcpy(memory.data(), key.data(), key.size());
         key = bolt::bytes(memory.data(), key.size());
-        _assert(pgid == 0 || key.size() > 0, "dereference: zero-length node key on existing node");
+        __assert(pgid == 0 || key.size() > 0, "dereference: zero-length node key on existing node");
     }
     for (auto &it : inodes) {
-        _assert(it.key.size() > 0, "dereference: zero-length inode key");
+        __assert(it.key.size() > 0, "dereference: zero-length inode key");
         if (!it.memory.empty()) {
             continue;
         }

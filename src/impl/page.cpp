@@ -1,5 +1,4 @@
 #include "impl/page.hpp"
-#include <cstddef>
 
 namespace bolt::impl {
 
