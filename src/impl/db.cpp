@@ -17,7 +17,7 @@
 namespace bolt::impl {
 
 bolt::ErrorCode mmap(impl::DB *db, std::uint64_t sz) {
-#ifdef _MSC_VER
+#ifdef _WIN32
     if (!db->readOnly) {
         auto err = db->file.Truncate(sz);
         if (err != bolt::ErrorCode::Success) {
@@ -439,7 +439,7 @@ bolt::ErrorCode DB::grow(std::uint64_t sz) {
     // Truncate and fsync to ensure file size metadata is flushed.
     // https://github.com/boltdb/bolt/issues/284
     if (!NoGrowSync && !readOnly) {
-#ifndef WIN32
+#ifndef _WIN32
         if (auto err = file.Truncate(sz); err != bolt::ErrorCode::Success) {
             return bolt::ErrorCode::FileResizeFail;
         }

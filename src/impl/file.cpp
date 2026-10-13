@@ -6,8 +6,9 @@
 #include <iostream>
 #include <thread>
 
-#ifdef _MSC_VER
+#if defined(_WIN32)
 #include <windows.h>
+
 namespace bolt::impl {
 
 int Getpagesize() {
@@ -254,9 +255,9 @@ bolt::ErrorCode FileImpl::Munmap(std::uintptr_t ptr) {
 }
 
 } // namespace bolt::impl
-#endif
+#endif // defined(_WIN32)
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 #include <error.h>
 #include <fcntl.h>
 #include <sys/file.h>
@@ -435,7 +436,7 @@ std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::Size() {
 }
 
 } // namespace bolt::impl
-#endif
+#endif // defined(__linux__) || defined(__APPLE__)
 
 namespace bolt::impl {
 

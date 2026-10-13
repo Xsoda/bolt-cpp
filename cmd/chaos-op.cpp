@@ -38,8 +38,6 @@ std::string RandomString(std::int64_t min, std::int64_t max) {
     for (int i = 0; i < size; i++) {
         std::uint64_t index = Random() % charset.size();
         result[i] = charset[index];
-        // std::uint8_t ch = RandomInt(1, 255);
-        // result[i] = (char)ch;
     }
     return result;
 }
