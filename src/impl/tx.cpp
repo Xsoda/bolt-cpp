@@ -501,4 +501,52 @@ Tx::RetrieveBucketWithPath(const std::string &path, const std::string &delimiter
     }
 }
 
+bolt::ErrorCode Tx::WriteTo(const std::function<bolt::ErrorCode(bolt::const_bytes)> writer) {
+    impl::File file;
+    std::vector<std::byte> buf;
+    auto dbptr = db.lock();
+    if (dbptr) {
+        buf.resize(dbptr->pageSize);
+    } else {
+        __assert(false, "Tx already closed");
+    }
+    // Generate a meta page, We use the same page data for both meta pages.
+    auto page = reinterpret_cast<impl::page *>(buf.data());
+    page->flags = metaPageFlag;
+    *page->meta() = meta;
+
+    // Write meta 0.
+    page->id = 0;
+    page->meta()->checksum = page->meta()->sum64();
+    if (auto err = writer(buf); err != bolt::ErrorCode::Success) {
+        return err;
+    }
+
+    // Write meta 1 with a lower transaction id.
+    page->id = 1;
+    page->meta()->txid -= 1;
+    page->meta()->checksum = page->meta()->sum64();
+    if (auto err = writer(buf); err != bolt::ErrorCode::Success) {
+        return err;
+    }
+
+    if (auto err = file.Open(dbptr->path, true); err != bolt::ErrorCode::Success) {
+        return err;
+    }
+
+    auto written = dbptr->pageSize * 2;
+    auto size = Size();
+    while (written < size) {
+        if (auto [_, err] = file.ReadAt(buf, written); err != bolt::ErrorCode::Success) {
+            return err;
+        }
+        if (auto err = writer(buf); err != bolt::ErrorCode::Success) {
+            return err;
+        }
+        written += dbptr->pageSize;
+    }
+
+    return bolt::ErrorCode::Success;
+}
+
 } // namespace bolt::impl

@@ -72,6 +72,9 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     CreateBucketWithPath(const std::string &path, const std::string &delimiter = "/");
     std::tuple<impl::BucketPtr, bolt::ErrorCode>
     RetrieveBucketWithPath(const std::string &path, const std::string &delimiter = "/");
+
+    // WriteTo writes the entire database to writer.
+    bolt::ErrorCode WriteTo(const std::function<bolt::ErrorCode(bolt::const_bytes)> writer);
 };
 
 } // namespace bolt::impl

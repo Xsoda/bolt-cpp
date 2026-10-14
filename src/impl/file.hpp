@@ -22,6 +22,7 @@ struct File {
     bolt::ErrorCode Flock(bool exclusive, std::chrono::milliseconds timeout);
     bolt::ErrorCode Funlock();
     bolt::ErrorCode Open(std::string path, bool readOnly);
+    bolt::ErrorCode Seek(std::uint64_t offset);
     bolt::ErrorCode Close();
     bolt::ErrorCode Truncate(std::uint64_t size);
     std::tuple<std::uint64_t, bolt::ErrorCode> Size();

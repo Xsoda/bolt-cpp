@@ -28,6 +28,7 @@ struct FileImpl {
     bolt::ErrorCode Funlock();
     bolt::ErrorCode Open(std::string path, bool readOnly);
     bolt::ErrorCode Close();
+    bolt::ErrorCode Seek(std::uint64_t offset);
     bolt::ErrorCode Truncate(std::uint64_t size);
     std::tuple<std::uint64_t, bolt::ErrorCode> Size();
     std::tuple<std::uintptr_t, bolt::ErrorCode> Mmap(std::uint64_t size);
@@ -75,9 +76,7 @@ FileImpl::~FileImpl() {
 std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::WriteAt(bolt::bytes buf,
                                                              std::uint64_t offset) {
     DWORD written;
-    LARGE_INTEGER li = {0};
-    li.QuadPart = offset;
-    if (!SetFilePointerEx(file, li, NULL, FILE_BEGIN)) {
+    if (auto err = Seek(offset); err != bolt::ErrorCode::Success) {
         return std::make_tuple(0, bolt::ErrorCode::SystemCall);
     }
     if (!WriteFile(file, buf.data(), (DWORD)buf.size(), &written, NULL)) {
@@ -91,9 +90,7 @@ std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::WriteAt(bolt::bytes buf,
 
 std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::ReadAt(bolt::bytes buf, std::uint64_t offset) {
     DWORD readed;
-    LARGE_INTEGER li = {0};
-    li.QuadPart = offset;
-    if (!SetFilePointerEx(file, li, NULL, FILE_BEGIN)) {
+    if (auto err = Seek(offset); err != bolt::ErrorCode::Success) {
         return std::make_tuple(0, bolt::ErrorCode::SystemCall);
     }
     if (!ReadFile(file, buf.data(), (DWORD)buf.size(), &readed, NULL)) {
@@ -106,10 +103,8 @@ std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::ReadAt(bolt::bytes buf, std
 }
 
 bolt::ErrorCode FileImpl::Truncate(std::uint64_t size) {
-    LARGE_INTEGER li;
-    li.QuadPart = size;
-    if (!SetFilePointerEx(file, li, NULL, FILE_BEGIN)) {
-        return bolt::ErrorCode::SystemCall;
+    if (auto err = Seek(size); err != bolt::ErrorCode::Success) {
+        return std::make_tuple(0, bolt::ErrorCode::SystemCall);
     }
     if (!SetEndOfFile(file)) {
         return bolt::ErrorCode::SystemCall;
@@ -254,6 +249,15 @@ bolt::ErrorCode FileImpl::Munmap(std::uintptr_t ptr) {
     }
 }
 
+bolt::ErrorCode FileImpl::Seek(std::uint64_t offset) {
+    LARGE_INTEGER li = {0};
+    li.QuadPart = offset;
+    if (!SetFilePointerEx(file, li, NULL, FILE_BEGIN)) {
+        return bolt::ErrorCode::SystemCall;
+    }
+    return bolt::ErrorCode::Success;
+}
+
 } // namespace bolt::impl
 #endif // defined(_WIN32)
 
@@ -279,6 +283,7 @@ struct FileImpl {
     bolt::ErrorCode Funlock();
     bolt::ErrorCode Open(std::string path, bool readOnly);
     bolt::ErrorCode Close();
+    bolt::ErrorCode Seek(std::uint64_t offset);
     bolt::ErrorCode Truncate(std::uint64_t size);
     std::tuple<std::uint64_t, bolt::ErrorCode> Size();
     std::tuple<std::uintptr_t, bolt::ErrorCode> Mmap(std::uint64_t size);
@@ -302,8 +307,7 @@ FileImpl::~FileImpl() {
 
 std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::WriteAt(bolt::bytes buf,
                                                              std::uint64_t offset) {
-    off_t ret = lseek(fd, offset, SEEK_SET);
-    if (ret == -1) {
+    if (auto err = Seek(offset); err != bolt::ErrorCode::Success) {
         return std::make_tuple(std::uint64_t(0), bolt::ErrorCode::SystemCall);
     }
     ssize_t sz = write(fd, buf.data(), buf.size());
@@ -316,8 +320,7 @@ std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::WriteAt(bolt::bytes buf,
 }
 
 std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::ReadAt(bolt::bytes buf, std::uint64_t offset) {
-    off_t ret = lseek(fd, offset, SEEK_SET);
-    if (ret == -1) {
+    if (auto err = Seek(offset); err != bolt::ErrorCode::Success) {
         return std::make_tuple(std::uint64_t(0), bolt::ErrorCode::SystemCall);
     }
     ssize_t sz = read(fd, buf.data(), buf.size());
@@ -444,6 +447,13 @@ std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::Size() {
     return std::make_tuple(std::uint64_t(buf.st_size), bolt::ErrorCode::Success);
 }
 
+bolt::ErrorCode FileImpl::Seek(std::uint64_t offset) {
+    if (auto ret = lseek(fd, offset, SEEK_SET); ret == -1) {
+        return bolt::ErrorCode::SystemCall;
+    }
+    return bolt::ErrorCode::Success;
+}
+
 } // namespace bolt::impl
 #endif // defined(__linux__) || defined(__APPLE__)
 
@@ -484,5 +494,7 @@ bolt::ErrorCode File::Munmap(std::uintptr_t ptr) { return pImpl->Munmap(ptr); }
 bolt::ErrorCode File::Close() { return pImpl->Close(); }
 
 bolt::ErrorCode File::Truncate(std::uint64_t size) { return pImpl->Truncate(size); }
+
+bolt::ErrorCode File::Seek(std::uint64_t offset) { return pImpl->Seek(offset); }
 
 } // namespace bolt::impl
