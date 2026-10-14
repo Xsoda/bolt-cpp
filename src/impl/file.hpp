@@ -15,13 +15,13 @@ struct File {
     explicit File();
     ~File();
 
-    std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf, std::uint64_t offset);
+    std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::const_bytes buf, std::uint64_t offset);
     std::tuple<std::uint64_t, bolt::ErrorCode> ReadAt(bolt::bytes buf, std::uint64_t offset);
     bolt::ErrorCode Fdatasync();
     bolt::ErrorCode Fsync();
     bolt::ErrorCode Flock(bool exclusive, std::chrono::milliseconds timeout);
     bolt::ErrorCode Funlock();
-    bolt::ErrorCode Open(std::string path, bool readOnly);
+    bolt::ErrorCode Open(const std::string &path, bool readOnly);
     bolt::ErrorCode Seek(std::uint64_t offset);
     bolt::ErrorCode Close();
     bolt::ErrorCode Truncate(std::uint64_t size);

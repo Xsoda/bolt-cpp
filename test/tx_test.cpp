@@ -633,3 +633,65 @@ TestResult TestTx_Rollback() {
     MustCloseDB(std::move(db));
     return true;
 }
+
+TestResult TestTx_WriteTo() {
+    auto db = MustOpenDB();
+    auto path = tempfile();
+
+    if (auto err = db->Update([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+            auto [b, err] = tx->CreateBucket(bolt::to_bytes("widgets"));
+            if (err != bolt::ErrorCode::Success) {
+                return err;
+            }
+            if (err = b->Put(bolt::to_bytes("foo"), bolt::to_bytes("bar"));
+                err != bolt::ErrorCode::Success) {
+                return err;
+            }
+            if (err = b->Put(bolt::to_bytes("baz"), bolt::to_bytes("bat"));
+                err != bolt::ErrorCode::Success) {
+                return err;
+            }
+            return bolt::ErrorCode::Success;
+        });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "update database error: {}", err);
+    }
+
+    if (auto err = db->View([path](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+            bolt::impl::File file;
+            if (auto err = file.Open(path, false); err != bolt::ErrorCode::Success) {
+                return err;
+            }
+            return tx->WriteTo([&](bolt::const_bytes buf) -> bolt::ErrorCode {
+                auto [size, _] = file.Size();
+                if (auto [_, err] = file.WriteAt(buf, size); err != bolt::ErrorCode::Success) {
+                    return err;
+                }
+                return bolt::ErrorCode::Success;
+            });
+        });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "view database error: {}", err);
+    }
+
+    auto db2 = MustOpenDB(path);
+    if (auto err = db2->View([](bolt::impl::TxPtr tx) -> bolt::ErrorCode {
+            if (auto v = tx->Bucket(bolt::to_bytes("widgets"))->Get(bolt::to_bytes("foo"));
+                !Equal(v, bolt::to_bytes("bar"))) {
+                return bolt::ErrorCode::Unexpected;
+            }
+            if (auto v = tx->Bucket(bolt::to_bytes("widgets"))->Get(bolt::to_bytes("baz"));
+                !Equal(v, bolt::to_bytes("bat"))) {
+                return bolt::ErrorCode::Unexpected;
+            }
+            return bolt::ErrorCode::Success;
+        });
+        err != bolt::ErrorCode::Success) {
+        return TestResult(false, "validate copyed database fail: {0}", err);
+    }
+    fmt::println("copy database {} to {}", db->path, db2->path);
+
+    MustCloseDB(std::move(db2));
+    MustCloseDB(std::move(db));
+    return true;
+}

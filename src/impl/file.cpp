@@ -20,13 +20,13 @@ int Getpagesize() {
 struct FileImpl {
     FileImpl() : file(INVALID_HANDLE_VALUE), lockfile(INVALID_HANDLE_VALUE), ptr(NULL){};
     ~FileImpl();
-    std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf, std::uint64_t offset);
+    std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::const_bytes buf, std::uint64_t offset);
     std::tuple<std::uint64_t, bolt::ErrorCode> ReadAt(bolt::bytes buf, std::uint64_t offset);
     bolt::ErrorCode Fdatasync();
     bolt::ErrorCode Fsync();
     bolt::ErrorCode Flock(bool exclusive, std::chrono::milliseconds timeout);
     bolt::ErrorCode Funlock();
-    bolt::ErrorCode Open(std::string path, bool readOnly);
+    bolt::ErrorCode Open(const std::string &path, bool readOnly);
     bolt::ErrorCode Close();
     bolt::ErrorCode Seek(std::uint64_t offset);
     bolt::ErrorCode Truncate(std::uint64_t size);
@@ -73,7 +73,7 @@ FileImpl::~FileImpl() {
     }
 }
 
-std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::WriteAt(bolt::bytes buf,
+std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::WriteAt(bolt::const_bytes buf,
                                                              std::uint64_t offset) {
     DWORD written;
     if (auto err = Seek(offset); err != bolt::ErrorCode::Success) {
@@ -120,7 +120,7 @@ std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::Size() {
     return std::make_tuple(std::uint64_t(0), bolt::ErrorCode::SystemCall);
 }
 
-bolt::ErrorCode FileImpl::Open(std::string path, bool readOnly) {
+bolt::ErrorCode FileImpl::Open(const std::string &path, bool readOnly) {
     this->path = str2wstr(path);
     SECURITY_ATTRIBUTES sa = {0};
     sa.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -275,13 +275,13 @@ int Getpagesize() { return (int)sysconf(_SC_PAGE_SIZE); }
 struct FileImpl {
     FileImpl() : ptr(NULL), fd(-1), size(0){};
     ~FileImpl();
-    std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::bytes buf, std::uint64_t offset);
+    std::tuple<std::uint64_t, bolt::ErrorCode> WriteAt(bolt::const_bytes buf, std::uint64_t offset);
     std::tuple<std::uint64_t, bolt::ErrorCode> ReadAt(bolt::bytes buf, std::uint64_t offset);
     bolt::ErrorCode Fdatasync();
     bolt::ErrorCode Fsync();
     bolt::ErrorCode Flock(bool exclusive, std::chrono::milliseconds timeout);
     bolt::ErrorCode Funlock();
-    bolt::ErrorCode Open(std::string path, bool readOnly);
+    bolt::ErrorCode Open(const std::string &path, bool readOnly);
     bolt::ErrorCode Close();
     bolt::ErrorCode Seek(std::uint64_t offset);
     bolt::ErrorCode Truncate(std::uint64_t size);
@@ -305,7 +305,7 @@ FileImpl::~FileImpl() {
     }
 }
 
-std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::WriteAt(bolt::bytes buf,
+std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::WriteAt(bolt::const_bytes buf,
                                                              std::uint64_t offset) {
     if (auto err = Seek(offset); err != bolt::ErrorCode::Success) {
         return std::make_tuple(std::uint64_t(0), bolt::ErrorCode::SystemCall);
@@ -332,7 +332,7 @@ std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::ReadAt(bolt::bytes buf, std
     return std::make_tuple(std::uint64_t(sz), bolt::ErrorCode::Success);
 }
 
-bolt::ErrorCode FileImpl::Open(std::string path, bool readOnly) {
+bolt::ErrorCode FileImpl::Open(const std::string &path, bool readOnly) {
     int flag = O_CREAT;
     if (readOnly) {
         flag |= O_RDONLY;
@@ -463,7 +463,8 @@ File::File() : pImpl(std::make_unique<impl::FileImpl>()) {}
 
 File::~File(){};
 
-std::tuple<std::uint64_t, bolt::ErrorCode> File::WriteAt(bolt::bytes buf, std::uint64_t offset) {
+std::tuple<std::uint64_t, bolt::ErrorCode> File::WriteAt(bolt::const_bytes buf,
+                                                         std::uint64_t offset) {
     return pImpl->WriteAt(buf, offset);
 }
 
@@ -481,7 +482,9 @@ bolt::ErrorCode File::Flock(bool exclusive, std::chrono::milliseconds timeout) {
 
 bolt::ErrorCode File::Funlock() { return pImpl->Funlock(); }
 
-bolt::ErrorCode File::Open(std::string path, bool readOnly) { return pImpl->Open(path, readOnly); }
+bolt::ErrorCode File::Open(const std::string &path, bool readOnly) {
+    return pImpl->Open(path, readOnly);
+}
 
 std::tuple<std::uint64_t, bolt::ErrorCode> File::Size() { return pImpl->Size(); }
 

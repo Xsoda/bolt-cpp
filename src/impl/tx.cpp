@@ -536,14 +536,19 @@ bolt::ErrorCode Tx::WriteTo(const std::function<bolt::ErrorCode(bolt::const_byte
 
     auto written = dbptr->pageSize * 2;
     auto size = Size();
+    buf.resize(dbptr->pageSize * 32);
     while (written < size) {
-        if (auto [_, err] = file.ReadAt(buf, written); err != bolt::ErrorCode::Success) {
+        auto [nread, err] = file.ReadAt(buf, written);
+        if (err != bolt::ErrorCode::Success && err != bolt::ErrorCode::DatabaseEOF) {
             return err;
         }
-        if (auto err = writer(buf); err != bolt::ErrorCode::Success) {
+        if (auto err = writer({buf.data(), nread}); err != bolt::ErrorCode::Success) {
             return err;
         }
-        written += dbptr->pageSize;
+        written += nread;
+        if (err == bolt::ErrorCode::DatabaseEOF) {
+            break;
+        }
     }
 
     return bolt::ErrorCode::Success;
