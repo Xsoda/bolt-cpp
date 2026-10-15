@@ -96,16 +96,4 @@ struct formatter<std::span<T>> : nested_formatter<fmt::string_view> {
 
 FMT_END_NAMESPACE
 
-namespace std {
-
-template <> struct is_error_code_enum<bolt::ErrorCode> : true_type {};
-
-} // namespace std
-
-namespace bolt {
-
-std::error_code make_error_code(bolt::ErrorCode ec);
-
-} // namespace bolt
-
 #endif // !__ERROR_HPP__
