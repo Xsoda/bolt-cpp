@@ -93,7 +93,8 @@ bolt::ErrorCode Tx::Commit() { return pimpl<impl::TxPtr>::impl()->Commit(); }
 
 bolt::ErrorCode Tx::Rollback() { return pimpl<impl::TxPtr>::impl()->Rollback(); }
 
-bolt::ErrorCode Tx::WriteTo(const std::function<bolt::ErrorCode(bolt::const_bytes)> &writer) {
+bolt::ErrorCode Tx::WriteTo(
+    const std::function<bolt::ErrorCode(bolt::const_bytes buf, std::int64_t offset)> &writer) {
     return pimpl<impl ::TxPtr>::impl()->WriteTo(writer);
 }
 

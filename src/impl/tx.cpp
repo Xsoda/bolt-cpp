@@ -501,7 +501,8 @@ Tx::RetrieveBucketWithPath(const std::string &path, const std::string &delimiter
     }
 }
 
-bolt::ErrorCode Tx::WriteTo(const std::function<bolt::ErrorCode(bolt::const_bytes)> writer) {
+bolt::ErrorCode Tx::WriteTo(
+    const std::function<bolt::ErrorCode(bolt::const_bytes buf, std::int64_t offset)> writer) {
     impl::File file;
     std::vector<std::byte> buf;
     auto dbptr = db.lock();
@@ -518,7 +519,7 @@ bolt::ErrorCode Tx::WriteTo(const std::function<bolt::ErrorCode(bolt::const_byte
     // Write meta 0.
     page->id = 0;
     page->meta()->checksum = page->meta()->sum64();
-    if (auto err = writer(buf); err != bolt::ErrorCode::Success) {
+    if (auto err = writer(buf, 0); err != bolt::ErrorCode::Success) {
         return err;
     }
 
@@ -526,7 +527,7 @@ bolt::ErrorCode Tx::WriteTo(const std::function<bolt::ErrorCode(bolt::const_byte
     page->id = 1;
     page->meta()->txid -= 1;
     page->meta()->checksum = page->meta()->sum64();
-    if (auto err = writer(buf); err != bolt::ErrorCode::Success) {
+    if (auto err = writer(buf, dbptr->pageSize); err != bolt::ErrorCode::Success) {
         return err;
     }
 
@@ -536,13 +537,13 @@ bolt::ErrorCode Tx::WriteTo(const std::function<bolt::ErrorCode(bolt::const_byte
 
     auto written = dbptr->pageSize * 2;
     auto size = Size();
-    buf.resize(dbptr->pageSize * 32);
+    buf.resize(dbptr->pageSize * 8);
     while (written < size) {
         auto [nread, err] = file.ReadAt(buf, written);
         if (err != bolt::ErrorCode::Success && err != bolt::ErrorCode::DatabaseEOF) {
             return err;
         }
-        if (auto err = writer({buf.data(), nread}); err != bolt::ErrorCode::Success) {
+        if (auto err = writer({buf.data(), nread}, written); err != bolt::ErrorCode::Success) {
             return err;
         }
         written += nread;

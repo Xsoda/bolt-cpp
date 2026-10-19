@@ -81,7 +81,8 @@ public:
     bolt::ErrorCode Commit();
     bolt::ErrorCode Rollback();
 
-    bolt::ErrorCode WriteTo(const std::function<bolt::ErrorCode(bolt::const_bytes)> &writer);
+    bolt::ErrorCode WriteTo(
+        const std::function<bolt::ErrorCode(bolt::const_bytes buf, std::int64_t offset)> &writer);
 
     bool Writable();
     void OnCommit(std::function<void()> &&fn);

@@ -662,9 +662,8 @@ TestResult TestTx_WriteTo() {
             if (auto err = file.Open(path, false); err != bolt::ErrorCode::Success) {
                 return err;
             }
-            return tx->WriteTo([&](bolt::const_bytes buf) -> bolt::ErrorCode {
-                auto [size, _] = file.Size();
-                if (auto [_, err] = file.WriteAt(buf, size); err != bolt::ErrorCode::Success) {
+            return tx->WriteTo([&](bolt::const_bytes buf, std::int64_t offset) -> bolt::ErrorCode {
+                if (auto [_, err] = file.WriteAt(buf, offset); err != bolt::ErrorCode::Success) {
                     return err;
                 }
                 return bolt::ErrorCode::Success;
