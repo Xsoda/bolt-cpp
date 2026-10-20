@@ -104,7 +104,7 @@ std::tuple<std::uint64_t, bolt::ErrorCode> FileImpl::ReadAt(bolt::bytes buf, std
 
 bolt::ErrorCode FileImpl::Truncate(std::uint64_t size) {
     if (auto err = Seek(size); err != bolt::ErrorCode::Success) {
-        return std::make_tuple(0, bolt::ErrorCode::SystemCall);
+        return bolt::ErrorCode::SystemCall;
     }
     if (!SetEndOfFile(file)) {
         return bolt::ErrorCode::SystemCall;
