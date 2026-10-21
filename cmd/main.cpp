@@ -248,13 +248,15 @@ int Get(int argc, char **argv) {
 
 int List(int argc, char **argv) {
     bolt::DB db;
-    std::string key;
-    if (argc < 2) {
+    std::string key, path;
+    if (argc < 1) {
         fmt::println("missing arguments");
         return -1;
     }
     std::string database = argv[0];
-    std::string path = argv[1];
+    if (argc >= 2) {
+        path = argv[1];
+    }
     if (argc >= 3) {
         key = argv[2];
     } else {
@@ -265,7 +267,7 @@ int List(int argc, char **argv) {
         return -1;
     }
     auto [start, stop, range] = ParseKeyRange(key);
-    if (range) {
+    if (!path.empty() && range) {
         if (auto err = db.View([&path, &start, &stop](bolt::Tx tx) -> bolt::ErrorCode {
                 auto [bucket, err] = tx.RetrieveBucketWithPath(path);
                 if (err != bolt::ErrorCode::Success) {
@@ -300,7 +302,15 @@ int List(int argc, char **argv) {
             fmt::println("retrieve key fail, {}", err);
         }
     } else {
-        fmt::println("wrong arguments");
+        if (auto err = db.View([](bolt::Tx tx) -> bolt::ErrorCode {
+                return tx.ForEach([](bolt::const_bytes name, bolt::Bucket b) -> bolt::ErrorCode {
+                    fmt::println("<BUCKET> `{}`", name);
+                    return bolt::ErrorCode::Success;
+                });
+            });
+            err != bolt::ErrorCode::Success) {
+            fmt::println("list bucket fail, {}", err);
+        }
     }
     return 0;
 }
