@@ -32,3 +32,25 @@
    - Linux: gcc 11.4.0
 
    - Windows: Visual Studio 2022
+
+
+枚举数据
+------------------
+
+.. code:: c++
+
+   db.View([](bolt::Tx tx) -> bolt::ErrorCode {
+       auto cursor = tx.Cursor();
+       auto [key, value] = cursor.First();
+       while (!key.empty()) {
+           // 不能以value.empty()来判断是否是bucket，因为键值对的值允许长度为0
+           if (value.data() == nullptr) {
+               fmt::println("bucket: {}", key);
+               // auto bucket = tx.Bucket(key);
+           } else {
+               fmt::println("key-value: {} => {}", key, value);
+           }
+           std::tie(key, value) = cursor.Next();
+       }
+       return bolt::ErrorCode::Success;
+   })
