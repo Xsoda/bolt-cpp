@@ -409,7 +409,7 @@ impl::meta *DB::meta() {
 
     // This should never be reached, because both meta1 and meta0 were validated
     // on mmap() and we do fsync() on every write.
-    __assert(false, "bolt.DB.meta(): invalid meta pages");
+    bolt__assert(false, "bolt.DB.meta(): invalid meta pages");
     return nullptr;
 }
 

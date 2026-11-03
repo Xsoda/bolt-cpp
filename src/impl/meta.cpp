@@ -35,11 +35,11 @@ void meta::copy(impl::meta *dest) const { *dest = *this; }
 
 void meta::write(impl::page *p) {
     if (this->root.root >= pgid) {
-        __assert(false, "root bucket pgid ({}) above high water mark ({})", this->root.root,
-                 this->pgid);
+        bolt__assert(false, "root bucket pgid ({}) above high water mark ({})", this->root.root,
+                     this->pgid);
     } else if (this->freelist >= pgid) {
-        __assert(false, "freelist pgid ({}) above high water mark ({})", this->freelist,
-                 this->pgid);
+        bolt__assert(false, "freelist pgid ({}) above high water mark ({})", this->freelist,
+                     this->pgid);
     }
 
     p->id = this->txid % 2;

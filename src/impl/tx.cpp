@@ -42,7 +42,7 @@ std::int64_t Tx::Size() const {
     if (auto dbptr = db.lock()) {
         return meta.pgid * dbptr->pageSize;
     }
-    __assert(false, "Tx already closed");
+    bolt__assert(false, "Tx already closed");
     return 0;
 }
 
@@ -58,7 +58,7 @@ impl::page *Tx::page(impl::pgid id) {
     if (auto dbptr = db.lock()) {
         return dbptr->page(id);
     }
-    __assert(false, "Tx already closed");
+    bolt__assert(false, "Tx already closed");
     return nullptr;
 }
 
@@ -158,7 +158,7 @@ bolt::ErrorCode Tx::write() {
 // called on a read-only transaction.
 bolt::ErrorCode Tx::Commit() {
     std::vector<impl::node_ptr> hold;
-    __assert(!managed, "managed tx commit not allowed");
+    bolt__assert(!managed, "managed tx commit not allowed");
     auto dbptr = db.lock();
     if (!dbptr) {
         return bolt::ErrorCode::TxClosed;
@@ -231,7 +231,7 @@ bolt::ErrorCode Tx::Commit() {
                 log_debug("  - check fail: {}", errstr);
             }
         }
-        // __assert(errors.empty(), "check fail");
+        // bolt__assert(errors.empty(), "check fail");
     }
 
     // Write meta to disk.
@@ -250,7 +250,7 @@ bolt::ErrorCode Tx::Commit() {
 }
 
 bolt::ErrorCode Tx::Rollback() {
-    __assert(!managed, "managed tx rollback not allowed");
+    bolt__assert(!managed, "managed tx rollback not allowed");
     auto dbptr = db.lock();
     if (!dbptr) {
         return bolt::ErrorCode::TxClosed;
@@ -509,7 +509,7 @@ bolt::ErrorCode Tx::WriteTo(
     if (dbptr) {
         buf.resize(dbptr->pageSize);
     } else {
-        __assert(false, "Tx already closed");
+        bolt__assert(false, "Tx already closed");
     }
     // Generate a meta page, We use the same page data for both meta pages.
     auto page = reinterpret_cast<impl::page *>(buf.data());

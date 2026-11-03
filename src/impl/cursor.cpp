@@ -27,7 +27,7 @@ int elemRef::count() const {
 
 impl::node_ptr Cursor::node() const {
     size_t len = stack.size();
-    __assert(len > 0, "accessing a node with a zero-length cursor stack");
+    bolt__assert(len > 0, "accessing a node with a zero-length cursor stack");
     auto &ref = stack.back();
     if (auto n = ref.node.lock()) {
         if (ref.isLeaf()) {
@@ -35,7 +35,7 @@ impl::node_ptr Cursor::node() const {
         }
     }
     auto &f = stack.front();
-    __assert(!bucket.expired(), "bucket already expired");
+    bolt__assert(!bucket.expired(), "bucket already expired");
     auto b = bucket.lock();
     auto n = stack.front().node.lock();
     if (!n) {
@@ -43,10 +43,10 @@ impl::node_ptr Cursor::node() const {
     }
     for (size_t i = 0; i < len - 1; i++) {
         auto &ref = stack.at(i);
-        __assert(!n->isLeaf, "expected branch node");
+        bolt__assert(!n->isLeaf, "expected branch node");
         n = n->childAt(ref.index);
     }
-    __assert(n->isLeaf, "expected leaf node");
+    bolt__assert(n->isLeaf, "expected leaf node");
     return n->shared_from_this();
 }
 
@@ -56,9 +56,9 @@ impl::BucketPtr Cursor::Bucket() { return bucket.lock(); }
 // and value. If the bucket is empty then a nil key and value are returned. The
 // returned key and value are only valid for the life of the transaction.
 std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::First() {
-    __assert(!bucket.expired(), "bucket expired");
+    bolt__assert(!bucket.expired(), "bucket expired");
     auto bptr = bucket.lock();
-    __assert(!bptr->tx.expired(), "tx closed");
+    bolt__assert(!bptr->tx.expired(), "tx closed");
     stack.clear();
 
     auto [p, n] = bptr->pageNode(bptr->root);
@@ -83,9 +83,9 @@ std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::First() {
 // returned key and value are only valid for the life of the transaction.
 std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Last() {
     auto bptr = bucket.lock();
-    __assert(!bucket.expired(), "bucket ptr invalid");
+    bolt__assert(!bucket.expired(), "bucket ptr invalid");
     auto txptr = bptr->tx.lock();
-    __assert(!bptr->tx.expired(), "tx closed");
+    bolt__assert(!bptr->tx.expired(), "tx closed");
     stack.clear();
 
     auto [p, n] = bptr->pageNode(bptr->root);
@@ -116,9 +116,9 @@ std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Last() {
 // returned. The returned key and value are only valid for the life of the
 // transaction.
 std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Next() {
-    __assert(!bucket.expired(), "bucket already expired");
+    bolt__assert(!bucket.expired(), "bucket already expired");
     auto bptr = bucket.lock();
-    __assert(!bptr->tx.expired(), "tx closed");
+    bolt__assert(!bptr->tx.expired(), "tx closed");
 
     auto [k, v, flags] = next();
     if ((flags & impl::bucketLeafFlag) != 0) {
@@ -132,9 +132,9 @@ std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Next() {
 // value are returned. The returned key and value are only valid for the life of
 // the transaction.
 std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Prev() {
-    __assert(!bucket.expired(), "bucket already expired");
+    bolt__assert(!bucket.expired(), "bucket already expired");
     auto bptr = bucket.lock();
-    __assert(!bptr->tx.expired(), "tx closed");
+    bolt__assert(!bptr->tx.expired(), "tx closed");
 
     auto [k, v, flags] = prev();
     if ((flags & bolt::impl::bucketLeafFlag) != 0) {
@@ -166,9 +166,9 @@ std::tuple<bolt::const_bytes, bolt::const_bytes> Cursor::Seek(bolt::const_bytes 
 
 bolt::ErrorCode Cursor::Delete() {
     auto bktptr = bucket.lock();
-    __assert(!bucket.expired(), "bucket invalid");
+    bolt__assert(!bucket.expired(), "bucket invalid");
     auto txptr = bktptr->tx.lock();
-    __assert(!bktptr->tx.expired(), "tx invalid");
+    bolt__assert(!bktptr->tx.expired(), "tx invalid");
     if (txptr->db.expired()) {
         return bolt::ErrorCode::TxClosed;
     } else if (!bktptr->Writable()) {
@@ -201,9 +201,9 @@ std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::keyValue() {
 }
 
 std::tuple<bolt::bytes, bolt::bytes, std::uint32_t> Cursor::seek(bolt::const_bytes k) {
-    __assert(!bucket.expired(), "Bucket already expired in Cursor");
+    bolt__assert(!bucket.expired(), "Bucket already expired in Cursor");
     auto b = bucket.lock();
-    __assert(!b->tx.expired(), "tx closed");
+    bolt__assert(!b->tx.expired(), "tx closed");
     stack.clear();
     search(k, b->root);
     if (auto &ref = stack.back(); ref.index >= ref.count()) {
@@ -332,7 +332,7 @@ void Cursor::search(bolt::const_bytes key, impl::pgid pgid) {
     auto b = bucket.lock();
     auto [p, n] = b->pageNode(pgid);
     if (p != nullptr && (p->flags & (impl::branchPageFlag | impl::leafPageFlag)) == 0) {
-        __assert(false, "invalid page type: {}: {}", p->id, p->flags);
+        bolt__assert(false, "invalid page type: {}: {}", p->id, p->flags);
     }
     elemRef e{p, n};
     stack.push_back(e);

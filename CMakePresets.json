@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "configurePresets": [{
+    "name": "default",
+    "generator": "Ninja",
+    "binaryDir": "${sourceDir}/build",
+    "cacheVariables": {
+      "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "BUILD_TESTS": "ON",
+      "BUILD_BOLT_CLI":"ON",
+      "BUILD_CXX_CHAOS_TEST": "ON",
+      "BUILD_GOLANG_CHAOS_TEST": "ON"
+    }
+  }, {
+    "name": "linux",
+    "inherits": "default",
+    "generator": "Ninja",
+    "cacheVariables": {
+      "VCPKG_TARGET_TRIPLET": "x64-linux"
+    }
+  }, {
+    "name": "windows",
+    "inherits": "default",
+    "generator": "",
+    "cacheVariables": {
+      "VCPKG_TARGET_TRIPLET": "x64-windows"
+    }
+  }]
+}

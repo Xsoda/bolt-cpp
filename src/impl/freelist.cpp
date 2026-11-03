@@ -27,7 +27,7 @@ size_t freelist::pending_count() {
 
 void mergepgids(std::span<impl::pgid> dest, std::span<impl::pgid> a, std::span<impl::pgid> b) {
     if (dest.size() < a.size() + b.size()) {
-        __assert(false, "mergepgids bad length");
+        bolt__assert(false, "mergepgids bad length");
     }
     size_t length = 0;
     if (a.size() == 0) {
@@ -80,7 +80,7 @@ impl::pgid freelist::allocate(size_t n) {
     for (size_t i = 0; i < ids.size(); i++) {
         impl::pgid id = ids[i];
         if (id <= 1) {
-            __assert(false, "invalid page allocation: {}", id);
+            bolt__assert(false, "invalid page allocation: {}", id);
         }
         // Reset initial page if this is not contiguous.
         if (previd == 0 || id - previd != 1) {
@@ -119,7 +119,7 @@ impl::pgid freelist::allocate(size_t n) {
 // If the page is already free then a panic will occur.
 void freelist::free(impl::txid txid, page *p) {
     if (p->id <= 1) {
-        __assert(false, "cannot free page 0 or 1: {}", p->id);
+        bolt__assert(false, "cannot free page 0 or 1: {}", p->id);
     }
 
     // Free page and all its overflow pages.
@@ -127,7 +127,7 @@ void freelist::free(impl::txid txid, page *p) {
     for (impl::pgid id = p->id; id <= p->id + p->overflow; id++) {
         // Verify that page is not already free.
         auto it = cache.find(id);
-        __assert(it == cache.end(), "page {} already freed", id);
+        bolt__assert(it == cache.end(), "page {} already freed", id);
 
         // Add to the freelist and cache.
         ids.push_back(id);

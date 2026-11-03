@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(bolt-cpp CXX)
 
+enable_testing()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -32,18 +34,22 @@ if(BUILD_GOLANG_CHAOS_TEST)
   if(GOLANG_PROGRAM)
     message(STATUS "Found Golang: ${GOLANG_PROGRAM}")
     set(GO_BINARY_NAME "go-chaos-op")
-    add_custom_target(${GO_BINARY_NAME} ALL
+    add_custom_command(
+      OUTPUT ${GO_BINARY_NAME}
       COMMAND ${GOLANG_PROGRAM} build -o ${CMAKE_BINARY_DIR}/${GO_BINARY_NAME}
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/golang
-      SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/golang/main.go
-      BYPRODUCTS ${CMAKE_BINARY_DIR}/${GO_BINARY_NAME}
-      COMMENT "Building Go Binary: ${GO_BINARY_NAME}")
+      DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/golang/main.go
+      COMMENT "Building Go Binary: ${GO_BINARY_NAME}"
+      VERBATIM)
+    add_custom_target(${GO_BINARY_NAME}_build ALL DEPENDS ${CMAKE_BINARY_DIR}/${GO_BINARY_NAME})
   endif()
 endif()
 
 add_library(bolt STATIC)
 
-add_subdirectory(deps/fmt)
+find_package(fmt CONFIG REQUIRED)
+target_link_libraries(bolt PRIVATE fmt::fmt)
+
 target_include_directories(bolt
   PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -190,6 +196,10 @@ if(BUILD_TESTS)
       BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
       EXCLUDE "test/*" "deps/*" "/usr/include/*")
   endif()
+
+  add_test(NAME bolt-tests
+    COMMAND "${CMAKE_BINARY_DIR}/bolt-tests"
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()
 
 if(BUILD_BOLT_CLI)

@@ -87,7 +87,7 @@ inline std::string string_join(const std::vector<std::string> &source,
 
 } // namespace bolt::impl
 
-#define __assert(condition, format, ...)                                                           \
+#define bolt__assert(condition, format, ...)                                                       \
     bolt::impl::__assert(condition, std::source_location::current(), format, ##__VA_ARGS__)
 #ifndef NDEBUG
 #define log_debug(format, ...)                                                                     \
