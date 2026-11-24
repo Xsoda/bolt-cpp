@@ -145,7 +145,7 @@ void freelist::release(impl::txid txid) {
             std::copy(value.begin(), value.end(), std::back_inserter(m));
         }
     }
-    std::erase_if(pending, [=](const auto &item) {
+    std::erase_if(pending, [&](const auto &item) {
         const auto &[key, value] = item;
         return key <= txid;
     });
