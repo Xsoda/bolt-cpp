@@ -36,9 +36,9 @@ public:
                          std::chrono::milliseconds timeout = 0s);
     bolt::ErrorCode Close();
 
-    bolt::ErrorCode Update(std::function<bolt::ErrorCode(bolt::Tx)> &&fn);
+    bolt::ErrorCode Update(const std::function<bolt::ErrorCode(bolt::Tx)> &fn);
     bolt::ErrorCode Batch(std::function<bolt::ErrorCode(bolt::Tx)> &&fn);
-    bolt::ErrorCode View(std::function<bolt::ErrorCode(bolt::Tx)> &&fn);
+    bolt::ErrorCode View(const std::function<bolt::ErrorCode(bolt::Tx)> &fn);
 
     std::tuple<bolt::Tx, bolt::ErrorCode> Begin(bool writable);
     bolt::Info Info();
@@ -73,7 +73,7 @@ public:
     RetrieveBucketWithPath(const std::string &path, const std::string &delimiter = "/");
 
     bolt::ErrorCode
-    ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name, bolt::Bucket b)> &&fn);
+    ForEach(const std::function<bolt::ErrorCode(bolt::const_bytes name, bolt::Bucket b)> &fn);
     bolt::Bucket Bucket(bolt::const_bytes name);
     bolt::Bucket Bucket(const std::string &name);
 
@@ -128,7 +128,7 @@ public:
     void SetFillPercent(float fill);
 
     bolt::ErrorCode
-    ForEach(std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &&fn);
+    ForEach(const std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &fn);
 
     bolt::Cursor Cursor();
     bolt::Tx Tx();

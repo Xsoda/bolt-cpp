@@ -67,8 +67,8 @@ impl::node_ptr Bucket::node(impl::pgid pgid, impl::node_ptr parent) {
 // If the provided function returns an error then the iteration is stopped and
 // the error is returned to the caller. The provided function must not modify
 // the bucket; this will result in undefined behavior.
-bolt::ErrorCode
-Bucket::ForEach(std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &&fn) {
+bolt::ErrorCode Bucket::ForEach(
+    const std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &fn) {
     auto txptr = tx.lock();
     if (!txptr || txptr->db.expired()) {
         return bolt::ErrorCode::TxClosed;
@@ -371,7 +371,7 @@ std::tuple<impl::BucketPtr, bolt::ErrorCode> Bucket::CreateBucket(bolt::const_by
 
 // forEachPageNode iterates over every page (or node) in a bucket.
 // This also includes inline pages.
-void Bucket::forEachPageNode(std::function<void(impl::page *, impl::node_ptr, int)> &&fn) {
+void Bucket::forEachPageNode(const std::function<void(impl::page *, impl::node_ptr, int)> &fn) {
     // If we have an inline page or root node then just use that.
     if (page != nullptr) {
         fn(page, nullptr, 0);

@@ -85,14 +85,14 @@ struct Bucket : public bucket, public std::enable_shared_from_this<impl::Bucket>
     // the error is returned to the caller. The provided function must not modify
     // the bucket; this will result in undefined behavior.
     bolt::ErrorCode
-    ForEach(std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &&fn);
+    ForEach(const std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &fn);
     // Stat returns stats on a bucket.
     bolt::BucketStats Stats();
     // forEachPage iterates over every page in a bucket, including inline pages.
     void forEachPage(const std::function<void(impl::page *, int)> &fn);
     // forEachPageNode iterates over every page (or node) in a bucket.
     // This also includes inline pages.
-    void forEachPageNode(std::function<void(impl::page *, impl::node_ptr, int)> &&fn);
+    void forEachPageNode(const std::function<void(impl::page *, impl::node_ptr, int)> &fn);
     void _forEachPageNode(impl::pgid pgid, int depth,
                           const std::function<void(impl::page *, impl::node_ptr, int)> &fn);
     // node creates a node from a page and associates it with a given parent.

@@ -109,9 +109,9 @@ struct DB : public std::enable_shared_from_this<DB> {
     bolt::Info Info() const;
     bolt::Stats Stats();
 
-    bolt::ErrorCode Update(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn);
+    bolt::ErrorCode Update(const std::function<bolt::ErrorCode(impl::TxPtr)> &fn);
     bolt::ErrorCode Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn);
-    bolt::ErrorCode View(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn);
+    bolt::ErrorCode View(const std::function<bolt::ErrorCode(impl::TxPtr)> &fn);
 };
 
 } // namespace bolt::impl

@@ -19,9 +19,9 @@ bolt::ErrorCode DB::Open(std::string path, bool readOnly, std::chrono::milliseco
 
 bolt::ErrorCode DB::Close() { return pimpl<impl::DBPtr>::impl()->Close(); }
 
-bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(bolt::Tx)> &&fn) {
+bolt::ErrorCode DB::Update(const std::function<bolt::ErrorCode(bolt::Tx)> &fn) {
     return pimpl<impl::DBPtr>::impl()->Update(
-        [fn = std::move(fn)](bolt::impl::TxPtr tx) -> bolt::ErrorCode { return fn(tx); });
+        [fn](bolt::impl::TxPtr tx) -> bolt::ErrorCode { return fn(tx); });
 }
 
 bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(bolt::Tx)> &&fn) {
@@ -29,9 +29,9 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(bolt::Tx)> &&fn) {
         [fn = std::move(fn)](bolt::impl::TxPtr tx) -> bolt::ErrorCode { return fn(tx); });
 }
 
-bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(bolt::Tx)> &&fn) {
+bolt::ErrorCode DB::View(const std::function<bolt::ErrorCode(bolt::Tx)> &fn) {
     return pimpl<impl::DBPtr>::impl()->View(
-        [fn = std::move(fn)](bolt::impl::TxPtr tx) -> bolt::ErrorCode { return fn(tx); });
+        [fn](bolt::impl::TxPtr tx) -> bolt::ErrorCode { return fn(tx); });
 }
 
 std::tuple<Tx, bolt::ErrorCode> DB::Begin(bool writable) {
@@ -77,7 +77,7 @@ bolt::ErrorCode Tx::DeleteBucket(const std::string &name) {
 }
 
 bolt::ErrorCode
-Tx::ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name, bolt::Bucket b)> &&fn) {
+Tx::ForEach(const std::function<bolt::ErrorCode(bolt::const_bytes name, bolt::Bucket b)> &fn) {
     return pimpl<impl::TxPtr>::impl()->ForEach(fn);
 }
 
@@ -185,8 +185,8 @@ std::tuple<std::uint64_t, bolt::ErrorCode> Bucket::NextSequence() {
     return pimpl<impl::BucketPtr>::impl()->NextSequence();
 }
 
-bolt::ErrorCode
-Bucket::ForEach(std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &&fn) {
+bolt::ErrorCode Bucket::ForEach(
+    const std::function<bolt::ErrorCode(bolt::const_bytes key, bolt::const_bytes val)> &fn) {
     return pimpl<impl::BucketPtr>::impl()->ForEach(std::move(fn));
 }
 

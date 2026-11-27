@@ -60,23 +60,4 @@ void batch::run() {
 
 batch::~batch() { db.reset(); }
 
-void batch::StopTimer() {
-    bolt__assert(timer.get_id() != std::this_thread::get_id(), "Same thread join self");
-    timer.request_stop();
-    timer.join();
-}
-
-void batch::AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn) {
-    timer = std::jthread([delay, fn, this](std::stop_token stoken) {
-        auto until = std::chrono::steady_clock::now() + delay;
-        do {
-            if (stoken.stop_requested()) {
-                return;
-            }
-            std::this_thread::sleep_for(1ms);
-        } while (std::chrono::steady_clock::now() < until);
-        fn();
-    });
-}
-
 } // namespace bolt::impl

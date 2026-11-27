@@ -209,14 +209,22 @@ bolt::ErrorCode DB::init() {
 //
 // Batch is only useful when there are multiple goroutines calling it.
 bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
-    std::jthread executor;
+    std::jthread executor, timer;
     std::shared_ptr<impl::batch> ptr;
     std::shared_ptr<impl::call> c = std::make_shared<impl::call>();
     do {
         std::lock_guard<std::mutex> lock(batchMu);
         if (batch == nullptr || (batch != nullptr && batch->calls.size() >= MaxBatchSize)) {
             batch = std::make_shared<impl::batch>(shared_from_this());
-            batch->AfterFunc(MaxBatchDelay, [b = batch]() { b->trigger(); });
+            timer = std::jthread([this](std::stop_token stoken) {
+                auto until = std::chrono::steady_clock::now() + MaxBatchDelay;
+                do {
+                    if (stoken.stop_requested()) {
+                        return;
+                    }
+                } while (std::chrono::steady_clock::now() < until);
+                batch->trigger();
+            });
             ptr = batch;
         }
         c->fn = std::move(fn);
@@ -230,7 +238,8 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     f.wait();
 
     if (ptr) {
-        ptr->StopTimer();
+        timer.request_stop();
+        timer.join();
     }
     if (executor.joinable()) {
         executor.join();
@@ -250,7 +259,7 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
 //
 // Attempting to manually commit or rollback within the function will cause a
 // panic.
-bolt::ErrorCode DB::Update(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
+bolt::ErrorCode DB::Update(const std::function<bolt::ErrorCode(impl::TxPtr)> &fn) {
     auto [tx, err] = Begin(true);
     if (err != bolt::ErrorCode::Success) {
         return err;
@@ -280,7 +289,7 @@ __rollback:
     return err;
 }
 
-bolt::ErrorCode DB::View(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
+bolt::ErrorCode DB::View(const std::function<bolt::ErrorCode(impl::TxPtr)> &fn) {
     auto [tx, err] = Begin(false);
     if (err != bolt::ErrorCode::Success) {
         return err;

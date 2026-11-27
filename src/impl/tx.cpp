@@ -428,11 +428,10 @@ std::tuple<impl::BucketPtr, bolt::ErrorCode> Tx::CreateBucketIfNotExists(bolt::c
 bolt::ErrorCode Tx::DeleteBucket(bolt::const_bytes name) { return root->DeleteBucket(name); }
 
 bolt::ErrorCode
-Tx::ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name, impl::BucketPtr b)> &&fn) {
-    return root->ForEach(
-        [this, fn = std::move(fn)](bolt::const_bytes k, bolt::const_bytes v) -> bolt::ErrorCode {
-            return fn(k, root->RetrieveBucket(k));
-        });
+Tx::ForEach(const std::function<bolt::ErrorCode(bolt::const_bytes name, impl::BucketPtr b)> &fn) {
+    return root->ForEach([this, fn](bolt::const_bytes k, bolt::const_bytes v) -> bolt::ErrorCode {
+        return fn(k, root->RetrieveBucket(k));
+    });
 }
 
 impl::BucketPtr Tx::Bucket(bolt::const_bytes name) { return root->RetrieveBucket(name); }

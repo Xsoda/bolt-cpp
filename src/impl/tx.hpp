@@ -63,7 +63,7 @@ struct Tx : public std::enable_shared_from_this<Tx> {
     std::tuple<impl::BucketPtr, bolt::ErrorCode> CreateBucketIfNotExists(bolt::const_bytes name);
     bolt::ErrorCode DeleteBucket(bolt::const_bytes name);
     bolt::ErrorCode
-    ForEach(std::function<bolt::ErrorCode(bolt::const_bytes name, impl::BucketPtr b)> &&fn);
+    ForEach(const std::function<bolt::ErrorCode(bolt::const_bytes name, impl::BucketPtr b)> &fn);
     impl::BucketPtr Bucket(bolt::const_bytes name);
     impl::CursorPtr Cursor();
     std::tuple<std::optional<impl::PageInfo>, bolt::ErrorCode> Page(int id);

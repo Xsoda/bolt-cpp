@@ -28,12 +28,8 @@ struct batch {
     std::once_flag start;
     std::vector<std::shared_ptr<call>> calls;
 
-    std::jthread timer;
-
     explicit batch(std::shared_ptr<impl::DB> db) : db(db){};
     void trigger();
-    void StopTimer();
-    void AfterFunc(std::chrono::milliseconds delay, std::function<void()> &&fn);
 
     ~batch();
 
