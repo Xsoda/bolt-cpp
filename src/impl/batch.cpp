@@ -8,7 +8,7 @@
 
 namespace bolt::impl {
 
-void batch::trigger() { std::call_once(start, std::bind(&batch::run, this)); }
+void batch::trigger() { std::call_once(once, std::bind(&batch::run, this)); }
 
 void batch::run() {
     auto dbptr = db.lock();
@@ -19,8 +19,6 @@ void batch::run() {
 
     do {
         std::lock_guard<std::mutex> lock(dbptr->batchMu);
-
-        timer.request_stop();
 
         if (dbptr->batch.get() == this) {
             dbptr->batch = nullptr;

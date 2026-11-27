@@ -21,11 +21,14 @@ struct call {
     call() = default;
     call(const call &other) = delete;
     call(call &&other) = delete;
+    call &operator=(const call &other) = delete;
+    call &operator=(call &&) = delete;
+    ~call() = default;
 };
 
 struct batch {
     std::weak_ptr<impl::DB> db;
-    std::once_flag start;
+    std::once_flag once;
     std::vector<std::shared_ptr<call>> calls;
 
     explicit batch(std::shared_ptr<impl::DB> db) : db(db){};

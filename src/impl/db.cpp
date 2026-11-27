@@ -222,6 +222,7 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
                     if (stoken.stop_requested()) {
                         return;
                     }
+                    std::this_thread::sleep_for(10ms);
                 } while (std::chrono::steady_clock::now() < until);
                 batch->trigger();
             });
@@ -230,7 +231,10 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
         c->fn = std::move(fn);
         batch->calls.emplace_back(c);
         if (batch->calls.size() >= MaxBatchSize) {
-            executor = std::jthread([b = batch]() { b->trigger(); });
+            executor = std::jthread([b = batch, &timer]() {
+                timer.request_stop();
+                b->trigger();
+            });
         }
     } while (0);
 
