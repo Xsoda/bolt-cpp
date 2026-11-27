@@ -25,5 +25,12 @@
     "cacheVariables": {
       "VCPKG_TARGET_TRIPLET": "x64-windows"
     }
+  }, {
+    "name": "macos",
+    "inherits": "default",
+    "generator": "Xcode",
+    "cacheVariables": {
+      "VCPKG_TARGET_TRIPLET": "arm64-osx"
+    }
   }]
 }

@@ -216,15 +216,16 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
         std::lock_guard<std::mutex> lock(batchMu);
         if (batch == nullptr || (batch != nullptr && batch->calls.size() >= MaxBatchSize)) {
             batch = std::make_shared<impl::batch>(shared_from_this());
-            timer = std::jthread([this](std::stop_token stoken) {
-                auto until = std::chrono::steady_clock::now() + MaxBatchDelay;
+            // 定时器线程中的batch不能是this->batch，this->batch有可能已经被trigger()函数置为了nullptr
+            timer = std::jthread([b = batch, delay = MaxBatchDelay](std::stop_token stoken) {
+                auto until = std::chrono::steady_clock::now() + delay;
                 do {
                     if (stoken.stop_requested()) {
                         return;
                     }
                     std::this_thread::sleep_for(10ms);
                 } while (std::chrono::steady_clock::now() < until);
-                batch->trigger();
+                b->trigger();
             });
             ptr = batch;
         }
@@ -241,7 +242,7 @@ bolt::ErrorCode DB::Batch(std::function<bolt::ErrorCode(impl::TxPtr)> &&fn) {
     auto f = c->err.get_future();
     f.wait();
 
-    if (ptr) {
+    if (ptr) { // 判断释放开启了延时定时器
         timer.request_stop();
         timer.join();
     }
